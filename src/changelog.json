@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0445",
+    "title": "Publish Toy Soldier Brigade site",
+    "summary": "Created a separate GitHub Pages project at the Toy Soldier Brigade URL, retained Project Lantern as the fallback site, and permitted both URLs to use the shared service.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 4:56 PM",
+    "areas": [
+      "Deployment",
+      "Shared service"
+    ],
+    "files": [
+      "vite.config.ts",
+      "worker/bugs.ts",
+      ".github/workflows/deploy-pages.yml",
+      "README.md"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0444",
     "title": "Publish Toy Soldier Brigade site",
     "summary": "Created a separate GitHub Pages project at the Toy Soldier Brigade URL, retained Project Lantern as the fallback site, and permitted both URLs to use the shared service.",
