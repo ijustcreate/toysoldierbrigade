@@ -808,10 +808,10 @@ function ControlCenter() {
   const startLive = async () => {
     if (scheduledBroadcastPrompt) setReminderStatus("cleared");
     updateState((current) => ({ ...current, live: { ...current.live, active: true } }));
-    await videoBridge.current?.start(state.live.target, state.live.source, state.live.videoDeviceId, state.live.audioDeviceId);
+    await videoBridge.current?.start(state.live.target, state.live.source, state.live.videoDeviceId, state.live.audioDeviceId, state.live.targets);
     await Promise.all(
       Object.values(state.screens)
-        .filter((screen) => targetIncludes(state.live.target, screen.id))
+        .filter((screen) => liveTargets(state.live, state).includes(screen.id))
         .map((screen) => videoBridge.current?.connect(screen.id))
     );
   };
@@ -819,16 +819,16 @@ function ControlCenter() {
   const startLiveStream = async (stream: MediaStream, detail: string) => {
     if (scheduledBroadcastPrompt) setReminderStatus("cleared");
     updateState((current) => ({ ...current, live: { ...current.live, active: true } }));
-    await videoBridge.current?.startMediaStream(state.live.target, stream, detail);
+    await videoBridge.current?.startMediaStream(state.live.target, stream, detail, state.live.targets);
     await Promise.all(
       Object.values(state.screens)
-        .filter((screen) => targetIncludes(state.live.target, screen.id))
+        .filter((screen) => liveTargets(state.live, state).includes(screen.id))
         .map((screen) => videoBridge.current?.connect(screen.id))
     );
   };
 
   const stopLive = () => {
-    videoBridge.current?.stop(state.live.target);
+    videoBridge.current?.stop(state.live.targets?.length ? "all" : state.live.target);
     setState((current) => {
       if (!current.live.active) return current;
       const actor = current.users.find((user) => user.id === activeUserIdRef.current) ?? current.users[0] ?? { id: "local-operator", name: currentBugUser() };
@@ -838,6 +838,10 @@ function ControlCenter() {
       publishState(next, { immediateShared: true });
       return next;
     });
+  };
+
+  const retargetLive = (target: TargetScreen, targets?: ScreenId[]) => {
+    videoBridge.current?.retarget(target, targets);
   };
 
   const addDonor = () => {
@@ -1160,6 +1164,7 @@ function ControlCenter() {
                 startLive={startLive}
                 startLiveStream={startLiveStream}
                 stopLive={stopLive}
+                retargetLive={retargetLive}
               /></div>
           </section>
         )}
@@ -5974,7 +5979,8 @@ function LivePreviewPanel({
   updateState,
   startLive,
   startLiveStream,
-  stopLive
+  stopLive,
+  retargetLive
 }: {
   state: LanternState;
   activeUserId?: string;
@@ -5983,6 +5989,7 @@ function LivePreviewPanel({
   startLive: () => void;
   startLiveStream: (stream: MediaStream, detail: string) => Promise<void>;
   stopLive: () => void;
+  retargetLive: (target: TargetScreen, targets?: ScreenId[]) => void;
 }) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
@@ -6170,8 +6177,9 @@ function LivePreviewPanel({
   const openTargetOptions = openedBoardIds(state);
   const openScreens = allScreens.filter((screen) => openTargetOptions.includes(screen.id));
   const openTargetLabels = Object.fromEntries(openScreens.map((screen) => [screen.id, `${screen.label} (${screen.orientation})`]));
-  const previewScreen = state.screens[state.live.target] ?? allScreens[0];
-  const previewScreens = state.live.target === "all" ? allScreens : [previewScreen];
+  const selectedLiveTargets = liveTargets(state.live, state);
+  const previewScreen = state.screens[selectedLiveTargets[0] ?? state.live.target] ?? allScreens[0];
+  const previewScreens = selectedLiveTargets.length > 1 ? allScreens.filter((screen) => selectedLiveTargets.includes(screen.id)) : [previewScreen];
   const closeBroadcastRoomCamera = () => {
     const popup = roomCameraWindowRef.current;
     roomCameraWindowRef.current = null;
@@ -6705,19 +6713,45 @@ function LivePreviewPanel({
     stopLive();
   };
 
+  useEffect(() => {
+    if (!state.live.active) return;
+    retargetLive(state.live.target, state.live.targets);
+  }, [state.live.active, state.live.target, state.live.targets?.join("|"), retargetLive]);
+
   const startPhoneBroadcast = async (sourceStream: MediaStream) => {
     const session = ++broadcastSessionRef.current;
     const broadcastStream = sourceStream.clone();
+    let suspendedCameraTimer: number | undefined;
+    const endForSuspendedCamera = () => {
+      if (broadcastSessionRef.current !== session || !liveActiveRef.current) return;
+      // iOS can suspend a backgrounded browser without delivering pagehide.
+      // A suspended camera otherwise leaves a black, seemingly-live program
+      // output. A short grace period absorbs transient track mutes.
+      suspendedCameraTimer = window.setTimeout(() => {
+        if (broadcastSessionRef.current !== session || !liveActiveRef.current) return;
+        stopPreviewStream(true);
+        endLivePresentation();
+      }, 1500);
+    };
     const setRecovery = (state: "paused" | "resume", detail: string) => {
       if (broadcastSessionRef.current !== session) return;
       setCameraRecovery(state);
       setPreviewError(detail);
     };
     broadcastStream.getVideoTracks().forEach((track) => {
-      track.addEventListener("ended", () => setRecovery("resume", "Camera video ended. Tap Resume camera to restore the live picture; your title and message will stay live."), { once: true });
-      track.addEventListener("mute", () => setRecovery("paused", "Camera video is paused. Keep this page open; if it does not return, tap Resume camera."));
+      track.addEventListener("ended", () => {
+        if (suspendedCameraTimer) window.clearTimeout(suspendedCameraTimer);
+        setRecovery("resume", "Camera video ended. The broadcast has ended; reopen the presenter and start a new broadcast.");
+        endLivePresentation();
+      }, { once: true });
+      track.addEventListener("mute", () => {
+        setRecovery("paused", "Camera video is paused. The broadcast will end if the phone stays suspended.");
+        endForSuspendedCamera();
+      });
       track.addEventListener("unmute", () => {
         if (broadcastSessionRef.current !== session) return;
+        if (suspendedCameraTimer) window.clearTimeout(suspendedCameraTimer);
+        suspendedCameraTimer = undefined;
         setCameraRecovery("none");
         setPreviewError((current) => current?.startsWith("Camera video") ? null : current);
       });
@@ -6786,7 +6820,7 @@ function LivePreviewPanel({
         : "Connect a video source before broadcasting.";
 
   const beginLivePresentation = () => {
-    if (phoneMode && !openTargetOptions.includes(state.live.target as ScreenId)) {
+    if (phoneMode && !selectedLiveTargets.length) {
       setPreviewError(openScreens.length ? "Choose one of the open displays before going live." : "Open a display first. Phone broadcasts can only be sent to an open display.");
       setPhoneSettingsOpen(true);
       return;
@@ -6836,9 +6870,9 @@ function LivePreviewPanel({
   };
 
   useEffect(() => {
-    if (!phoneMode || state.live.active || !openTargetOptions.length || openTargetOptions.includes(state.live.target as ScreenId)) return;
-    patchLive({ target: openTargetOptions[0] as TargetScreen });
-  }, [phoneMode, state.live.active, state.live.target, openTargetOptions.join("|")]);
+    if (!phoneMode || state.live.active || !openTargetOptions.length || selectedLiveTargets.some((id) => openTargetOptions.includes(id))) return;
+    patchLive({ target: openTargetOptions[0] as TargetScreen, targets: [openTargetOptions[0] as ScreenId] });
+  }, [phoneMode, state.live.active, state.live.target, state.live.targets?.join("|"), openTargetOptions.join("|")]);
 
   const popoutScreens = popoutMode === "all" ? allScreens : [previewScreen];
   const previewPortal = previewWindow && !previewWindow.closed && previewWindow.document.getElementById("lantern-live-preview-root")
@@ -6909,7 +6943,14 @@ function LivePreviewPanel({
         {phoneSettingsOpen && <div className="phone-broadcast-fields">
           <LabeledInput label="Your name" value={state.live.title} onChange={(title) => patchLive({ title })} />
           <LabeledInput label="Message" value={state.live.lowerThird} onChange={(lowerThird) => patchLive({ lowerThird })} />
-          <LabeledSelect label="Broadcast to" value={openTargetOptions.includes(state.live.target as ScreenId) ? state.live.target : ""} options={["", ...openTargetOptions]} optionLabels={{ "": openTargetOptions.length ? "Choose an open display" : "No displays are open" , ...openTargetLabels }} onChange={(target) => target && patchLive({ target: target as TargetScreen })} />
+          <div className="field phone-display-targets"><span>Broadcast to</span><div className="phone-target-pills" role="group" aria-label="Open display destinations">{openTargetOptions.length ? <>{openTargetOptions.map((target) => <button key={target} type="button" className={selectedLiveTargets.includes(target) ? "selected" : ""} aria-pressed={selectedLiveTargets.includes(target)} onClick={() => {
+            const nextTargets = selectedLiveTargets.includes(target) ? selectedLiveTargets.filter((id) => id !== target) : [...selectedLiveTargets, target];
+            patchLive({ target: nextTargets[0] ?? target, targets: nextTargets });
+          }}>{openTargetLabels[target]}</button>)}<button type="button" className={openTargetOptions.length > 0 && openTargetOptions.every((target) => selectedLiveTargets.includes(target)) ? "selected" : ""} onClick={() => {
+            const allSelected = openTargetOptions.every((target) => selectedLiveTargets.includes(target));
+            const nextTargets = allSelected ? [] : openTargetOptions;
+            patchLive({ target: nextTargets[0] ?? state.live.target, targets: nextTargets });
+          }}>All open</button></> : <small>No displays are open</small>}</div></div>
           <label className="switch-row phone-background-removal"><input type="checkbox" checked={backgroundRemoval.enabled} onChange={(event) => setBackgroundRemovalEnabled(event.target.checked)} /><span>Remove background</span></label>
         </div>}
         {phoneMode && state.live.active && <PhoneBroadcastDelivery screen={previewScreen} delivery={previewScreen ? displayDelivery[previewScreen.id] : undefined} />}
@@ -7074,7 +7115,23 @@ function LivePreviewPanel({
 
         <section className="effect-settings-card face-settings-card">
           <div className="effect-card-heading"><div><strong>Face effects</strong><span>Choose a friendly style, then turn on the camera preview.</span></div><b>{trackingStatus?.phase === "tracking" || trackingStatus?.phase === "degraded" ? `${Math.round(trackingStatus.renderedFps)} FPS` : trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "DETECTING" : "LOCAL"}</b></div>
-          <label className="switch-row face-effect-toggle"><input type="checkbox" checked={state.live.effects.faceTracking} onChange={(event) => patchLive({ effects: { ...state.live.effects, faceTracking: event.target.checked, puppetPreview: event.target.checked && state.live.effects.puppetPreview, trackingDebug: event.target.checked && state.live.effects.trackingDebug, trackedPointsOverlay: event.target.checked && state.live.effects.trackedPointsOverlay } })} /><ScanFace size={16} /><span><strong>Face, body & hand tracking</strong><small>{trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "Detecting face…" : "Head, ears, eyes, mouth, shoulders, hands and fingers"}</small></span><InfoDot text="The local tracker warms once, stabilizes landmarks between frames, and adapts between 60 and 30 FPS when needed." /></label>
+          <label className="switch-row face-effect-toggle"><input type="checkbox" checked={state.live.effects.faceTracking} onChange={(event) => {
+            const enabled = event.target.checked;
+            patchLive({ effects: {
+              ...state.live.effects,
+              faceTracking: enabled,
+              puppetPreview: enabled && state.live.effects.puppetPreview,
+              trackingDebug: enabled && state.live.effects.trackingDebug,
+              trackedPointsOverlay: enabled && state.live.effects.trackedPointsOverlay,
+              // This is the authoritative off switch. Dependent wearables must
+              // not keep the inference loop and a stale costume alive.
+              glassesEnabled: enabled && state.live.effects.glassesEnabled,
+              hatEnabled: enabled && state.live.effects.hatEnabled,
+              partyHatEnabled: enabled && state.live.effects.partyHatEnabled,
+              costumeEnabled: enabled && state.live.effects.costumeEnabled,
+              handProp: enabled ? state.live.effects.handProp : "none"
+            } });
+          }} /><ScanFace size={16} /><span><strong>Face, body & hand tracking</strong><small>{trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "Detecting face…" : "Head, ears, eyes, mouth, shoulders, hands and fingers"}</small></span><InfoDot text="The local tracker warms once, stabilizes landmarks between frames, and adapts between 60 and 30 FPS when needed." /></label>
           <div className="phase4-effect-choice-grid">
             <div><span>Glasses</span><div className="accessory-options"><button type="button" className={!state.live.effects.glassesEnabled ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, glassesEnabled: false } })}>Off</button>{(["classic", "playful"] as const).map((style) => <button type="button" key={style} className={state.live.effects.glassesEnabled && (state.live.effects.glassesStyle ?? "classic") === style ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, glassesEnabled: true, glassesStyle: style, accessory: "glasses", faceTracking: true } })}><Glasses size={15} /> {style === "classic" ? "Classic" : "Playful"}</button>)}</div></div>
             <div><span>Hats</span><div className="accessory-options"><button type="button" className={!state.live.effects.hatEnabled ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, hatEnabled: false, partyHatEnabled: false } })}>Off</button>{(["party", "wizard"] as const).map((style) => <button type="button" key={style} className={state.live.effects.hatEnabled && (state.live.effects.hatStyle ?? "party") === style ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, hatEnabled: true, partyHatEnabled: style === "party", hatStyle: style, faceTracking: true } })}><PartyPopper size={15} /> {style === "party" ? "Party" : "Wizard"}</button>)}</div></div>
@@ -9772,7 +9829,7 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
     return () => window.removeEventListener("pagehide", releaseOwnership);
   }, [deviceId, screenId]);
 
-  const showLive = state.live.active && targetIncludes(state.live.target, screenId);
+  const showLive = state.live.active && liveTargets(state.live, state).includes(screenId);
   const liveComposition = normalizeBroadcastComposition(liveCompositionForDisplay(state.live, screenId));
   const liveCropEdges = normalizeCropEdges(liveComposition.frame.cropEdges);
   const displayCostume = state.effectStudio.costumes.find((costume) => costume.id === liveComposition.effects.costumeId);
@@ -10176,6 +10233,11 @@ function makeDisplay(id: string, number: number): DisplayProfile {
 
 function firstDisplayId(state: LanternState) {
   return Object.keys(state.screens)[0] ?? "display-1";
+}
+
+function liveTargets(live: LanternState["live"], state: Pick<LanternState, "screens">): ScreenId[] {
+  if (live.targets?.length) return live.targets.filter((id) => Boolean(state.screens[id]));
+  return live.target === "all" ? Object.keys(state.screens) : state.screens[live.target] ? [live.target] : [];
 }
 
 function orientationClass(screen: DisplayProfile) {

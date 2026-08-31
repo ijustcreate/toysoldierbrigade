@@ -722,6 +722,8 @@ export interface BroadcastMediaTransform {
 export interface LivePresentation {
   active: boolean;
   target: TargetScreen;
+  /** Explicit display selection for a live broadcast. `target` remains the primary display for compatibility. */
+  targets?: ScreenId[];
   title: string;
   lowerThird: string;
   titlePosition: { x: number; y: number };

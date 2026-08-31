@@ -11596,6 +11596,10 @@ body.theme-light {
   .phone-broadcast-fields .field { gap: 4px; }
   .phone-broadcast-fields input,
   .phone-broadcast-fields select { min-height: 36px; }
+  .phone-display-targets { min-width: 0; }
+  .phone-target-pills { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+  .phone-target-pills button { min-width: 0; min-height: 32px; padding: 5px 8px; overflow: hidden; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: color-mix(in srgb, var(--panel) 90%, var(--accent) 7%); font: inherit; font-size: 9px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+  .phone-target-pills button.selected { color: var(--portal-action-text, #061222); border-color: var(--portal-action-border, var(--accent)); background: var(--portal-action-end, var(--accent)); }
   .phone-background-removal { min-height: 36px; padding: 0 9px; border: 1px solid rgba(124, 141, 192, .28); border-radius: 9px; font-size: 10px; }
   .phone-broadcast-error { margin: -2px 0 0; color: #ff9ca3; font-size: 10px; }
   .phone-delivery-status { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid rgba(112, 208, 221, .35); border-radius: 10px; color: #dff8fb; background: rgba(48, 135, 159, .16); }

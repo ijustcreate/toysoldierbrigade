@@ -23,6 +23,7 @@ type BugRecord = {
 
 const allowedOrigins = new Set([
   "https://ijustcreate.github.io",
+  "https://ijustcreate.github.io/toysoldierbrigade",
   "http://127.0.0.1:5173",
   "http://localhost:5173"
 ]);

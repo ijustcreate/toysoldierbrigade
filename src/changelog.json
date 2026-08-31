@@ -1,5 +1,71 @@
 [
   {
+    "id": "DEV-0444",
+    "title": "Publish Toy Soldier Brigade site",
+    "summary": "Created a separate GitHub Pages project at the Toy Soldier Brigade URL, retained Project Lantern as the fallback site, and permitted both URLs to use the shared service.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 4:56 PM",
+    "areas": [
+      "Deployment",
+      "Shared service"
+    ],
+    "files": [
+      "vite.config.ts",
+      "worker/bugs.ts",
+      ".github/workflows/deploy-pages.yml",
+      "README.md"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0443",
+    "title": "Repair multi-display broadcast build",
+    "summary": "Wired live retargeting through the Control Center bridge so multi-display broadcasts compile and can be tested on desktop and phone.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 4:53 PM",
+    "areas": [
+      "Live broadcast",
+      "Mobile delivery"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0442",
+    "title": "Repair multi-display broadcast build",
+    "summary": "Wired live retargeting through the Control Center bridge so multi-display broadcasts compile and can be tested on desktop and phone.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 4:52 PM",
+    "areas": [
+      "Live broadcast",
+      "Mobile delivery"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0441",
+    "title": "Stabilize mobile broadcast delivery",
+    "summary": "End a suspended phone broadcast cleanly, make tracking shut down authoritatively, and let presenters toggle multiple open display destinations.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 3:07 PM",
+    "areas": [
+      "Live broadcast",
+      "Mobile controls"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/host/videoBridge.ts",
+      "src/types.ts",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0440",
     "title": "Improve mobile donor and Board Editor workflows",
     "summary": "Phone donor controls, deletion and reordering are clearer; the Board Editor keeps saved status outside its panned canvas and prevents focus zoom.",

@@ -27,14 +27,16 @@ export class DirectorVideoBridge {
   private pendingRemoteCandidates = new Map<ScreenId, RTCIceCandidateInit[]>();
   private reconnectTimers = new Map<ScreenId, number>();
   private activeTarget: TargetScreen = "display-2";
+  private activeTargets: ScreenId[] | undefined;
   private sourceSession = 0;
 
   constructor(private onStatus: StatusListener) {
   }
 
-  async start(target: TargetScreen, source: LiveSource = "demo", videoDeviceId?: string, audioDeviceId?: string) {
+  async start(target: TargetScreen, source: LiveSource = "demo", videoDeviceId?: string, audioDeviceId?: string, targets?: ScreenId[]) {
     this.clearMedia();
     this.activeTarget = target;
+    this.activeTargets = targets?.length ? targets : undefined;
     this.onStatus("connecting", "Preparing local video.");
     this.stream = source === "camera"
       ? await getCameraOrDemoStream((status) => this.onStatus(status), videoDeviceId, audioDeviceId)
@@ -46,9 +48,10 @@ export class DirectorVideoBridge {
     this.onStatus(this.stream.__cleanup ? "demo" : "camera", this.stream.__cleanup ? "Using generated test video." : "Using camera.");
   }
 
-  async startMediaStream(target: TargetScreen, stream: MediaStream, detail = "Using recorded video.") {
+  async startMediaStream(target: TargetScreen, stream: MediaStream, detail = "Using recorded video.", targets?: ScreenId[]) {
     this.clearMedia();
     this.activeTarget = target;
+    this.activeTargets = targets?.length ? targets : undefined;
     this.stream = stream as DemoStream;
     this.watchSourceTracks();
     this.announceMediaState("available", detail);
@@ -64,7 +67,7 @@ export class DirectorVideoBridge {
       existingPeer.close();
       this.peers.delete(screenId);
     }
-    if (!this.stream || !targetIncludes(this.activeTarget, screenId)) {
+    if (!this.stream || !(this.activeTargets?.includes(screenId) ?? targetIncludes(this.activeTarget, screenId))) {
       return;
     }
 
@@ -131,6 +134,23 @@ export class DirectorVideoBridge {
     }
   }
 
+  retarget(target: TargetScreen, targets?: ScreenId[]) {
+    this.activeTarget = target;
+    this.activeTargets = targets?.length ? targets : undefined;
+    this.peers.forEach((peer, screenId) => {
+      if (this.activeTargets?.includes(screenId) ?? targetIncludes(this.activeTarget, screenId)) return;
+      peer.close();
+      this.peers.delete(screenId);
+      this.pendingRemoteCandidates.delete(screenId);
+    });
+    if (!this.stream) return;
+    // Initial connections are made by the presenter with its authoritative
+    // display list. On a retarget we only need to negotiate newly selected,
+    // explicit destinations; presence heartbeats cover legacy `all` routing.
+    const destinations = this.activeTargets ?? (target === "all" ? [] : [target]);
+    destinations.forEach((screenId) => void this.connect(screenId));
+  }
+
   stop(target: TargetScreen = "all") {
     this.channel.post({ type: "live-stop", target } satisfies HostMessage);
     this.clearMedia();
@@ -147,6 +167,7 @@ export class DirectorVideoBridge {
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream?.__cleanup?.();
     this.stream = null;
+    this.activeTargets = undefined;
   }
 
   private announceMediaState(state: "available" | "paused" | "unavailable", detail: string) {

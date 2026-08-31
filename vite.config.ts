@@ -77,7 +77,7 @@ function lanternBugApi(): Plugin {
 }
 
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? "/project-lantern/" : "/",
+  base: process.env.GITHUB_ACTIONS ? "/toysoldierbrigade/" : "/",
   plugins: [react(), lanternBugApi()],
   clearScreen: false,
   server: {
