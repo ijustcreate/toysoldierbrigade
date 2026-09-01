@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0447",
+    "title": "Rebase shared assets for Toy Soldier Brigade",
+    "summary": "Makes shared display images resolve under the new Pages URL while preserving the original site's root-relative assets.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 5:03 PM",
+    "areas": [
+      "Shared state",
+      "Static assets"
+    ],
+    "files": [
+      "src/host/lanternHost.ts"
+    ],
+    "tests": "GITHUB_ACTIONS=true npm run build"
+  },
+  {
     "id": "DEV-0446",
     "title": "Fix Toy Soldier Brigade asset paths",
     "summary": "Rewrites root-relative public asset URLs during the GitHub Pages build so images and CSS load from the new repository URL.",

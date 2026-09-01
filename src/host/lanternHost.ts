@@ -1375,7 +1375,19 @@ function repairSeededAnnouncementPlacement<T extends Pick<Announcement, "id" | "
   return announcement;
 }
 
+function rebaseRootAssetUrls<T>(value: T): T {
+  const base = import.meta.env.BASE_URL;
+  if (base === "/") return value;
+  if (typeof value === "string") return (value.startsWith("/assets/") ? `${base}assets/${value.slice("/assets/".length)}` : value) as T;
+  if (Array.isArray(value)) return value.map(rebaseRootAssetUrls) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, rebaseRootAssetUrls(item)])) as T;
+  }
+  return value;
+}
+
 export function normalizeState(state: LanternState): LanternState {
+  state = rebaseRootAssetUrls(state);
   const legacyScreens = state.screens as LanternState["screens"] & {
     portrait?: LanternState["screens"][string];
     landscape?: LanternState["screens"][string];
