@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0446",
+    "title": "Fix Toy Soldier Brigade asset paths",
+    "summary": "Rewrites root-relative public asset URLs during the GitHub Pages build so images and CSS load from the new repository URL.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 5:00 PM",
+    "areas": [
+      "Deployment",
+      "Static assets"
+    ],
+    "files": [
+      "vite.config.ts"
+    ],
+    "tests": "GITHUB_ACTIONS=true npm run build; built asset-path scan"
+  },
+  {
     "id": "DEV-0445",
     "title": "Publish Toy Soldier Brigade site",
     "summary": "Created a separate GitHub Pages project at the Toy Soldier Brigade URL, retained Project Lantern as the fallback site, and permitted both URLs to use the shared service.",
