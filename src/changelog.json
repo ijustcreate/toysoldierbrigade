@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0449",
+    "title": "Keep shared assets portable",
+    "summary": "Converts the new site's scoped asset URLs back to canonical paths before shared state is saved, keeping Project Lantern usable as the rollback site.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 5:06 PM",
+    "areas": [
+      "Shared state",
+      "Deployment"
+    ],
+    "files": [
+      "src/host/lanternHost.ts"
+    ],
+    "tests": "GITHUB_ACTIONS=true npm run build"
+  },
+  {
     "id": "DEV-0448",
     "title": "Keep shared assets portable",
     "summary": "Converts the new site's scoped asset URLs back to canonical paths before shared state is saved, keeping Project Lantern usable as the rollback site.",
