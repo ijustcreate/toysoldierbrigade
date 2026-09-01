@@ -5,6 +5,24 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const bugRoot = path.resolve(".lantern", "bugs");
+const pagesBase = process.env.GITHUB_ACTIONS ? "/toysoldierbrigade/" : "/";
+const pagesAssetPrefix = pagesBase.replace(/\/$/, "");
+
+function rewriteRootAssetUrls(): Plugin {
+  if (!pagesAssetPrefix) return { name: "rewrite-root-asset-urls" };
+  const rewrite = (source: string) => source.replace(/(["'])\/assets\//g, `$1${pagesAssetPrefix}/assets/`);
+  return {
+    name: "rewrite-root-asset-urls",
+    renderChunk(code) {
+      return { code: rewrite(code), map: null };
+    },
+    generateBundle(_, bundle) {
+      Object.values(bundle).forEach((item) => {
+        if (item.type === "asset" && typeof item.source === "string") item.source = rewrite(item.source);
+      });
+    }
+  };
+}
 
 async function listBugs() {
   await mkdir(bugRoot, { recursive: true });
@@ -77,8 +95,8 @@ function lanternBugApi(): Plugin {
 }
 
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? "/toysoldierbrigade/" : "/",
-  plugins: [react(), lanternBugApi()],
+  base: pagesBase,
+  plugins: [react(), lanternBugApi(), rewriteRootAssetUrls()],
   clearScreen: false,
   server: {
     port: 5173,
