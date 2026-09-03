@@ -1,14 +1,14 @@
 <div align="center">
   <img src="public/favicon.png" width="86" alt="Project Lantern logo" />
 
-  # Project Lantern
+  # Toy Soldier Brigade
 
   **Museum Donor Board Control Center**
 
   Manage donor records, design recognition boards, schedule display content,
   compose announcements and broadcasts, and review feedback from one workspace.
 
-  [**Open the live Control Center →**](https://ijustcreate.github.io/project-lantern/)
+  [**Open the live Control Center →**](https://ijustcreate.github.io/toysoldierbrigade/)
   &nbsp;&nbsp;·&nbsp;&nbsp;
   [How to test](#testing-the-prototype)
   &nbsp;&nbsp;·&nbsp;&nbsp;
@@ -84,7 +84,7 @@ Boards, announcements, and broadcasts are independent presentation layers:
 
 The fastest useful test takes about ten minutes:
 
-1. Open the [live Control Center](https://ijustcreate.github.io/project-lantern/)
+1. Open the [live Control Center](https://ijustcreate.github.io/toysoldierbrigade/)
    in current Chrome or Edge.
 2. Choose **How to use** from the Dashboard for the visual walkthrough.
 3. Explore the workspaces using fictional sample content.

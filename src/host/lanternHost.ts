@@ -330,11 +330,12 @@ async function deleteIndexedDbLanternState() {
 }
 
 function serializableSharedState(state: LanternState): LanternState {
+  const canonical = canonicalizeRootAssetUrls(state);
   return {
-    ...state,
-    auditHistory: state.auditHistory.map(compactAuditRecord),
-    boardPrograms: state.boardPrograms.map((program) => program.backgroundImage?.startsWith("blob:") ? { ...program, backgroundImage: undefined } : program),
-    screens: Object.fromEntries(Object.entries(state.screens).map(([id, screen]) => [
+    ...canonical,
+    auditHistory: canonical.auditHistory.map(compactAuditRecord),
+    boardPrograms: canonical.boardPrograms.map((program) => program.backgroundImage?.startsWith("blob:") ? { ...program, backgroundImage: undefined } : program),
+    screens: Object.fromEntries(Object.entries(canonical.screens).map(([id, screen]) => [
       id,
       screen.backgroundImage?.startsWith("blob:") ? { ...screen, backgroundImage: undefined } : screen
     ])) as LanternState["screens"]
@@ -1392,7 +1393,31 @@ function repairSeededAnnouncementPlacement<T extends Pick<Announcement, "id" | "
   return announcement;
 }
 
+function rebaseRootAssetUrls<T>(value: T): T {
+  const base = import.meta.env.BASE_URL;
+  if (base === "/") return value;
+  if (typeof value === "string") return (value.startsWith("/assets/") ? `${base}assets/${value.slice("/assets/".length)}` : value) as T;
+  if (Array.isArray(value)) return value.map(rebaseRootAssetUrls) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, rebaseRootAssetUrls(item)])) as T;
+  }
+  return value;
+}
+
+function canonicalizeRootAssetUrls<T>(value: T): T {
+  const base = import.meta.env.BASE_URL;
+  if (base === "/") return value;
+  const assetBase = `${base}assets/`;
+  if (typeof value === "string") return (value.startsWith(assetBase) ? `/assets/${value.slice(assetBase.length)}` : value) as T;
+  if (Array.isArray(value)) return value.map(canonicalizeRootAssetUrls) as T;
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, canonicalizeRootAssetUrls(item)])) as T;
+  }
+  return value;
+}
+
 export function normalizeState(state: LanternState): LanternState {
+  state = rebaseRootAssetUrls(state);
   const legacyScreens = state.screens as LanternState["screens"] & {
     portrait?: LanternState["screens"][string];
     landscape?: LanternState["screens"][string];

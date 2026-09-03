@@ -1,4 +1,4 @@
-name: Deploy Project Lantern to GitHub Pages
+name: Deploy Toy Soldier Brigade to GitHub Pages
 
 on:
   push:
