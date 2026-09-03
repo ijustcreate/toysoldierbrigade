@@ -1,5 +1,22 @@
 [
   {
+    "id": "DEV-0462",
+    "title": "Keep boards working in TV browsers",
+    "summary": "Straight-on dashboard and live display boards now render through Canvas 2D, avoiding smart-TV WebGL failures while retaining desktop 3D previews.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 10:59 AM",
+    "areas": [
+      "Displays",
+      "TV browser support"
+    ],
+    "files": [
+      "src/display/BabylonDonorWall.tsx",
+      "scripts/test-tv-safe-board-renderer.mjs",
+      "package.json"
+    ],
+    "tests": "npm run test:tv-safe-board-renderer; npm run test:sideways-mounted-display; npm run build"
+  },
+  {
     "id": "DEV-0461",
     "title": "Support sideways-mounted TVs",
     "summary": "Adds a per-display mounting rotation for landscape TVs installed on their side, rotating complete live output so boards, messages, Blips, and broadcasts remain upright.",

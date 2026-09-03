@@ -50,6 +50,10 @@ Logger.LogLevels = Logger.ErrorLogLevel;
 
 export function BabylonDonorWall({ state, screenId, interactive = false, fitToScreen = false, fitPadding = 1.07, viewMode = "3d", resetKey = 0, previewProgramId, announcementActive = state.announcement.active && targetIncludesAnnouncement(state, screenId), announcementOverlay, blipOverlay, broadcastOverlay }: BabylonDonorWallProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // TV browsers frequently have limited WebGL memory or no reliable WebGL 2
+  // implementation. A straight-on board does not need a 3D scene, so paint it
+  // directly with Canvas 2D and reserve Babylon only for intentional 3D views.
+  const useSafeCanvasRenderer = fitToScreen && viewMode === "2d";
   const [scheduleMinute, setScheduleMinute] = useState(() => Math.floor(Date.now() / 60_000));
   const previewProgram = useMemo(
     () => previewProgramId ? state.boardPrograms.find((program) => program.id === previewProgramId) : undefined,
@@ -135,6 +139,56 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
   );
 
   useEffect(() => {
+    if (!useSafeCanvasRenderer) return;
+    const canvas = canvasRef.current;
+    const screen = state.screens[screenId] ?? Object.values(state.screens)[0];
+    const context = canvas?.getContext("2d");
+    if (!canvas || !screen || !context) return;
+    const renderWindow = canvas.ownerDocument.defaultView ?? window;
+    let redrawTimer: number | undefined;
+    let resizeFrame = 0;
+    const redraw = () => {
+      const bounds = canvas.getBoundingClientRect();
+      const density = Math.min(1.5, Math.max(1, renderWindow.devicePixelRatio || 1));
+      const width = Math.max(1, Math.round(bounds.width * density));
+      const height = Math.max(1, Math.round(bounds.height * density));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      drawTextureContent(context, width, height, state, screenId, screen, activeProgram?.id, performance.now(), announcementOverlay, blipOverlay, broadcastOverlay, false);
+    };
+    const scheduleRedraw = () => {
+      renderWindow.cancelAnimationFrame(resizeFrame);
+      resizeFrame = renderWindow.requestAnimationFrame(redraw);
+    };
+    prepareBackgroundMedia(screen, scheduleRedraw);
+    prepareBoardPanelImages(state, scheduleRedraw);
+    renderWindow.addEventListener("resize", scheduleRedraw);
+    if (renderWindow.ResizeObserver) {
+      const observer = new renderWindow.ResizeObserver(scheduleRedraw);
+      observer.observe(canvas);
+      if (canvas.parentElement) observer.observe(canvas.parentElement);
+      redraw();
+      void renderWindow.document.fonts?.ready.then(scheduleRedraw);
+      return () => {
+        renderWindow.cancelAnimationFrame(resizeFrame);
+        renderWindow.clearInterval(redrawTimer);
+        observer.disconnect();
+        renderWindow.removeEventListener("resize", scheduleRedraw);
+      };
+    }
+    redraw();
+    void renderWindow.document.fonts?.ready.then(scheduleRedraw);
+    return () => {
+      renderWindow.cancelAnimationFrame(resizeFrame);
+      renderWindow.clearInterval(redrawTimer);
+      renderWindow.removeEventListener("resize", scheduleRedraw);
+    };
+  }, [sceneStateKey, screenId, activeProgram?.id, useSafeCanvasRenderer, resetKey, announcementOverlay, blipOverlay, broadcastOverlay]);
+
+  useEffect(() => {
+    if (useSafeCanvasRenderer) return;
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
@@ -414,7 +468,7 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
       scene.dispose();
       engine.dispose();
     };
-  }, [sceneStateKey, screenId, interactive, fitToScreen, fitPadding, viewMode, resetKey]);
+  }, [sceneStateKey, screenId, interactive, fitToScreen, fitPadding, viewMode, resetKey, useSafeCanvasRenderer]);
 
   return <>
     <canvas className="wall-canvas" ref={canvasRef} tabIndex={interactive ? 0 : -1} role="img" aria-label={`${activeProgram?.name ?? "Recognition board"}. ${accessibleDonors.length} recognized supporters.`} />
@@ -453,7 +507,8 @@ function drawTextureContent(
   animationTime = performance.now(),
   announcementOverlay?: Announcement,
   blipOverlay?: Blip,
-  broadcastOverlay?: BabylonDonorWallProps["broadcastOverlay"]
+  broadcastOverlay?: BabylonDonorWallProps["broadcastOverlay"],
+  mirrorForTexture = true
 ) {
   const isPortrait = screen.orientation === "Portrait";
   const activeProgram = programId ? state.boardPrograms.find((program) => program.id === programId) : undefined;
@@ -477,8 +532,10 @@ function drawTextureContent(
 
   const draw = () => {
     context.save();
-    context.translate(width, 0);
-    context.scale(-1, 1);
+    if (mirrorForTexture) {
+      context.translate(width, 0);
+      context.scale(-1, 1);
+    }
 
     if (screen.style === "constellation") {
       drawConstellationBackground(context, width, height, state, isPortrait);

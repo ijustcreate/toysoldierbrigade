@@ -11,6 +11,7 @@
     "bugs": "node scripts/lantern-bugs.mjs",
     "test:bug-workflow": "node scripts/test-bug-workflow.mjs",
     "test:sideways-mounted-display": "node scripts/test-sideways-mounted-display.mjs",
+    "test:tv-safe-board-renderer": "node scripts/test-tv-safe-board-renderer.mjs",
     "changelog": "node scripts/lantern-changelog.mjs",
     "cloudflare:deploy": "wrangler deploy",
     "cloudflare:migrate": "wrangler d1 execute project-lantern-bugs --remote --file worker/schema.sql",
