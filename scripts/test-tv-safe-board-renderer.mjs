@@ -4,8 +4,10 @@ import { readFile } from "node:fs/promises";
 const source = await readFile(new URL("../src/display/BabylonDonorWall.tsx", import.meta.url), "utf8");
 
 assert.match(source, /const useSafeCanvasRenderer = fitToScreen && viewMode === "2d"/);
-assert.match(source, /if \(useSafeCanvasRenderer\) return;/);
+assert.match(source, /if \(useSafeCanvasRenderer \|\| useHtmlFallback\) return;/);
 assert.match(source, /canvas\?\.getContext\("2d"\)/);
 assert.match(source, /drawTextureContent\([^\n]+false\)/);
 assert.match(source, /if \(mirrorForTexture\)/);
+assert.match(source, /requiresTvHtmlFallback/);
+assert.match(source, /TvBrowserBoardFallback/);
 console.log("TV-safe board renderer fixture passed: straight-on output bypasses WebGL and paints through Canvas 2D.");

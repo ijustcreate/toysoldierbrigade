@@ -1878,6 +1878,28 @@ h2 {
   height: 100vh;
 }
 
+.tv-browser-board {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: clamp(14px, 3.4vw, 68px);
+  border: clamp(4px, .75vw, 16px) solid #c89b42;
+  color: #fff8df;
+  background: radial-gradient(circle at 22% 14%, #276777 0, #123c51 42%, #061321 100%);
+  font-family: "DM Sans", Arial, sans-serif;
+  text-align: center;
+}
+.tv-browser-board header { max-width: 90%; margin: 0 auto clamp(10px, 2vw, 36px); }
+.tv-browser-board h2 { margin: 0; color: #f7db93; font-size: clamp(16px, 4vw, 64px); letter-spacing: .06em; }
+.tv-browser-board header p { margin: .35em 0; font-size: clamp(10px, 1.6vw, 25px); }
+.tv-browser-board header small { display: block; font-size: clamp(8px, 1.2vw, 19px); line-height: 1.35; }
+.tv-browser-board-levels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(10px, 3vw, 52px); align-items: start; }
+.tv-browser-board-levels h3 { margin: 0 0 .5em; color: #f4c45d; font-size: clamp(11px, 2vw, 32px); }
+.tv-browser-board-levels ul { display: grid; gap: .28em; margin: 0; padding: 0; list-style: none; font-size: clamp(9px, 1.55vw, 25px); line-height: 1.15; }
+.tv-browser-board.portrait .tv-browser-board-levels { grid-template-columns: 1fr; gap: clamp(8px, 1.6vh, 26px); }
+.tv-browser-board.portrait .tv-browser-board-levels ul { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1em; }
+
 .display-chrome {
   position: fixed;
   top: 16px;

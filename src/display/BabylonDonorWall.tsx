@@ -50,10 +50,13 @@ Logger.LogLevels = Logger.ErrorLogLevel;
 
 export function BabylonDonorWall({ state, screenId, interactive = false, fitToScreen = false, fitPadding = 1.07, viewMode = "3d", resetKey = 0, previewProgramId, announcementActive = state.announcement.active && targetIncludesAnnouncement(state, screenId), announcementOverlay, blipOverlay, broadcastOverlay }: BabylonDonorWallProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [canvasSafeFailed, setCanvasSafeFailed] = useState(false);
   // TV browsers frequently have limited WebGL memory or no reliable WebGL 2
   // implementation. A straight-on board does not need a 3D scene, so paint it
   // directly with Canvas 2D and reserve Babylon only for intentional 3D views.
   const useSafeCanvasRenderer = fitToScreen && viewMode === "2d";
+  const requiresTvHtmlFallback = useSafeCanvasRenderer && typeof navigator !== "undefined" && /web0s|webos|tizen|smart-tv|smarttv|netcast|viera|hisense|hbbtv/i.test(navigator.userAgent);
+  const useHtmlFallback = requiresTvHtmlFallback || canvasSafeFailed;
   const [scheduleMinute, setScheduleMinute] = useState(() => Math.floor(Date.now() / 60_000));
   const previewProgram = useMemo(
     () => previewProgramId ? state.boardPrograms.find((program) => program.id === previewProgramId) : undefined,
@@ -84,6 +87,7 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
   const accessibleDonors = (activeProgram?.donorIds ?? [])
     .map((id) => state.donors.find((donor) => donor.id === id))
     .filter((donor): donor is Donor => Boolean(donor?.active));
+  useEffect(() => setCanvasSafeFailed(false), [screenId, activeProgram?.id]);
   const sceneStateKey = useMemo(
     () => {
       const screen = state.screens[screenId];
@@ -139,7 +143,7 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
   );
 
   useEffect(() => {
-    if (!useSafeCanvasRenderer) return;
+    if (!useSafeCanvasRenderer || useHtmlFallback) return;
     const canvas = canvasRef.current;
     const screen = state.screens[screenId] ?? Object.values(state.screens)[0];
     const context = canvas?.getContext("2d");
@@ -156,7 +160,13 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
         canvas.width = width;
         canvas.height = height;
       }
-      drawTextureContent(context, width, height, state, screenId, screen, activeProgram?.id, performance.now(), announcementOverlay, blipOverlay, broadcastOverlay, false);
+      try {
+        drawTextureContent(context, width, height, state, screenId, screen, activeProgram?.id, performance.now(), announcementOverlay, blipOverlay, broadcastOverlay, false);
+      } catch {
+        // Do not leave a black rectangle when a legacy TV canvas lacks a
+        // drawing feature used by a custom board. Switch to semantic HTML.
+        setCanvasSafeFailed(true);
+      }
     };
     const scheduleRedraw = () => {
       renderWindow.cancelAnimationFrame(resizeFrame);
@@ -185,10 +195,10 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
       renderWindow.clearInterval(redrawTimer);
       renderWindow.removeEventListener("resize", scheduleRedraw);
     };
-  }, [sceneStateKey, screenId, activeProgram?.id, useSafeCanvasRenderer, resetKey, announcementOverlay, blipOverlay, broadcastOverlay]);
+  }, [sceneStateKey, screenId, activeProgram?.id, useSafeCanvasRenderer, useHtmlFallback, resetKey, announcementOverlay, blipOverlay, broadcastOverlay]);
 
   useEffect(() => {
-    if (useSafeCanvasRenderer) return;
+    if (useSafeCanvasRenderer || useHtmlFallback) return;
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
@@ -468,16 +478,31 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
       scene.dispose();
       engine.dispose();
     };
-  }, [sceneStateKey, screenId, interactive, fitToScreen, fitPadding, viewMode, resetKey, useSafeCanvasRenderer]);
+  }, [sceneStateKey, screenId, interactive, fitToScreen, fitPadding, viewMode, resetKey, useSafeCanvasRenderer, useHtmlFallback]);
 
   return <>
-    <canvas className="wall-canvas" ref={canvasRef} tabIndex={interactive ? 0 : -1} role="img" aria-label={`${activeProgram?.name ?? "Recognition board"}. ${accessibleDonors.length} recognized supporters.`} />
+    {useHtmlFallback
+      ? <TvBrowserBoardFallback program={activeProgram} donors={accessibleDonors} />
+      : <canvas className="wall-canvas" ref={canvasRef} tabIndex={interactive ? 0 : -1} role="img" aria-label={`${activeProgram?.name ?? "Recognition board"}. ${accessibleDonors.length} recognized supporters.`} />}
     <section className="sr-only board-accessible-summary" aria-label={`${activeProgram?.name ?? "Recognition board"} supporter list`}>
       <h2>{activeProgram?.heading ?? activeProgram?.name ?? "Recognition board"}</h2>
       {activeProgram?.description && <p>{activeProgram.description}</p>}
       <ul>{accessibleDonors.map((donor) => <li key={donor.id}>{donor.name}{donor.tier ? `, ${donor.tier} Level` : ", general donor, tier pending"}{donor.recordStatus === "deprecated-legacy" ? ", Deprecated legacy donor record" : ""}</li>)}</ul>
     </section>
   </>;
+}
+
+function TvBrowserBoardFallback({ program, donors }: { program?: LanternState["boardPrograms"][number]; donors: Donor[] }) {
+  const heading = program?.heading ?? program?.name ?? "Recognition board";
+  const levels = new Map<string, Donor[]>();
+  donors.forEach((donor) => {
+    const level = donor.tier ? `${donor.tier} Level` : "Supporters";
+    levels.set(level, [...(levels.get(level) ?? []), donor]);
+  });
+  return <section className={`tv-browser-board ${program?.orientation === "Portrait" ? "portrait" : "landscape"}`} aria-label={`${heading}. ${donors.length} recognized supporters.`}>
+    <header><h2>{heading}</h2>{program?.subtitle && <p>{program.subtitle}</p>}{program?.description && <small>{program.description}</small>}</header>
+    <div className="tv-browser-board-levels">{[...levels.entries()].map(([level, members]) => <section key={level}><h3>{level}</h3><ul>{members.map((donor) => <li key={donor.id}>{donor.name}</li>)}</ul></section>)}</div>
+  </section>;
 }
 
 function makePanelTexture(scene: Scene, state: LanternState, screenId: ScreenId, screen: DisplayProfile, programId?: string, generateMipMaps = false, announcementOverlay?: Announcement, blipOverlay?: Blip, broadcastOverlay?: BabylonDonorWallProps["broadcastOverlay"]) {
