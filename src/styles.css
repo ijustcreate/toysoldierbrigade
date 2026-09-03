@@ -1822,6 +1822,52 @@ h2 {
 .display-shell.mounted-clockwise .wall-canvas,
 .display-shell.mounted-counterclockwise .wall-canvas { width: 100%; height: 100%; }
 
+.tv-mode-shell {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: clamp(20px, 4vw, 62px);
+  color: #f4f8ff;
+  background:
+    radial-gradient(circle at 12% 4%, rgba(65, 199, 212, .24), transparent 30%),
+    radial-gradient(circle at 94% 95%, rgba(134, 81, 231, .28), transparent 35%),
+    #071221;
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+.tv-mode-header { display: flex; max-width: 1250px; margin: 0 auto clamp(24px, 4vw, 54px); align-items: center; justify-content: space-between; gap: 18px; }
+.tv-mode-header > div { display: flex; align-items: center; gap: 12px; color: #89eef0; font-size: clamp(22px, 2.8vw, 40px); font-weight: 850; letter-spacing: -.04em; }
+.tv-mode-header button, .tv-mode-card button { font: inherit; cursor: pointer; }
+.tv-mode-header button { display: inline-flex; min-height: 54px; align-items: center; gap: 9px; padding: 0 18px; border: 1px solid rgba(173, 222, 245, .35); border-radius: 12px; color: #e7f9ff; background: rgba(8, 28, 48, .74); font-size: 15px; font-weight: 800; }
+.tv-mode-card { box-sizing: border-box; width: min(100%, 1250px); margin: auto; padding: clamp(24px, 4vw, 64px); border: 1px solid rgba(151, 221, 241, .32); border-radius: 28px; background: rgba(10, 27, 46, .91); box-shadow: 0 30px 90px rgba(0, 0, 0, .35); }
+.tv-mode-card .eyebrow { margin: 0 0 8px; color: #7eebe5; font-size: 13px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+.tv-mode-card h1 { margin: 0; color: #fff; font-size: clamp(32px, 5vw, 64px); line-height: 1; letter-spacing: -.055em; }
+.tv-mode-intro { max-width: 760px; margin: 18px 0 32px; color: #c5d9e8; font-size: clamp(17px, 2vw, 24px); line-height: 1.4; }
+.tv-mode-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(14px, 2.5vw, 30px); }
+.tv-mode-choice-grid button, .tv-mode-rotation button, .tv-mode-displays button { border: 2px solid rgba(162, 195, 225, .32); color: #f7fbff; background: rgba(20, 50, 76, .74); }
+.tv-mode-choice-grid button { display: grid; min-height: 190px; place-content: center; justify-items: center; gap: 11px; padding: 22px; border-radius: 22px; }
+.tv-mode-choice-grid button strong { font-size: clamp(20px, 2.4vw, 32px); }
+.tv-mode-choice-grid button span { color: #c0d5e2; font-size: clamp(14px, 1.55vw, 19px); }
+.tv-mode-choice-grid button.selected, .tv-mode-rotation button.selected, .tv-mode-displays button.selected { border-color: #70f1df; background: linear-gradient(135deg, rgba(22, 139, 151, .82), rgba(59, 87, 180, .78)); box-shadow: 0 0 0 4px rgba(111, 238, 220, .14); }
+.tv-mode-rotation, .tv-mode-displays { margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(169, 205, 229, .22); }
+.tv-mode-rotation p, .tv-mode-displays > p { margin: 0 0 13px; color: #dceeff; font-size: 19px; font-weight: 800; }
+.tv-mode-rotation > div { display: flex; gap: 16px; flex-wrap: wrap; }
+.tv-mode-rotation button { display: inline-flex; min-height: 62px; align-items: center; gap: 10px; padding: 0 22px; border-radius: 14px; font-size: 18px; font-weight: 800; }
+.tv-mode-displays > div { display: flex; gap: 12px; flex-wrap: wrap; }
+.tv-mode-displays button { display: inline-flex; min-width: min(100%, 280px); min-height: 74px; align-items: center; gap: 12px; padding: 11px 16px; border-radius: 15px; text-align: left; }
+.tv-mode-displays button > span { display: grid; gap: 3px; }
+.tv-mode-displays small { color: #c4d9e6; font-size: 13px; }
+.tv-mode-launch { display: flex; min-width: min(100%, 390px); min-height: 78px; margin: 36px auto 0; align-items: center; justify-content: center; gap: 13px; padding: 0 34px; border: 2px solid #9affed; border-radius: 17px; color: #042130; background: linear-gradient(135deg, #72f2db, #73bffa); font-size: clamp(20px, 2.2vw, 29px); font-weight: 900; box-shadow: 0 14px 35px rgba(82, 216, 222, .25); }
+.tv-mode-launch:disabled { opacity: .5; cursor: not-allowed; }
+.tv-mode-hint { margin: 18px 0 0; color: #a8c0d4; text-align: center; font-size: 14px; }
+.tv-mode-shell button:focus-visible { outline: 5px solid #fff5a6; outline-offset: 4px; }
+@media (max-width: 680px) {
+  .tv-mode-shell { padding: 18px; }
+  .tv-mode-header { align-items: flex-start; }
+  .tv-mode-header button { min-height: 45px; padding: 0 11px; font-size: 12px; }
+  .tv-mode-card { padding: 25px 20px; border-radius: 20px; }
+  .tv-mode-choice-grid { grid-template-columns: 1fr; }
+  .tv-mode-choice-grid button { min-height: 135px; }
+}
+
 .display-wall-shell {
   position: fixed;
   inset: 0;

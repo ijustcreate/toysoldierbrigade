@@ -243,6 +243,9 @@ const announcementSfxSources = {
 } as const;
 
 export function App() {
+  if (/^#\/tv(?:[/?#]|$)/.test(window.location.hash)) {
+    return <TvModeApp />;
+  }
   const announcementDemoMatch = window.location.hash.match(/^#\/announcement-demo\/([^/?#]+)/);
   if (announcementDemoMatch) {
     return <AnnouncementDemoApp screenId={decodeURIComponent(announcementDemoMatch[1])} />;
@@ -260,6 +263,86 @@ export function App() {
 
   return <ControlCenter />;
 }
+
+type TvMountRotation = "none" | "clockwise" | "counterclockwise";
+type TvModeSettings = { screenId: ScreenId; orientation: "Portrait" | "Landscape"; mountRotation: TvMountRotation };
+const TV_MODE_STORAGE_KEY = "project-lantern-tv-mode-v1";
+
+function readTvModeSettings(): Partial<TvModeSettings> {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TV_MODE_STORAGE_KEY) ?? "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function TvModeApp() {
+  const saved = readTvModeSettings();
+  const [state, setState] = useState<LanternState>(() => loadLanternState());
+  const [ready, setReady] = useState(false);
+  const [orientation, setOrientation] = useState<"Portrait" | "Landscape">(saved.orientation === "Portrait" ? "Portrait" : "Landscape");
+  const [mountRotation, setMountRotation] = useState<TvMountRotation>(saved.mountRotation === "clockwise" || saved.mountRotation === "counterclockwise" ? saved.mountRotation : "none");
+  const [screenId, setScreenId] = useState<ScreenId>(saved.screenId ?? firstDisplayId(loadLanternState()));
+
+  useEffect(() => {
+    let mounted = true;
+    const refresh = async () => {
+      try {
+        const loaded = await loadAuthoritativeLanternState({ preferShared: true });
+        if (mounted) setState(loaded.state);
+      } finally {
+        if (mounted) setReady(true);
+      }
+    };
+    void refresh();
+    const channel = createHostChannel((message) => { if (message.type === "state-update") setState(message.state); });
+    return () => { mounted = false; channel.close(); };
+  }, []);
+
+  const matchingScreens = Object.values(state.screens).filter((screen) => screen.orientation === orientation);
+  const availableScreens = matchingScreens.length ? matchingScreens : Object.values(state.screens);
+  const selectedScreen = availableScreens.find((screen) => screen.id === screenId) ?? availableScreens[0];
+  const selectOrientation = (next: "Portrait" | "Landscape") => {
+    setOrientation(next);
+    if (next === "Landscape") setMountRotation("none");
+    const match = Object.values(state.screens).find((screen) => screen.orientation === next);
+    if (match) setScreenId(match.id);
+  };
+  const launch = () => {
+    if (!selectedScreen) return;
+    const settings: TvModeSettings = { screenId: selectedScreen.id, orientation, mountRotation: orientation === "Portrait" ? mountRotation : "none" };
+    try { localStorage.setItem(TV_MODE_STORAGE_KEY, JSON.stringify(settings)); } catch { /* TV privacy mode may disable storage. */ }
+    window.location.hash = `#/display/${encodeURIComponent(settings.screenId)}?tv=1&mount=${settings.mountRotation}`;
+  };
+
+  if (!ready) return <LanternStateLoading />;
+  return <main className="tv-mode-shell">
+    <header className="tv-mode-header"><div><Monitor size={32} /><span>TV mode</span></div><button type="button" onClick={() => { window.location.hash = "#/dashboard"; }}><LayoutDashboard size={20} /> Operator dashboard</button></header>
+    <section className="tv-mode-card" aria-labelledby="tv-mode-title">
+      <p className="eyebrow">Remote-friendly display setup</p>
+      <h1 id="tv-mode-title">How is this TV mounted?</h1>
+      <p className="tv-mode-intro">Choose the physical setup once. This browser will open the matching live display and keep boards, messages, and broadcasts in the correct direction.</p>
+      <div className="tv-mode-choice-grid" role="group" aria-label="TV mounting orientation">
+        <button type="button" className={orientation === "Landscape" ? "selected" : ""} onClick={() => selectOrientation("Landscape")}>
+          <Monitor size={42} /><strong>Landscape TV</strong><span>Mounted normally — wide screen</span>
+        </button>
+        <button type="button" className={orientation === "Portrait" ? "selected" : ""} onClick={() => selectOrientation("Portrait")}>
+          <Smartphone size={42} /><strong>Portrait TV</strong><span>Landscape TV mounted on its side</span>
+        </button>
+      </div>
+      {orientation === "Portrait" && <div className="tv-mode-rotation" role="group" aria-label="Sideways mounting direction">
+        <p>Which way is the TV turned?</p>
+        <div><button type="button" className={mountRotation === "clockwise" ? "selected" : ""} onClick={() => setMountRotation("clockwise")}><RotateCcw size={23} /> Turned right</button><button type="button" className={mountRotation === "counterclockwise" ? "selected" : ""} onClick={() => setMountRotation("counterclockwise")}><RotateCwIcon /><span>Turned left</span></button></div>
+      </div>}
+      <div className="tv-mode-displays"><p>Display to show</p><div>{availableScreens.map((screen) => <button type="button" key={screen.id} className={selectedScreen?.id === screen.id ? "selected" : ""} onClick={() => setScreenId(screen.id)}><Radio size={20} /><span><strong>{screen.label}</strong><small>{screen.assignment} · {screen.orientation}</small></span></button>)}</div></div>
+      <button type="button" className="tv-mode-launch" onClick={launch} disabled={!selectedScreen}><Play size={27} /> Open live display</button>
+      <p className="tv-mode-hint">Use the remote arrows and Select/OK. While the display is open, Select/OK opens its controls.</p>
+    </section>
+  </main>;
+}
+
+function RotateCwIcon() { return <RotateCcw size={23} style={{ transform: "scaleX(-1)" }} />; }
 
 function ControlCenter() {
   const [state, setState] = useState<LanternState>(() => loadLanternState());
@@ -1078,6 +1161,9 @@ function ControlCenter() {
               <div className="dashboard-quick-actions">
               <button className="header-operation-button" onClick={() => setDisplayStatusPanelOpen(true)} title="View current display status and recent delivery events">
                 <Monitor size={16} /><span>Display status</span>
+              </button>
+              <button className="header-operation-button" onClick={() => { window.location.hash = "#/tv"; }} title="Set up this browser for a TV and remote control">
+                <Monitor size={16} /><span>TV mode</span>
               </button>
               <button className="command-button secondary help-launch-button" onClick={() => setHelpOpen(true)} title="Open the Project Lantern walkthrough">
                 <BookOpen size={18} />
@@ -9865,7 +9951,12 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
   const scheduledSoundRef = useRef<ResolvedScheduledAnnouncement | null>(null);
   const blipSoundKeyRef = useRef("");
   const identifyTimerRef = useRef<number | null>(null);
-  const screen = state.screens[screenId] ?? Object.values(state.screens)[0];
+  const displayRouteOptions = new URLSearchParams(window.location.hash.split("?")[1] ?? "");
+  const tvMode = displayRouteOptions.get("tv") === "1";
+  const requestedMount = displayRouteOptions.get("mount");
+  const routeMountRotation: TvMountRotation | undefined = requestedMount === "none" || requestedMount === "clockwise" || requestedMount === "counterclockwise" ? requestedMount : undefined;
+  const storedScreen = state.screens[screenId] ?? Object.values(state.screens)[0];
+  const screen = routeMountRotation ? { ...storedScreen, mountRotation: routeMountRotation } : storedScreen;
   const deviceId = getLanternDeviceId();
   const showIdentity = useCallback(() => {
     if (identifyTimerRef.current) window.clearTimeout(identifyTimerRef.current);
@@ -10129,6 +10220,10 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
             <RefreshCcw size={17} />
             <span>Reload display</span>
           </button>
+          {tvMode && <button type="button" onClick={() => { window.location.hash = "#/tv"; }}>
+            <Settings size={17} />
+            <span>TV mode setup</span>
+          </button>}
         </div>
       )}
     </div>

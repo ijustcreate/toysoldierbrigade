@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0463",
+    "title": "Add remote-friendly TV mode",
+    "summary": "Adds a dedicated TV setup route with normal and sideways mounting choices, remote-sized controls, and browser-local rotation overrides for live boards, messages, and broadcasts.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 11:42 AM",
+    "areas": [
+      "TV mode",
+      "Display delivery"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; npm run test:sideways-mounted-display; npm run test:tv-safe-board-renderer; Playwright TV setup and portrait live-display route"
+  },
+  {
     "id": "DEV-0462",
     "title": "Keep boards working in TV browsers",
     "summary": "Straight-on dashboard and live display boards now render through Canvas 2D, avoiding smart-TV WebGL failures while retaining desktop 3D previews.",
