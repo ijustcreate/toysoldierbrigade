@@ -32,6 +32,20 @@ export interface Donor {
   expandedInfo?: string;
   favoriteJoke?: string;
   favoriteQuote?: string;
+  /** Private relationship-management details. These are never shown on recognition boards. */
+  donorType?: "Individual" | "Family" | "Organization" | "Foundation" | "Corporate" | "Government" | "Anonymous" | "Other";
+  organizationName?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  stateProvince?: string;
+  postalCode?: string;
+  phone?: string;
+  email?: string;
+  preferredContactMethod?: "Email" | "Phone" | "Mail" | "None";
+  acknowledgementPreference?: "Public recognition" | "Anonymous" | "No mail" | "No solicitation";
+  relationshipManager?: string;
+  generalDonationFund?: string;
   subtext?: string;
   tags?: string[];
   groupId?: string;
@@ -722,6 +736,8 @@ export interface BroadcastMediaTransform {
 export interface LivePresentation {
   active: boolean;
   target: TargetScreen;
+  /** Explicit display selection for a live broadcast. `target` remains the primary display for compatibility. */
+  targets?: ScreenId[];
   title: string;
   lowerThird: string;
   titlePosition: { x: number; y: number };
@@ -747,12 +763,16 @@ export interface LivePresentation {
   effects: LiveEffectsSettings;
   videoDeviceId?: string;
   audioDeviceId?: string;
+  /** Whether the presenter's microphone is included with a camera broadcast. */
+  audioEnabled?: boolean;
 }
 
 export interface DisplayProfile {
   id: ScreenId;
   label: string;
   orientation: "Portrait" | "Landscape";
+  /** Physical rotation required because the TV reports landscape even though it is mounted on its side. */
+  mountRotation?: "none" | "clockwise" | "counterclockwise";
   resolution: string;
   assignment: string;
   style: DisplayStyle;
@@ -875,7 +895,8 @@ export type HostMessage =
   | { type: "identify-screen"; screenId: ScreenId }
   | { type: "live-stop"; target: TargetScreen }
   | { type: "live-media-state"; target: TargetScreen; state: "available" | "paused" | "unavailable"; detail: string }
-  | { type: "display-presence"; screenId: ScreenId; timestamp: string }
+  | { type: "display-presence"; screenId: ScreenId; timestamp: string; deviceId: string; deviceName: string; userAgent: string }
+  | { type: "display-session-status"; screenId: ScreenId; timestamp: string; deviceId: string; deviceName: string; userAgent: string; status: "closed" | "offline" | "online" }
   | { type: "close-display"; screenId: ScreenId; targetDeviceId: string }
   | { type: "display-video-status"; screenId: ScreenId; status: "connecting" | "receiving" | "reconnecting" | "unavailable"; timestamp: string; detail?: string; fps?: number; bitrateKbps?: number }
   | { type: "webrtc-offer"; target: ScreenId; source: "control"; sdp: RTCSessionDescriptionInit }

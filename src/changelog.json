@@ -1,5 +1,253 @@
 [
   {
+    "id": "DEV-0461",
+    "title": "Support sideways-mounted TVs",
+    "summary": "Adds a per-display mounting rotation for landscape TVs installed on their side, rotating complete live output so boards, messages, Blips, and broadcasts remain upright.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 10:18 AM",
+    "areas": [
+      "Displays",
+      "Live presentation"
+    ],
+    "files": [
+      "src/types.ts",
+      "src/App.tsx",
+      "src/styles.css",
+      "src/host/lanternHost.ts",
+      "src-tauri/src/lib.rs",
+      "scripts/test-sideways-mounted-display.mjs"
+    ],
+    "tests": "npm run test:sideways-mounted-display; npm run build"
+  },
+  {
+    "id": "DEV-0460",
+    "title": "Reliable phone broadcast delivery",
+    "summary": "Reconstruct incoming WebRTC streams for TV browsers, report delivery only after video arrives, play remote broadcast audio, and let phone broadcasters choose whether to share microphone audio.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 9:42 AM",
+    "areas": [
+      "Broadcast / Stream",
+      "Display output"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/host/videoBridge.ts",
+      "src/types.ts"
+    ],
+    "tests": "npm run build; node scripts/test-broadcast-composition.mjs; npm run test:bug-workflow"
+  },
+  {
+    "id": "DEV-0459",
+    "title": "Remove board selector glow",
+    "summary": "Removed the warm drop shadow from the Toy Soldier Brigade dashboard selector so it no longer appears to glow.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 9:22 AM",
+    "areas": [
+      "Dashboard",
+      "Toy Soldier Brigade"
+    ],
+    "files": [
+      "src/components/BrigadeView.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0458",
+    "title": "Navigate announcement canvases while editing",
+    "summary": "Announcements now show the familiar zoom and directional pan widget in edit mode, allowing operators to inspect and reach content beyond the visible preview bounds without interrupting element editing.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 9:17 AM",
+    "areas": [
+      "Announcements",
+      "Editor preview"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0457",
+    "title": "Add display status and history",
+    "summary": "Replaced the global display-opening action with a live display status panel. It identifies active browser or TV sessions and keeps a server-backed history of opening, closing, offline, and restored-connection events.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 9:10 AM",
+    "areas": [
+      "Dashboard",
+      "Display delivery"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/host/lanternHost.ts",
+      "src/host/videoBridge.ts",
+      "src/types.ts",
+      "src/styles.css",
+      "worker/bugs.ts"
+    ],
+    "tests": "npm run build; npm run build:worker"
+  },
+  {
+    "id": "DEV-0456",
+    "title": "Preserve user schedule board choices",
+    "summary": "Stopped the legacy Phase 3 schedule migration from restoring seed boards over user-edited schedule events.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 9:08 AM",
+    "areas": [
+      "Schedule",
+      "Data migration"
+    ],
+    "files": [
+      "src/phase3Schedule.ts",
+      "scripts/phase3-schedule-fixture.mjs"
+    ],
+    "tests": "node scripts/phase3-schedule-fixture.mjs; npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0454",
+    "title": "Preserve user schedule board choices",
+    "summary": "Stopped the legacy Phase 3 schedule migration from restoring seed boards over user-edited schedule events.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 9:08 AM",
+    "areas": [
+      "Schedule",
+      "Data migration"
+    ],
+    "files": [
+      "src/phase3Schedule.ts",
+      "scripts/phase3-schedule-fixture.mjs"
+    ],
+    "tests": "node scripts/phase3-schedule-fixture.mjs; npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0453",
+    "title": "Preserve user schedule board choices",
+    "summary": "Stopped the legacy Phase 3 schedule migration from restoring seed boards over user-edited schedule events.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 9:04 AM",
+    "areas": [
+      "Schedule",
+      "Data migration"
+    ],
+    "files": [
+      "src/phase3Schedule.ts",
+      "scripts/phase3-schedule-fixture.mjs"
+    ],
+    "tests": "node scripts/phase3-schedule-fixture.mjs; npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0452",
+    "title": "Compact board organization settings",
+    "summary": "Tightened the board organization layout with smaller gutters, headers, board rows, and action controls so more boards fit on screen.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:56 AM",
+    "areas": [
+      "Settings",
+      "Board library"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0451",
+    "title": "Compact board organization settings",
+    "summary": "Tightened the board organization layout with smaller gutters, headers, board rows, and action controls so more boards fit on screen.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:56 AM",
+    "areas": [
+      "Settings",
+      "Board library"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0450",
+    "title": "Browse site images in the editor",
+    "summary": "Board images can now be selected from a searchable in-app media browser, while the image library offers thumbnail, details, and names views with sorting.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:55 AM",
+    "areas": [
+      "Board Editor",
+      "Image library"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0449",
+    "title": "Fix themed donor discard confirmation",
+    "summary": "Made unsaved-donor confirmation dialogs use the active theme palette and compact correctly instead of inheriting dark editor colors.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:49 AM",
+    "areas": [
+      "Donors",
+      "Themes"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0448",
+    "title": "Fix themed donor discard confirmation",
+    "summary": "Made unsaved-donor confirmation dialogs use the active theme palette and compact correctly instead of inheriting dark editor colors.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:49 AM",
+    "areas": [
+      "Donors",
+      "Themes"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0447",
+    "title": "Reorganize donor profile workflow",
+    "summary": "Combined donor background and contact details into Donor info, separated Donation History from pledge setup, added General donation and Toy Soldier Brigade paths, and improved exact donor-list board assignment.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:46 AM",
+    "areas": [
+      "Donors",
+      "Pledges",
+      "Donation history",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/types.ts",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0446",
+    "title": "Correct Brigade donor legacy labels",
+    "summary": "Play and Explore Toy Soldier Brigade members are restored to current status during the v22 content migration, while historical legacy donors remain marked appropriately.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:35 AM",
+    "areas": [
+      "Donors",
+      "Data migration"
+    ],
+    "files": [
+      "src/sampleData.ts",
+      "src/host/lanternHost.ts",
+      "scripts/brigade-donor-status-fixture.ts"
+    ],
+    "tests": "npm run build; bundled and ran scripts/brigade-donor-status-fixture.ts"
+  },
+  {
     "id": "DEV-0445",
     "title": "Square mobile display previews",
     "summary": "Mobile board, announcement, Blip, and board-editor preview surfaces now use a taller square format, while announcement Save changes stays visible.",
@@ -15,6 +263,54 @@
       "src/styles.css"
     ],
     "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0443",
+    "title": "Repair multi-display broadcast build",
+    "summary": "Wired live retargeting through the Control Center bridge so multi-display broadcasts compile and can be tested on desktop and phone.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 4:53 PM",
+    "areas": [
+      "Live broadcast",
+      "Mobile delivery"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0442",
+    "title": "Repair multi-display broadcast build",
+    "summary": "Wired live retargeting through the Control Center bridge so multi-display broadcasts compile and can be tested on desktop and phone.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 4:52 PM",
+    "areas": [
+      "Live broadcast",
+      "Mobile delivery"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0441",
+    "title": "Stabilize mobile broadcast delivery",
+    "summary": "End a suspended phone broadcast cleanly, make tracking shut down authoritatively, and let presenters toggle multiple open display destinations.",
+    "author": "Codex",
+    "createdAt": "Aug 31, 2026, 3:07 PM",
+    "areas": [
+      "Live broadcast",
+      "Mobile controls"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/host/videoBridge.ts",
+      "src/types.ts",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
   },
   {
     "id": "DEV-0440",

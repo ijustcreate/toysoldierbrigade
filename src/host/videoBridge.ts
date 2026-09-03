@@ -1,9 +1,22 @@
-import { createHostChannel, targetIncludes } from "./lanternHost";
+import { createHostChannel, getLanternDeviceId, targetIncludes } from "./lanternHost";
 import type { HostMessage, LiveSource, ScreenId, TargetScreen } from "../types";
 
 type DirectorStatus = "idle" | "camera" | "demo" | "connecting" | "live" | "ended";
 type StatusListener = (status: DirectorStatus, detail?: string) => void;
 type StreamListener = (stream: MediaStream | null) => void;
+
+function displayDeviceName() {
+  const userAgent = navigator.userAgent;
+  if (/SMART-TV|SmartTV|Tizen|Web0S|NetCast|HbbTV/i.test(userAgent)) return "Smart TV browser";
+  if (/Android TV|GoogleTV/i.test(userAgent)) return "TV browser";
+  if (/iPad|Tablet/i.test(userAgent)) return "Tablet browser";
+  if (/Mobi|iPhone|Android/i.test(userAgent)) return "Mobile browser";
+  if (/Edg\//i.test(userAgent)) return "Microsoft Edge";
+  if (/Chrome\//i.test(userAgent)) return "Google Chrome";
+  if (/Firefox\//i.test(userAgent)) return "Firefox";
+  if (/Safari\//i.test(userAgent)) return "Safari";
+  return "Display browser";
+}
 
 interface DemoStream extends MediaStream {
   __cleanup?: () => void;
@@ -27,14 +40,16 @@ export class DirectorVideoBridge {
   private pendingRemoteCandidates = new Map<ScreenId, RTCIceCandidateInit[]>();
   private reconnectTimers = new Map<ScreenId, number>();
   private activeTarget: TargetScreen = "display-2";
+  private activeTargets: ScreenId[] | undefined;
   private sourceSession = 0;
 
   constructor(private onStatus: StatusListener) {
   }
 
-  async start(target: TargetScreen, source: LiveSource = "demo", videoDeviceId?: string, audioDeviceId?: string) {
+  async start(target: TargetScreen, source: LiveSource = "demo", videoDeviceId?: string, audioDeviceId?: string, targets?: ScreenId[]) {
     this.clearMedia();
     this.activeTarget = target;
+    this.activeTargets = targets?.length ? targets : undefined;
     this.onStatus("connecting", "Preparing local video.");
     this.stream = source === "camera"
       ? await getCameraOrDemoStream((status) => this.onStatus(status), videoDeviceId, audioDeviceId)
@@ -46,9 +61,10 @@ export class DirectorVideoBridge {
     this.onStatus(this.stream.__cleanup ? "demo" : "camera", this.stream.__cleanup ? "Using generated test video." : "Using camera.");
   }
 
-  async startMediaStream(target: TargetScreen, stream: MediaStream, detail = "Using recorded video.") {
+  async startMediaStream(target: TargetScreen, stream: MediaStream, detail = "Using recorded video.", targets?: ScreenId[]) {
     this.clearMedia();
     this.activeTarget = target;
+    this.activeTargets = targets?.length ? targets : undefined;
     this.stream = stream as DemoStream;
     this.watchSourceTracks();
     this.announceMediaState("available", detail);
@@ -64,7 +80,7 @@ export class DirectorVideoBridge {
       existingPeer.close();
       this.peers.delete(screenId);
     }
-    if (!this.stream || !targetIncludes(this.activeTarget, screenId)) {
+    if (!this.stream || !(this.activeTargets?.includes(screenId) ?? targetIncludes(this.activeTarget, screenId))) {
       return;
     }
 
@@ -131,6 +147,23 @@ export class DirectorVideoBridge {
     }
   }
 
+  retarget(target: TargetScreen, targets?: ScreenId[]) {
+    this.activeTarget = target;
+    this.activeTargets = targets?.length ? targets : undefined;
+    this.peers.forEach((peer, screenId) => {
+      if (this.activeTargets?.includes(screenId) ?? targetIncludes(this.activeTarget, screenId)) return;
+      peer.close();
+      this.peers.delete(screenId);
+      this.pendingRemoteCandidates.delete(screenId);
+    });
+    if (!this.stream) return;
+    // Initial connections are made by the presenter with its authoritative
+    // display list. On a retarget we only need to negotiate newly selected,
+    // explicit destinations; presence heartbeats cover legacy `all` routing.
+    const destinations = this.activeTargets ?? (target === "all" ? [] : [target]);
+    destinations.forEach((screenId) => void this.connect(screenId));
+  }
+
   stop(target: TargetScreen = "all") {
     this.channel.post({ type: "live-stop", target } satisfies HostMessage);
     this.clearMedia();
@@ -147,6 +180,7 @@ export class DirectorVideoBridge {
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream?.__cleanup?.();
     this.stream = null;
+    this.activeTargets = undefined;
   }
 
   private announceMediaState(state: "available" | "paused" | "unavailable", detail: string) {
@@ -222,15 +256,28 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
   let peer: RTCPeerConnection | null = null;
   let activeOfferKey = "";
   let pendingRemoteCandidates: RTCIceCandidateInit[] = [];
+  let remoteTracks: MediaStreamTrack[] = [];
   let channel: ReturnType<typeof createHostChannel>;
 
   const announcePresence = () => {
     channel.post({
       type: "display-presence",
       screenId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      deviceId: getLanternDeviceId(),
+      deviceName: displayDeviceName(),
+      userAgent: navigator.userAgent
     } satisfies HostMessage);
   };
+  const announceSessionStatus = (status: "closed" | "offline" | "online") => channel.post({
+    type: "display-session-status",
+    screenId,
+    timestamp: new Date().toISOString(),
+    deviceId: getLanternDeviceId(),
+    deviceName: displayDeviceName(),
+    userAgent: navigator.userAgent,
+    status
+  } satisfies HostMessage);
 
   channel = createHostChannel((message) => {
     if (message.type === "webrtc-offer" && message.target === screenId) {
@@ -241,6 +288,7 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
         const previousPeer = peer;
         const nextPeer = new RTCPeerConnection({ iceServers });
         peer = nextPeer;
+        remoteTracks = [];
         previousPeer?.close();
         const report = (status: "connecting" | "receiving" | "reconnecting" | "unavailable", detail?: string, fps?: number, bitrateKbps?: number) => channel.post({
           type: "display-video-status", screenId, status, detail, fps, bitrateKbps, timestamp: new Date().toISOString()
@@ -248,8 +296,13 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
         report("connecting", "Connecting to the broadcast source.");
         nextPeer.addEventListener("track", (trackEvent) => {
           if (peer !== nextPeer) return;
-          onStream(trackEvent.streams[0] ?? null);
-          report("receiving", "Display is receiving video.");
+          // Safari and some TV browsers legitimately leave `streams` empty
+          // for a remote track. Build the stream from the tracks ourselves so
+          // a connected peer never looks like a missing local video signal.
+          if (!remoteTracks.some((track) => track.id === trackEvent.track.id)) remoteTracks.push(trackEvent.track);
+          const receivedStream = new MediaStream(remoteTracks);
+          onStream(receivedStream);
+          if (trackEvent.track.kind === "video") report("receiving", "Display is receiving video.");
         });
         nextPeer.addEventListener("icecandidate", (candidateEvent) => {
           if (candidateEvent.candidate) {
@@ -263,7 +316,9 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
         });
         nextPeer.addEventListener("connectionstatechange", () => {
           if (peer !== nextPeer) return;
-          if (nextPeer.connectionState === "connected") report("receiving", "Display is receiving video.");
+          // Connection alone only proves ICE/DTLS. Wait for a video track
+          // before telling the presenter that the picture is on the display.
+          if (nextPeer.connectionState === "connected" && remoteTracks.some((track) => track.kind === "video")) report("receiving", "Display is receiving video.");
           if (nextPeer.connectionState === "disconnected") report("reconnecting", "Connection was interrupted; retrying.");
           if (nextPeer.connectionState === "failed") {
             report("unavailable", "Display could not receive the broadcast.");
@@ -291,6 +346,7 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
           nextPeer.close();
           peer = null;
           activeOfferKey = "";
+          remoteTracks = [];
           onStream(null);
           announcePresence();
         }
@@ -307,6 +363,7 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
       peer = null;
       activeOfferKey = "";
       pendingRemoteCandidates = [];
+      remoteTracks = [];
       onStream(null);
     }
 
@@ -335,11 +392,21 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
     }).catch(() => undefined);
   }, 2500);
   announcePresence();
+  const announceOnline = () => { announceSessionStatus("online"); announcePresence(); };
+  const announceOffline = () => announceSessionStatus("offline");
+  const announceClosed = () => announceSessionStatus("closed");
+  window.addEventListener("online", announceOnline);
+  window.addEventListener("offline", announceOffline);
+  window.addEventListener("pagehide", announceClosed);
 
   return () => {
     window.clearInterval(presenceTimer);
     window.clearInterval(telemetryTimer);
     peer?.close();
+    remoteTracks = [];
+    window.removeEventListener("online", announceOnline);
+    window.removeEventListener("offline", announceOffline);
+    window.removeEventListener("pagehide", announceClosed);
     channel.close();
   };
 }

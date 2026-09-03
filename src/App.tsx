@@ -111,6 +111,7 @@ import {
   fitWarnings,
   getLanternDeviceId,
   loadAuthoritativeLanternState,
+  loadDisplaySessionSnapshot,
   loadSharedLanternStateSnapshot,
   loadLanternState,
   openDisplayWindows,
@@ -146,6 +147,7 @@ import type {
   TargetScreen,
   ScheduleEntry
 } from "./types";
+import type { DisplaySessionSnapshot } from "./host/lanternHost";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import codeChangelog from "./changelog.json";
 import { nextVisitorMessage, normalizeVisitorMessageRotation } from "./visitorMessages";
@@ -292,6 +294,12 @@ function ControlCenter() {
   const [openAssignedRoomCamera, setOpenAssignedRoomCamera] = useState(false);
   const [scheduledBroadcastPrompt, setScheduledBroadcastPrompt] = useState<{ entry: ScheduleEntry; occurrenceKey: string } | null>(null);
   const [displayOpenNotice, setDisplayOpenNotice] = useState<{ message: string; outstanding?: ScreenId[] } | null>(null);
+  // A display routes a heartbeat through the host channel while its board is
+  // loaded. Keep this transient: an old saved "open" flag must never make an
+  // operator believe a TV is still showing the board.
+  const [displayPresence, setDisplayPresence] = useState<Partial<Record<ScreenId, Extract<HostMessage, { type: "display-presence" }>>>>({});
+  const [displayStatusPanelOpen, setDisplayStatusPanelOpen] = useState(false);
+  const [displaySessionSnapshot, setDisplaySessionSnapshot] = useState<DisplaySessionSnapshot>({ sessions: [], history: [] });
   const [boardOwnershipPrompt, setBoardOwnershipPrompt] = useState<ScreenId | null>(null);
   const [announcementTab, setAnnouncementTab] = useState<"messages" | "blips">("messages");
   const [visitorMessageManagerOpen, setVisitorMessageManagerOpen] = useState(false);
@@ -327,6 +335,38 @@ function ControlCenter() {
   useEffect(() => {
     activeUserIdRef.current = activeUserId;
   }, [activeUserId]);
+
+  useEffect(() => {
+    const lastSeen = new Map<ScreenId, Extract<HostMessage, { type: "display-presence" }>>();
+    const channel = createHostChannel((message) => {
+      if (message.type !== "display-presence") return;
+      lastSeen.set(message.screenId, message);
+      setDisplayPresence(Object.fromEntries(lastSeen));
+    });
+    const prune = window.setInterval(() => {
+      const cutoff = Date.now() - 5_000;
+      let changed = false;
+      lastSeen.forEach((presence, screenId) => {
+        if (Date.parse(presence.timestamp) < cutoff) {
+          lastSeen.delete(screenId);
+          changed = true;
+        }
+      });
+      if (changed) setDisplayPresence(Object.fromEntries(lastSeen));
+    }, 1_000);
+    return () => {
+      window.clearInterval(prune);
+      channel.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!displayStatusPanelOpen) return;
+    const refresh = () => void loadDisplaySessionSnapshot().then(setDisplaySessionSnapshot);
+    refresh();
+    const timer = window.setInterval(refresh, 3_000);
+    return () => window.clearInterval(timer);
+  }, [displayStatusPanelOpen]);
 
   useEffect(() => {
     if (!activeUser) return;
@@ -808,10 +848,10 @@ function ControlCenter() {
   const startLive = async () => {
     if (scheduledBroadcastPrompt) setReminderStatus("cleared");
     updateState((current) => ({ ...current, live: { ...current.live, active: true } }));
-    await videoBridge.current?.start(state.live.target, state.live.source, state.live.videoDeviceId, state.live.audioDeviceId);
+    await videoBridge.current?.start(state.live.target, state.live.source, state.live.videoDeviceId, state.live.audioDeviceId, state.live.targets);
     await Promise.all(
       Object.values(state.screens)
-        .filter((screen) => targetIncludes(state.live.target, screen.id))
+        .filter((screen) => liveTargets(state.live, state).includes(screen.id))
         .map((screen) => videoBridge.current?.connect(screen.id))
     );
   };
@@ -819,16 +859,16 @@ function ControlCenter() {
   const startLiveStream = async (stream: MediaStream, detail: string) => {
     if (scheduledBroadcastPrompt) setReminderStatus("cleared");
     updateState((current) => ({ ...current, live: { ...current.live, active: true } }));
-    await videoBridge.current?.startMediaStream(state.live.target, stream, detail);
+    await videoBridge.current?.startMediaStream(state.live.target, stream, detail, state.live.targets);
     await Promise.all(
       Object.values(state.screens)
-        .filter((screen) => targetIncludes(state.live.target, screen.id))
+        .filter((screen) => liveTargets(state.live, state).includes(screen.id))
         .map((screen) => videoBridge.current?.connect(screen.id))
     );
   };
 
   const stopLive = () => {
-    videoBridge.current?.stop(state.live.target);
+    videoBridge.current?.stop(state.live.targets?.length ? "all" : state.live.target);
     setState((current) => {
       if (!current.live.active) return current;
       const actor = current.users.find((user) => user.id === activeUserIdRef.current) ?? current.users[0] ?? { id: "local-operator", name: currentBugUser() };
@@ -838,6 +878,10 @@ function ControlCenter() {
       publishState(next, { immediateShared: true });
       return next;
     });
+  };
+
+  const retargetLive = (target: TargetScreen, targets?: ScreenId[]) => {
+    videoBridge.current?.retarget(target, targets);
   };
 
   const addDonor = () => {
@@ -1032,8 +1076,8 @@ function ControlCenter() {
           <div className="topbar-actions">
             {view === "dashboard" && (
               <div className="dashboard-quick-actions">
-              <button className="header-operation-button" onClick={openDisplays} title="Open every recognition display">
-                <Monitor size={16} /><span>Open displays</span>
+              <button className="header-operation-button" onClick={() => setDisplayStatusPanelOpen(true)} title="View current display status and recent delivery events">
+                <Monitor size={16} /><span>Display status</span>
               </button>
               <button className="command-button secondary help-launch-button" onClick={() => setHelpOpen(true)} title="Open the Project Lantern walkthrough">
                 <BookOpen size={18} />
@@ -1064,6 +1108,7 @@ function ControlCenter() {
         {view === "dashboard" && (<>
           <Dashboard
             state={state}
+            displayPresence={displayPresence}
             selectedDisplayId={selectedDisplayId}
             setSelectedDisplayId={setSelectedDisplayId}
             updateState={updateState}
@@ -1160,6 +1205,7 @@ function ControlCenter() {
                 startLive={startLive}
                 startLiveStream={startLiveStream}
                 stopLive={stopLive}
+                retargetLive={retargetLive}
               /></div>
           </section>
         )}
@@ -1252,6 +1298,7 @@ function ControlCenter() {
         {showIdeas && <IdeasDrawer page={view} open={ideasOpen} onToggle={() => setIdeasOpen((current) => !current)} />}
       </main>
       {helpOpen && <HelpCenterModal onClose={() => setHelpOpen(false)} />}
+      {displayStatusPanelOpen && <DisplayStatusPanel state={state} presence={displayPresence} snapshot={displaySessionSnapshot} onClose={() => setDisplayStatusPanelOpen(false)} />}
       {createUserOpen && <div className="modal-backdrop local-user-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setCreateUserOpen(false); }}><form className="editor-modal local-user-modal" role="dialog" aria-modal="true" aria-labelledby="local-user-title" onSubmit={(event) => { event.preventDefault(); createLocalUser(); }}><div className="editor-modal-head"><div><p className="eyebrow">Local operator profile</p><h2 id="local-user-title">Create user</h2></div><button type="button" className="icon-button" title="Close" onClick={() => setCreateUserOpen(false)}><X size={18} /></button></div><label className="field"><span>Name</span><input autoFocus value={newUserName} onChange={(event) => setNewUserName(event.target.value)} placeholder="Operator name" maxLength={80} /></label><p className="field-note local-mode-note"><Lock size={14} /> Local mode is passwordless and is intended for trusted operators on this device. It records who made changes; it is not an authentication system.</p><div className="editor-modal-actions"><button type="button" className="command-button secondary" onClick={() => setCreateUserOpen(false)}>Cancel</button><button type="submit" className="command-button primary" disabled={!newUserName.trim()}><Plus size={15} /> Create user</button></div></form></div>}
       {scheduledBroadcastPrompt && <div className="modal-backdrop scheduled-broadcast-backdrop"><section className="editor-modal scheduled-broadcast-prompt" role="dialog" aria-modal="true" aria-labelledby="scheduled-broadcast-prompt-title"><div className="editor-modal-head"><div><p className="eyebrow">Scheduled broadcast</p><h2 id="scheduled-broadcast-prompt-title">Scheduled broadcast</h2></div></div><p><strong>{scheduledBroadcastPrompt.entry.name}</strong> is scheduled to start now{scheduledBroadcastPrompt.entry.presenterName ? ` for ${scheduledBroadcastPrompt.entry.presenterName}` : ""}. Do you wish to start?</p><div className="editor-modal-actions"><button type="button" className="command-button secondary" onClick={() => setReminderStatus("dismissed", 15)}>Not now</button><button type="button" className="command-button primary" onClick={() => { setReminderStatus("acknowledged"); setView("live"); }}>Open Broadcast / Stream</button></div></section></div>}
       {displayOpenNotice && <LanternNotice
@@ -1289,9 +1336,10 @@ function ControlCenter() {
 }
 
 type BugAttachment = { name: string; dataUrl: string };
-type BugStatus = "open" | "in-progress" | "ready-for-test" | "verified" | "closed";
+type BugStatus = "open" | "assigned-to-codex" | "in-progress" | "ready-for-test" | "verified" | "closed";
 type BugEvidence = { name: string; dataUrl?: string; path?: string; mimeType?: string };
 type AgentWorkEntry = { at: string; author: string; kind: "analysis" | "proposal" | "change" | "test" | "handoff"; note: string; replyTo?: string };
+type BugStatusHistoryEntry = { at: string; author: string; from?: BugStatus; to: BugStatus; note?: string };
 function displayBugId(bugId: string) {
   const match = bugId.match(/^BUG-(\d+)$/i);
   return match ? `BUG-${match[1].padStart(5, "0")}` : bugId;
@@ -1304,7 +1352,7 @@ function bugEvidenceImageSource(bugId: string, evidence: BugEvidence) {
   const evidenceBase = !BUG_API_ENDPOINT || BUG_API_ENDPOINT === "/__lantern/bugs" ? "/__lantern/evidence" : `${BUG_API_ENDPOINT}/evidence`;
   return `${evidenceBase}/${encodeURIComponent(bugId)}/${encodeURIComponent(fileName)}`;
 }
-type BugRecord = { bugId: string; summary: string; details: string; fixTips: string; tags: string[]; status: BugStatus; createdAt: string; updatedAt: string; attachments: string[]; folder: string; enteredBy?: string; stepsToReproduce?: string; expectedResult?: string; actualResult?: string; frequency?: string; impact?: string; diagnostics?: Record<string, unknown>; evidence?: BugEvidence[]; agentWork?: AgentWorkEntry[] };
+type BugRecord = { bugId: string; summary: string; details: string; fixTips: string; tags: string[]; status: BugStatus; createdAt: string; updatedAt: string; attachments: string[]; folder: string; enteredBy?: string; stepsToReproduce?: string; expectedResult?: string; actualResult?: string; frequency?: string; impact?: string; diagnostics?: Record<string, unknown>; evidence?: BugEvidence[]; agentWork?: AgentWorkEntry[]; statusHistory?: BugStatusHistoryEntry[] };
 const WEB_BUGS_KEY = "project-lantern-bug-catalog";
 const BUG_USERS_KEY = "project-lantern-bug-users";
 const ACTIVE_BUG_USER_KEY = "project-lantern-active-bug-user";
@@ -1514,7 +1562,7 @@ function BugReportPanel({ initialAttachments, captureStatus, state, view, onSave
         const now = new Date().toISOString();
         const highestBugNumber = bugs.reduce((highest, bug) => Math.max(highest, Number(bug.bugId.match(/\d+/)?.[0] ?? 0)), 0);
         const bugId = `BUG-${String(highestBugNumber + 1).padStart(5, "0")}`;
-        const record: BugRecord = { bugId, summary, details, fixTips, enteredBy, stepsToReproduce, expectedResult, actualResult, frequency, impact, diagnostics: payload.appState, tags: payload.tags, status: "open", createdAt: now, updatedAt: now, attachments: attachments.map((item) => item.name), evidence: attachments, agentWork: [], folder: `.lantern/bugs/${bugId}` };
+        const record: BugRecord = { bugId, summary, details, fixTips, enteredBy, stepsToReproduce, expectedResult, actualResult, frequency, impact, diagnostics: payload.appState, tags: payload.tags, status: "open", createdAt: now, updatedAt: now, attachments: attachments.map((item) => item.name), evidence: attachments, agentWork: [], statusHistory: [{ at: now, author: enteredBy, to: "open", note: "Report created" }], folder: `.lantern/bugs/${bugId}` };
         bugs.unshift(record);
         writeWebBugs(bugs);
         if (BUG_API_ENDPOINT) {
@@ -1734,7 +1782,7 @@ function EvidenceViewer({ bugId, evidence, onClose }: { bugId: string; evidence:
 }
 
 function BugsView({ onNewBug, launcherVisible, onLauncherVisibleChange }: { onNewBug: () => void; launcherVisible: boolean; onLauncherVisibleChange: (visible: boolean) => void }) {
-  const defaultStatusFilters: BugStatus[] = ["open", "in-progress", "ready-for-test"];
+  const defaultStatusFilters: BugStatus[] = ["open", "assigned-to-codex", "in-progress", "ready-for-test"];
   const initialActiveUser = currentBugUser();
   const readViewPreferences = (user: string) => {
     try {
@@ -1859,11 +1907,20 @@ function BugsView({ onNewBug, launcherVisible, onLauncherVisibleChange }: { onNe
   const toggleStatusFilter = (status: BugStatus) => {
     setStatusFilters((current) => current.includes(status) ? current.filter((value) => value !== status) : [...current, status]);
   };
-  const statusOrder: BugStatus[] = ["open", "in-progress", "ready-for-test", "verified", "closed"];
-  const statusLabel = (status: BugStatus) => status.replace(/-/g, " ");
-  const renderBugRow = (bug: BugRecord) => <div className={selected?.bugId === bug.bugId ? "bug-row active" : "bug-row"} key={bug.bugId}><button type="button" className="bug-row-main" onClick={() => setSelected({ ...bug })}><span className={`bug-status-dot ${bug.status}`} /><span><small>{displayBugId(bug.bugId)} · Entered by {bugEnteredBy(bug)}</small><strong>{bug.summary}</strong><em>{bug.tags.join(" · ") || "No tags"} · {bug.attachments.length} attachment{bug.attachments.length === 1 ? "" : "s"}</em></span></button><select className={`bug-row-status ${bug.status}`} aria-label={`Status for ${displayBugId(bug.bugId)}`} value={bug.status} onChange={(event) => void save({ ...bug, status: event.target.value as BugStatus })}><option value="open">Open</option><option value="in-progress">In progress</option><option value="ready-for-test">Ready for test</option><option value="verified">Verified</option><option value="closed">Closed</option></select><ChevronRight size={17} /></div>;
+  const statusOrder: BugStatus[] = ["open", "assigned-to-codex", "in-progress", "ready-for-test", "verified", "closed"];
+  const statusLabel = (status: BugStatus) => status === "assigned-to-codex" ? "Assigned to Codex" : status.replace(/-/g, " ");
+  const renderBugRow = (bug: BugRecord) => <div className={selected?.bugId === bug.bugId ? "bug-row active" : "bug-row"} key={bug.bugId}><button type="button" className="bug-row-main" onClick={() => setSelected({ ...bug })}><span className={`bug-status-dot ${bug.status}`} /><span><small>{displayBugId(bug.bugId)} · Entered by {bugEnteredBy(bug)}</small><strong>{bug.summary}</strong><em>{bug.tags.join(" · ") || "No tags"} · {bug.attachments.length} attachment{bug.attachments.length === 1 ? "" : "s"}</em></span></button><select className={`bug-row-status ${bug.status}`} aria-label={`Status for ${displayBugId(bug.bugId)}`} value={bug.status} onChange={(event) => void save({ ...bug, status: event.target.value as BugStatus })}><option value="open">Open</option><option value="assigned-to-codex">Assigned to Codex</option><option value="in-progress">In progress</option><option value="ready-for-test">Ready for test</option><option value="verified">Verified</option><option value="closed">Closed</option></select><ChevronRight size={17} /></div>;
   const save = async (bug: BugRecord) => {
-    const next = { ...bug, updatedAt: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const previous = bugs.find((item) => item.bugId === bug.bugId);
+    const statusChanged = previous && previous.status !== bug.status;
+    const next = {
+      ...bug,
+      updatedAt: now,
+      statusHistory: statusChanged
+        ? [...(bug.statusHistory ?? previous.statusHistory ?? []), { at: now, author: activeUser, from: previous.status, to: bug.status, note: bug.status === "assigned-to-codex" ? "User approved this report for a Codex fix." : undefined }]
+        : bug.statusHistory
+    };
     try {
       if (isTauri()) await invoke<BugRecord>("update_bug_report", { bug: next });
       else {
@@ -2018,6 +2075,7 @@ Please inspect the Project Lantern workspace, reproduce this issue, implement th
             }) : <small>No {commentTab === "user" ? "user comments" : "AI comments"} yet.</small>}
             {commentTab === "user" && <div className="bug-comment-composer">{replyTo !== null && <div className="reply-context">Replying to {selected.agentWork?.[replyTo]?.author}<button onClick={() => setReplyTo(null)}><X size={12} /></button></div>}<textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder={replyTo === null ? `Comment as ${activeUser}…` : `Reply as ${activeUser}…`} /><button type="button" className="command-button secondary compact" disabled={!comment.trim()} onClick={addComment}><Send size={14} /> {replyTo === null ? "Add comment" : "Reply"}</button></div>}
           </div>
+          {!!selected.statusHistory?.length && <div className="bug-status-history"><strong>Status history</strong>{selected.statusHistory.map((entry, index) => <article key={`${entry.at}-${index}`}><span>{entry.from ? `${statusLabel(entry.from)} → ` : ""}{statusLabel(entry.to)}</span><small>{entry.author} · {new Date(entry.at).toLocaleString()}</small>{entry.note && <p>{entry.note}</p>}</article>)}</div>}
         </div>
         <footer className="bug-detail-actions"><button className="command-button danger" onClick={() => setPendingBugDelete(selected)}><Trash2 size={16} /> Delete bug</button><button className="command-button secondary" onClick={() => void exportBugToCodex(selected)}><ClipboardCopy size={16} /> Export to Codex</button><button className="command-button primary" onClick={() => void save(selected)}><Save size={16} /> Save changes</button></footer>
       </> : <div className="bugs-empty"><Pencil size={26} /><strong>Select a bug</strong><span>Open it here to edit details or move it to Ready for test.</span></div>}</aside>
@@ -2228,6 +2286,7 @@ function HelpCenterModal({ onClose }: { onClose: () => void }) {
 
 function Dashboard({
   state,
+  displayPresence,
   updateState,
   deleteDisplay,
   identifyDisplay,
@@ -2238,6 +2297,7 @@ function Dashboard({
   openBoard
 }: {
   state: LanternState;
+  displayPresence: Partial<Record<ScreenId, Extract<HostMessage, { type: "display-presence" }>>>;
   selectedDisplayId: ScreenId;
   setSelectedDisplayId: (screenId: ScreenId) => void;
   updateState: (updater: (current: LanternState) => LanternState) => void;
@@ -2268,6 +2328,8 @@ function Dashboard({
         <div className="preview-stage">
           <div className={`dashboard-display-grid ${previewGridClass}`} data-display-count={displays.length}>
             {displays.map((screen) => {
+              const displaySession = displayPresence[screen.id];
+              const displayIsOpen = Boolean(displaySession);
               const activeSchedule = resolveCurrentBoardSchedule(state, screen.id, now);
               // The dashboard must reflect the schedule, not the display's
               // legacy/default assignment. When no board event is active,
@@ -2308,6 +2370,9 @@ function Dashboard({
                     <div className="dashboard-display-heading">
                       <strong>{screen.label}</strong>
                       <button className="icon-button dashboard-identify-button" onClick={() => identifyDisplay(screen.id)} title={`Identify ${screen.label}`} aria-label={`Identify ${screen.label}`}><Radio size={15} /></button>
+                      <span className={`dashboard-display-presence ${displayIsOpen ? "open" : "closed"}`} title={displayIsOpen ? `${displaySession!.deviceName} is actively reporting from this board.` : "No active display session has reported in the last five seconds."}>
+                        <Circle size={8} fill="currentColor" aria-hidden="true" /> {displayIsOpen ? `Open · ${displaySession!.deviceName}` : "Closed"}
+                      </span>
                       <span className={`dashboard-assignment-pill ${activeBoard ? "board" : "unscheduled"}`} title={activeBoard ? `Active board: ${activeBoard.name}` : "No active board is scheduled"}>{activeBoard ? `Board · ${activeBoard.name}` : "Nothing scheduled"}</span>
                       {liveMessage && <span className="dashboard-assignment-pill live" title={`Live scheduled message: ${liveMessage.title || "Untitled message"}`}>Live · {liveMessage.title || "Message"}</span>}
                     </div>
@@ -2354,6 +2419,32 @@ function Dashboard({
       </div>
     </section>
   );
+}
+
+function DisplayStatusPanel({ state, presence, snapshot, onClose }: {
+  state: LanternState;
+  presence: Partial<Record<ScreenId, Extract<HostMessage, { type: "display-presence" }>>>;
+  snapshot: DisplaySessionSnapshot;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<"current" | "history">("current");
+  const displayName = (screenId: string) => state.screens[screenId]?.label ?? screenId;
+  const liveSessions = Object.values(presence);
+  const history = snapshot.history.slice().reverse();
+  return <div className="modal-backdrop display-status-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <section className="editor-modal display-status-panel" role="dialog" aria-modal="true" aria-labelledby="display-status-title">
+      <div className="editor-modal-head"><div><p className="eyebrow">Display delivery</p><h2 id="display-status-title">Display status</h2></div><button className="icon-button" onClick={onClose} title="Close display status"><X size={17} /></button></div>
+      <p className="field-note">A green session is reporting from the display itself. If its heartbeat stops, it is shown as unreachable—this can mean the board was closed, the device lost Wi-Fi, or the browser froze.</p>
+      <div className="editor-tabs" role="tablist"><button role="tab" aria-selected={tab === "current"} className={tab === "current" ? "selected" : ""} onClick={() => setTab("current")}>Current</button><button role="tab" aria-selected={tab === "history"} className={tab === "history" ? "selected" : ""} onClick={() => setTab("history")}>History</button></div>
+      {tab === "current" ? <div className="display-status-list">{Object.values(state.screens).map((screen) => {
+        const session = presence[screen.id];
+        const serverSession = snapshot.sessions.find((item) => item.screenId === screen.id);
+        const active = Boolean(session || serverSession);
+        const device = session?.deviceName ?? serverSession?.deviceName;
+        return <article key={screen.id} className={active ? "active" : "inactive"}><Circle size={10} fill="currentColor" /><div><strong>{screen.label}</strong><small>{active ? `Open · ${device ?? "display browser"}` : "Unreachable or closed"}</small></div><span>{screen.orientation}</span></article>;
+      })}</div> : <div className="display-status-list history">{history.length ? history.map((event, index) => <article key={`${event.at}-${index}`} className={event.status}><Circle size={10} fill="currentColor" /><div><strong>{displayName(event.screenId)} · {event.status === "opened" ? "Opened" : event.status === "closed" ? "Closed" : event.status === "offline" ? "Wi-Fi offline" : event.status === "online" ? "Wi-Fi restored" : "Unreachable"}</strong><small>{event.deviceName} · {new Date(event.at).toLocaleString()}</small></div></article>) : <p className="field-note">No server history yet. New display sessions will appear here.</p>}</div>}
+    </section>
+  </div>;
 }
 
 function PhoneBlipControls({ state, updateState }: { state: LanternState; updateState: (updater: (current: LanternState) => LanternState) => void }) {
@@ -2463,10 +2554,11 @@ function DonorsView({
   const [sortOrder, setSortOrder] = useState<"manual" | "az" | "za">(
     () => state.userPreferences.find((preferences) => preferences.userId === activeUserId)?.donorSort ?? "manual"
   );
-  const [editTab, setEditTab] = useState<"basic" | "giving" | "about" | "displays">("basic");
+  const [editTab, setEditTab] = useState<"basic" | "giving" | "history" | "displays">("basic");
   const [discardDraftPending, setDiscardDraftPending] = useState(false);
   const [draftDonorListIds, setDraftDonorListIds] = useState<string[]>([]);
   const [originalDonorListIds, setOriginalDonorListIds] = useState<string[]>([]);
+  const [selectedDonorListId, setSelectedDonorListId] = useState("");
   const availableDonorLists = useMemo(() => donorListOptions(state), [state.boardPrograms]);
   const discardEditor = () => {
     setDiscardDraftPending(false);
@@ -2474,6 +2566,7 @@ function DonorsView({
     setDraft(null);
     setDraftDonorListIds([]);
     setOriginalDonorListIds([]);
+    setSelectedDonorListId("");
   };
   const closeEditor = () => {
     if (draft && editingId) {
@@ -2577,6 +2670,7 @@ function DonorsView({
     setDraft({ ...donor, boardIds: donor.boardIds ?? state.boardPrograms.filter((board) => board.donorIds.includes(donor.id)).map((board) => board.id) });
     setDraftDonorListIds(assignedListIds);
     setOriginalDonorListIds(assignedListIds);
+    setSelectedDonorListId(assignedListIds[0] ?? donorListOptions(state)[0]?.id ?? "");
     setEditTab("basic");
   };
 
@@ -2857,9 +2951,27 @@ function DonorsView({
       {draft && editingId && createPortal(<div className="modal-backdrop donor-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
         <section className="editor-modal donor-editor-modal" role="dialog" aria-modal="true" aria-labelledby="donor-editor-title">
           <div className="editor-modal-head"><div><p className="eyebrow">Recognition profile</p><h2 id="donor-editor-title">Edit donor</h2></div><button className="icon-button" onClick={closeEditor} title="Close editor"><X size={18} /></button></div>
-          <EditorTabs value={editTab} options={[["basic", "Basic info"], ["giving", "Pledge & donations"], ["about", "About"], ["displays", "Donor lists"]]} onChange={(value) => setEditTab(value as typeof editTab)} />
+          <EditorTabs value={editTab} options={[["basic", "Donor info"], ["giving", "Pledge & donations"], ["history", "Donation history"], ["displays", "Donor lists"]]} onChange={(value) => setEditTab(value as typeof editTab)} />
           <div className="editor-modal-body donor-editor-body">
-            {editTab === "basic" && <div className="editor-form-grid"><LabeledInput label="Name" info="Donor or organization display name." value={draft.name} onChange={(name) => setDraft({ ...draft, name })} /><LabeledInput label="Recognition year" info="Year this donor's recognition begins." value={draft.pledgeStartYear ?? draft.donationDate ?? draft.since} onChange={(year) => setDraft({ ...draft, pledgeStartYear: year, donationDate: year, since: year })} /><LabeledSelect label="Tier" info="Recognition tier." value={draft.tier} options={state.recognitionSettings.tiers} onChange={(tier) => setDraft({ ...draft, tier })} /><LabeledSelect label="Category" info="Donor category." value={draft.category} options={state.recognitionSettings.categories} onChange={(category) => setDraft({ ...draft, category })} /></div>}
+            {editTab === "basic" && <div className="editor-form-grid">
+              <LabeledInput label="Name" info="Donor or organization name used for recognition." value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
+              <LabeledSelect label="Donor type" info="Relationship type for stewardship and reporting." value={draft.donorType ?? "Individual"} options={["Individual", "Family", "Organization", "Foundation", "Corporate", "Government", "Anonymous", "Other"]} onChange={(donorType) => setDraft({ ...draft, donorType: donorType as Donor["donorType"] })} />
+              <LabeledInput label="Organization / household" info="Optional organization, family, or household name." value={draft.organizationName ?? ""} onChange={(organizationName) => setDraft({ ...draft, organizationName })} />
+              <LabeledSelect label="Recognition category" info="Recognition category used by existing board filters." value={draft.category} options={state.recognitionSettings.categories} onChange={(category) => setDraft({ ...draft, category })} />
+              <LabeledInput label="Phone number" info="Best number for donor stewardship." value={draft.phone ?? ""} onChange={(phone) => setDraft({ ...draft, phone })} />
+              <LabeledInput label="Email" info="Email for receipts and follow-up." value={draft.email ?? ""} onChange={(email) => setDraft({ ...draft, email })} />
+              <LabeledInput label="Address line 1" info="Mailing street address." value={draft.addressLine1 ?? ""} onChange={(addressLine1) => setDraft({ ...draft, addressLine1 })} />
+              <LabeledInput label="Address line 2" info="Suite, apartment, or other address detail." value={draft.addressLine2 ?? ""} onChange={(addressLine2) => setDraft({ ...draft, addressLine2 })} />
+              <LabeledInput label="City" info="Mailing city." value={draft.city ?? ""} onChange={(city) => setDraft({ ...draft, city })} />
+              <LabeledInput label="State / province" info="Mailing state or province." value={draft.stateProvince ?? ""} onChange={(stateProvince) => setDraft({ ...draft, stateProvince })} />
+              <LabeledInput label="Postal code" info="ZIP or postal code." value={draft.postalCode ?? ""} onChange={(postalCode) => setDraft({ ...draft, postalCode })} />
+              <LabeledSelect label="Preferred contact" info="How the museum should normally contact this donor." value={draft.preferredContactMethod ?? "Email"} options={["Email", "Phone", "Mail", "None"]} onChange={(preferredContactMethod) => setDraft({ ...draft, preferredContactMethod: preferredContactMethod as Donor["preferredContactMethod"] })} />
+              <LabeledSelect label="Acknowledgement preference" info="Recognition and communication preference." value={draft.acknowledgementPreference ?? "Public recognition"} options={["Public recognition", "Anonymous", "No mail", "No solicitation"]} onChange={(acknowledgementPreference) => setDraft({ ...draft, acknowledgementPreference: acknowledgementPreference as Donor["acknowledgementPreference"] })} />
+              <LabeledInput label="Relationship manager" info="Museum staff member responsible for the relationship." value={draft.relationshipManager ?? ""} onChange={(relationshipManager) => setDraft({ ...draft, relationshipManager })} />
+              <label className="field span-two"><span>Donor story</span><textarea className="expanded-copy" value={draft.expandedInfo ?? ""} onChange={(event) => setDraft({ ...draft, expandedInfo: event.target.value })} placeholder="Impact story, relationship context, and stewardship notes" /></label>
+              <label className="field span-two"><span>Favorite joke</span><textarea value={draft.favoriteJoke ?? ""} onChange={(event) => setDraft({ ...draft, favoriteJoke: event.target.value })} /></label>
+              <label className="field span-two"><span>Favorite inspirational quote</span><textarea value={draft.favoriteQuote ?? ""} onChange={(event) => setDraft({ ...draft, favoriteQuote: event.target.value })} /></label>
+            </div>}
             {editTab === "giving" && <><DonorPledgeEditor state={state} donor={draft} onChange={(nextDonor) => {
               const previousBoardIds = new Set(draft.boardIds ?? []);
               const nextBoardIds = new Set(nextDonor.boardIds ?? []);
@@ -2869,12 +2981,12 @@ function DonorsView({
                 if (previousBoardIds.has(option.boardId) && !nextBoardIds.has(option.boardId)) return assignments.filter((id) => id !== option.id);
                 return assignments;
               }, current));
-            }} /><DonationHistoryEditor donor={draft} users={state.users} activeUserId={activeUserId} onChange={(donations) => setDraft({ ...draft, donations })} /></>}
-            {editTab === "about" && <div className="editor-form-grid"><label className="field span-two"><span>Basic info</span><textarea value={draft.basicInfo ?? ""} onChange={(event) => setDraft({ ...draft, basicInfo: event.target.value })} /></label><label className="field span-two"><span>Donor story</span><textarea className="expanded-copy" value={draft.expandedInfo ?? ""} onChange={(event) => setDraft({ ...draft, expandedInfo: event.target.value })} /></label><label className="field span-two"><span>Favorite joke</span><textarea value={draft.favoriteJoke ?? ""} onChange={(event) => setDraft({ ...draft, favoriteJoke: event.target.value })} /></label><label className="field span-two"><span>Favorite inspiration quote</span><textarea value={draft.favoriteQuote ?? ""} onChange={(event) => setDraft({ ...draft, favoriteQuote: event.target.value })} /></label></div>}
-            {editTab === "displays" && <div className="display-assignment-grid">{availableDonorLists.map((option) => {
+            }} /></>}
+            {editTab === "history" && <DonationHistoryEditor donor={draft} users={state.users} activeUserId={activeUserId} onChange={(donations) => setDraft({ ...draft, donations })} />}
+            {editTab === "displays" && <div className="donor-list-manager"><label className="field"><span>Donor list</span><select value={selectedDonorListId} onChange={(event) => setSelectedDonorListId(event.target.value)}>{availableDonorLists.map((option) => <option key={option.id} value={option.id}>{draftDonorListIds.includes(option.id) ? "✓ " : ""}{option.label}</option>)}</select></label>{(() => { const selected = availableDonorLists.find((option) => option.id === selectedDonorListId); return selected ? <section className="donor-list-preview"><header><div><p className="eyebrow">Selected board preview</p><strong>{selected.board.name}</strong><small>{selected.board.orientation} · {selected.label}</small></div><button type="button" className="command-button secondary compact" onClick={() => onOpenBoard(selected.boardId)}><ExternalLink size={14} /> Open board</button></header><div className="donor-list-preview-surface" style={{ background: selected.board.backgroundColor ?? "#243a60" }}><span>{selected.board.name}</span><b>{selected.label}</b><small>{draftDonorListIds.includes(selected.id) ? `${draft.name} is included in this list` : `${draft.name} is not included in this list`}</small></div></section> : null; })()}<div className="display-assignment-grid">{availableDonorLists.map((option) => {
               const assigned = draftDonorListIds.includes(option.id);
-              return <div className={assigned ? "display-assignment selected" : "display-assignment"} key={option.id}><input className="display-assignment-toggle" type="checkbox" checked={assigned} onChange={(event) => setDraftDonorListIds((current) => event.target.checked ? [...new Set([...current, option.id])] : current.filter((id) => id !== option.id))} aria-label={`${assigned ? "Remove" : "Add"} ${draft.name} ${assigned ? "from" : "to"} ${option.label}`} /><span><strong>{option.label}</strong><small>{assigned ? "Included through the board's donor list" : "Not currently included"}</small></span><button type="button" className="command-button secondary compact" onClick={() => onOpenBoard(option.boardId)}><ExternalLink size={14} /> Open board</button></div>;
-            })}{!availableDonorLists.length && <div className="empty-inspector"><Users size={24} /><strong>No donor lists available</strong><span>Add a donor-list panel to a board to assign donors here.</span></div>}</div>}
+              return <div className={assigned ? "display-assignment selected" : "display-assignment"} key={option.id}><input className="display-assignment-toggle" type="checkbox" checked={assigned} onChange={(event) => setDraftDonorListIds((current) => event.target.checked ? [...new Set([...current, option.id])] : current.filter((id) => id !== option.id))} aria-label={`${assigned ? "Remove" : "Add"} ${draft.name} ${assigned ? "from" : "to"} ${option.label}`} /><span><strong>{assigned ? "✓ " : ""}{option.label}</strong><small>{assigned ? "Included in this donor list" : "Add to this donor list"}</small></span></div>;
+            })}</div>{!availableDonorLists.length && <div className="empty-inspector"><Users size={24} /><strong>No donor lists available</strong><span>Add a donor-list panel to a board to assign donors here.</span></div>}</div>}
           </div>
           <div className="editor-modal-actions"><button className="command-button secondary" onClick={closeEditor}>Cancel</button><button className="command-button primary" onClick={saveDonor}><Save size={17} /> Save changes</button></div>
         </section>
@@ -3017,7 +3129,8 @@ function DonorPledgeEditor({ state, donor, onChange }: { state: LanternState; do
   return <div className="pledge-editor">
     <div className="pledge-editor-note"><BadgeCheck size={19} /><span><strong>A pledge is a commitment, not a received payment.</strong><small>Creating or changing a pledge never adds money to Donation History. Add a gift there only when the museum actually receives it.</small></span></div>
     <div className="editor-form-grid">
-      <LabeledSelect label="Giving program" info="Optional society or campaign. Program and level drive linked roster-board eligibility." value={donor.givingProgramId ?? ""} options={["", ...state.givingPrograms.filter((item) => item.active !== false || item.id === donor.givingProgramId).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)).map((item) => item.id)]} optionLabels={{ "": "No giving program", ...Object.fromEntries(state.givingPrograms.map((item) => [item.id, `${item.name}${item.active === false ? " (archived)" : ""}`])) }} onChange={chooseProgram} />
+      <LabeledSelect label="Program" info="Choose General donation for ordinary gifts, volunteering, or physical contributions; choose Toy Soldier Brigade for its pledge options." value={donor.givingProgramId ?? ""} options={["", ...state.givingPrograms.filter((item) => item.active !== false || item.id === donor.givingProgramId).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)).map((item) => item.id)]} optionLabels={{ "": "General donation", ...Object.fromEntries(state.givingPrograms.map((item) => [item.id, `${item.name}${item.active === false ? " (archived)" : ""}`])) }} onChange={chooseProgram} />
+      {!program && <><LabeledSelect label="General donation type" info="What kind of support is being discussed or recognized. Confirm actual receipts in Donation History." value={donor.donationType ?? "Cash"} options={["Cash", "Volunteer", "In-kind"]} optionLabels={{ Cash: "Money", Volunteer: "Volunteering", "In-kind": "Physical donation" }} onChange={(donationType) => onChange({ ...donor, donationType: donationType as Donor["donationType"] })} /><LabeledInput label="Fund / designation" info="Optional purpose, campaign, or restricted fund for this general contribution." value={donor.generalDonationFund ?? ""} onChange={(generalDonationFund) => onChange({ ...donor, generalDonationFund })} /><LabeledInput label="Recognition year" info="Year this general donor's recognition begins." value={donor.donationDate ?? donor.since} onChange={(donationDate) => onChange({ ...donor, donationDate, since: donationDate })} /><LabeledSelect label="Recognition tier" info="Tier used by general-donor recognition boards." value={donor.tier} options={state.recognitionSettings.tiers} onChange={(tier) => onChange({ ...donor, tier })} /></>}
       {program && <LabeledSelect label="Giving level" info="Controls the member's tier and linked level-board placement." value={donor.givingLevelId ?? ""} options={program.levels.filter((item) => item.active !== false || item.id === donor.givingLevelId).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)).map((item) => item.id)} optionLabels={Object.fromEntries(program.levels.map((item) => [item.id, `${item.name} Level${item.active === false ? " (archived)" : ""}`]))} onChange={chooseLevel} />}
       {program && <PledgeAmountControl amounts={program.levels.filter((item) => item.active !== false).map((item) => item.annualPledge)} value={donor.pledgeAnnualAmount} onChange={(pledgeAnnualAmount) => onChange({ ...donor, pledgeAnnualAmount })} />}
       {program && <PledgeTermControl donor={donor} defaultYears={level?.years ?? 5} onChange={(term) => {
@@ -3567,6 +3680,7 @@ function ThemeStudio({
   const [pendingProgramDeleteId, setPendingProgramDeleteId] = useState<string | null>(null);
   const [pendingPanelDelete, setPendingPanelDelete] = useState<{ programId: string; ids: string[]; removed: Array<{ panel: BoardPanel; index: number }>; x: number; y: number } | null>(null);
   const [lastDeletedPanels, setLastDeletedPanels] = useState<{ programId: string; removed: Array<{ panel: BoardPanel; index: number }> } | null>(null);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const boardPickerRef = useRef<HTMLDetailsElement>(null);
   const boardActionsMenuRef = useRef<HTMLDetailsElement>(null);
   const boardAddMenuRef = useRef<HTMLDetailsElement>(null);
@@ -3598,6 +3712,16 @@ function ThemeStudio({
     ];
     return [...new Map(entries.map((entry) => [entry.imageUrl, entry])).values()];
   }, [state.boardPrograms, state.imageAssets]);
+  const chooseBoardLibraryImage = (imageUrl: string) => {
+    if (!selectedPanel) return;
+    const isBrassAccent = imageUrl.endsWith("/assets/board-accents/brass-arch.png");
+    const currentHeight = selectedPanel.height ?? 18;
+    const accentHeight = 7;
+    patchPanel(selectedPanel.id, isBrassAccent
+      ? { imageUrl, imageFit: "cover", height: accentHeight, y: (selectedPanel.y ?? 5) + (currentHeight - accentHeight) / 2 }
+      : { imageUrl, imageFit: "contain" });
+    setImagePickerOpen(false);
+  };
   const donorPageCount = Math.max(1, Math.ceil(filteredBoardDonors.length / donorPageSize));
   const donorPageItems = filteredBoardDonors.slice(donorPage * donorPageSize, donorPage * donorPageSize + donorPageSize);
   useEffect(() => {
@@ -4021,14 +4145,7 @@ function ThemeStudio({
               <section className="inspector-primary-section">
                 <header><strong>Content</strong></header>
                 {selectedPanel.type === "text" && <label className="field"><span>Text <InfoDot text="Use line breaks to arrange all copy inside this one text panel." /></span><textarea rows={7} value={selectedPanel.title} onChange={(event) => patchPanel(selectedPanel.id, { title: event.target.value })} /></label>}
-                {selectedPanel.type === "image" && <><LabeledSelect label="Stored images" info="Images already used on this site can be reused without uploading again. The brass accent is automatically tightened to a compact line panel." value={selectedPanel.imageUrl ?? ""} options={["", ...boardImageLibrary.map((image) => image.imageUrl)]} optionLabels={{ "": "Choose from image library", ...Object.fromEntries(boardImageLibrary.map((image) => [image.imageUrl, image.name])) }} onChange={(imageUrl) => {
-                  const isBrassAccent = imageUrl.endsWith("/assets/board-accents/brass-arch.png");
-                  const currentHeight = selectedPanel.height ?? 18;
-                  const accentHeight = 7;
-                  patchPanel(selectedPanel.id, isBrassAccent
-                    ? { imageUrl, imageFit: "cover", height: accentHeight, y: (selectedPanel.y ?? 5) + (currentHeight - accentHeight) / 2 }
-                    : { imageUrl: imageUrl || undefined, imageFit: "contain" });
-                }} /><label className="command-button secondary compact image-upload-button"><Upload size={15} /> {selectedPanel.imageUrl ? "Replace image" : "Choose PNG or image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void readSharedImageFile(file, (imageUrl) => patchPanel(selectedPanel.id, { imageUrl, imageFit: "contain" })); }} /></label><LabeledSelect label="Image fit" info="Contain keeps the whole image visible; cover fills the element." value={selectedPanel.imageFit ?? "contain"} options={["contain", "cover"]} optionLabels={{ contain: "Contain", cover: "Cover" }} onChange={(imageFit) => patchPanel(selectedPanel.id, { imageFit: imageFit as BoardPanel["imageFit"] })} /><Slider label="Rotate image" info="Turns this image within its panel." value={selectedPanel.imageRotation ?? 0} min={0} max={360} onChange={(imageRotation) => patchPanel(selectedPanel.id, { imageRotation })} /><label className="switch-row"><input type="checkbox" checked={selectedPanel.imageMirrored ?? false} onChange={(event) => patchPanel(selectedPanel.id, { imageMirrored: event.target.checked })} /><span>Mirror image horizontally</span></label></>}
+                {selectedPanel.type === "image" && <><div className="field"><span>Stored images <InfoDot text="Browse images already uploaded to this site. The brass accent is automatically tightened to a compact line panel." /></span><button type="button" className="image-library-picker-trigger" onClick={() => setImagePickerOpen(true)}><ImageIcon size={16} /><span>{boardImageLibrary.find((image) => image.imageUrl === selectedPanel.imageUrl)?.name ?? "Choose from image library"}</span><ChevronRight size={16} /></button></div><label className="command-button secondary compact image-upload-button"><Upload size={15} /> {selectedPanel.imageUrl ? "Replace image" : "Choose PNG or image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void readSharedImageFile(file, (imageUrl) => patchPanel(selectedPanel.id, { imageUrl, imageFit: "contain" })); }} /></label><LabeledSelect label="Image fit" info="Contain keeps the whole image visible; cover fills the element." value={selectedPanel.imageFit ?? "contain"} options={["contain", "cover"]} optionLabels={{ contain: "Contain", cover: "Cover" }} onChange={(imageFit) => patchPanel(selectedPanel.id, { imageFit: imageFit as BoardPanel["imageFit"] })} /><Slider label="Rotate image" info="Turns this image within its panel." value={selectedPanel.imageRotation ?? 0} min={0} max={360} onChange={(imageRotation) => patchPanel(selectedPanel.id, { imageRotation })} /><label className="switch-row"><input type="checkbox" checked={selectedPanel.imageMirrored ?? false} onChange={(event) => patchPanel(selectedPanel.id, { imageMirrored: event.target.checked })} /><span>Mirror image horizontally</span></label></>}
               </section>
               {selectedPanel.type === "donors" && <>
                 <div className="field"><span>Names in each row</span><SegmentedControl value={String(selectedPanel.columns ?? selectedProgram.columns)} options={[["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"]]} onChange={(value) => patchPanel(selectedPanel.id, { columns: Number(value) as BoardPanel["columns"] })} /></div>
@@ -4127,6 +4244,7 @@ function ThemeStudio({
       </div>
       <MobileBoardPageRail />
       {pendingProgramDelete && <LanternConfirmDialog eyebrow="Delete board template" title={`Delete “${pendingProgramDelete.name}”?`} description="This removes the reusable board and its board-specific presentation settings. Donor profiles remain available, and displays using this board move to the next available board." confirmLabel="Delete board" onCancel={() => setPendingProgramDeleteId(null)} onConfirm={() => deleteProgram(pendingProgramDelete.id)} />}
+      {imagePickerOpen && selectedPanel && createPortal(<MediaLibraryPicker images={boardImageLibrary} selectedUrl={selectedPanel.imageUrl} onChoose={chooseBoardLibraryImage} onClose={() => setImagePickerOpen(false)} />, document.body)}
       {pendingPanelDelete && createPortal(<section className="panel-delete-confirm" style={{ left: pendingPanelDelete.x, top: pendingPanelDelete.y }} role="alertdialog" aria-label="Confirm element deletion"><strong>Remove {pendingPanelDelete.removed.length === 1 ? "this element" : `${pendingPanelDelete.removed.length} elements`}?</strong><span>You can restore it with Ctrl/Cmd+Z.</span><div><button type="button" onClick={() => setPendingPanelDelete(null)}>Cancel</button><button type="button" className="danger" onClick={confirmRemovePanel}>Remove</button></div></section>, document.body)}
     </section>
   );
@@ -5974,7 +6092,8 @@ function LivePreviewPanel({
   updateState,
   startLive,
   startLiveStream,
-  stopLive
+  stopLive,
+  retargetLive
 }: {
   state: LanternState;
   activeUserId?: string;
@@ -5983,6 +6102,7 @@ function LivePreviewPanel({
   startLive: () => void;
   startLiveStream: (stream: MediaStream, detail: string) => Promise<void>;
   stopLive: () => void;
+  retargetLive: (target: TargetScreen, targets?: ScreenId[]) => void;
 }) {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
@@ -6170,8 +6290,9 @@ function LivePreviewPanel({
   const openTargetOptions = openedBoardIds(state);
   const openScreens = allScreens.filter((screen) => openTargetOptions.includes(screen.id));
   const openTargetLabels = Object.fromEntries(openScreens.map((screen) => [screen.id, `${screen.label} (${screen.orientation})`]));
-  const previewScreen = state.screens[state.live.target] ?? allScreens[0];
-  const previewScreens = state.live.target === "all" ? allScreens : [previewScreen];
+  const selectedLiveTargets = liveTargets(state.live, state);
+  const previewScreen = state.screens[selectedLiveTargets[0] ?? state.live.target] ?? allScreens[0];
+  const previewScreens = selectedLiveTargets.length > 1 ? allScreens.filter((screen) => selectedLiveTargets.includes(screen.id)) : [previewScreen];
   const closeBroadcastRoomCamera = () => {
     const popup = roomCameraWindowRef.current;
     roomCameraWindowRef.current = null;
@@ -6356,7 +6477,7 @@ function LivePreviewPanel({
           // competing camera/microphone permission prompts on mobile browsers.
           stream = await navigator.mediaDevices.getUserMedia({
             video: phoneVideo,
-            audio: { echoCancellation: true, noiseSuppression: true }
+            audio: state.live.audioEnabled === false ? false : { echoCancellation: true, noiseSuppression: true }
           });
         } catch {
           // A presenter may deny microphone access while still allowing the
@@ -6378,7 +6499,7 @@ function LivePreviewPanel({
             fallbackToDefault: true,
             required: true
           },
-          audio: {
+          audio: state.live.audioEnabled === false ? false : {
             deviceId: state.live.audioDeviceId,
             constraints: { echoCancellation: true, noiseSuppression: true },
             fallbackToDefault: true,
@@ -6705,19 +6826,45 @@ function LivePreviewPanel({
     stopLive();
   };
 
+  useEffect(() => {
+    if (!state.live.active) return;
+    retargetLive(state.live.target, state.live.targets);
+  }, [state.live.active, state.live.target, state.live.targets?.join("|"), retargetLive]);
+
   const startPhoneBroadcast = async (sourceStream: MediaStream) => {
     const session = ++broadcastSessionRef.current;
     const broadcastStream = sourceStream.clone();
+    let suspendedCameraTimer: number | undefined;
+    const endForSuspendedCamera = () => {
+      if (broadcastSessionRef.current !== session || !liveActiveRef.current) return;
+      // iOS can suspend a backgrounded browser without delivering pagehide.
+      // A suspended camera otherwise leaves a black, seemingly-live program
+      // output. A short grace period absorbs transient track mutes.
+      suspendedCameraTimer = window.setTimeout(() => {
+        if (broadcastSessionRef.current !== session || !liveActiveRef.current) return;
+        stopPreviewStream(true);
+        endLivePresentation();
+      }, 1500);
+    };
     const setRecovery = (state: "paused" | "resume", detail: string) => {
       if (broadcastSessionRef.current !== session) return;
       setCameraRecovery(state);
       setPreviewError(detail);
     };
     broadcastStream.getVideoTracks().forEach((track) => {
-      track.addEventListener("ended", () => setRecovery("resume", "Camera video ended. Tap Resume camera to restore the live picture; your title and message will stay live."), { once: true });
-      track.addEventListener("mute", () => setRecovery("paused", "Camera video is paused. Keep this page open; if it does not return, tap Resume camera."));
+      track.addEventListener("ended", () => {
+        if (suspendedCameraTimer) window.clearTimeout(suspendedCameraTimer);
+        setRecovery("resume", "Camera video ended. The broadcast has ended; reopen the presenter and start a new broadcast.");
+        endLivePresentation();
+      }, { once: true });
+      track.addEventListener("mute", () => {
+        setRecovery("paused", "Camera video is paused. The broadcast will end if the phone stays suspended.");
+        endForSuspendedCamera();
+      });
       track.addEventListener("unmute", () => {
         if (broadcastSessionRef.current !== session) return;
+        if (suspendedCameraTimer) window.clearTimeout(suspendedCameraTimer);
+        suspendedCameraTimer = undefined;
         setCameraRecovery("none");
         setPreviewError((current) => current?.startsWith("Camera video") ? null : current);
       });
@@ -6786,7 +6933,7 @@ function LivePreviewPanel({
         : "Connect a video source before broadcasting.";
 
   const beginLivePresentation = () => {
-    if (phoneMode && !openTargetOptions.includes(state.live.target as ScreenId)) {
+    if (phoneMode && !selectedLiveTargets.length) {
       setPreviewError(openScreens.length ? "Choose one of the open displays before going live." : "Open a display first. Phone broadcasts can only be sent to an open display.");
       setPhoneSettingsOpen(true);
       return;
@@ -6836,9 +6983,9 @@ function LivePreviewPanel({
   };
 
   useEffect(() => {
-    if (!phoneMode || state.live.active || !openTargetOptions.length || openTargetOptions.includes(state.live.target as ScreenId)) return;
-    patchLive({ target: openTargetOptions[0] as TargetScreen });
-  }, [phoneMode, state.live.active, state.live.target, openTargetOptions.join("|")]);
+    if (!phoneMode || state.live.active || !openTargetOptions.length || selectedLiveTargets.some((id) => openTargetOptions.includes(id))) return;
+    patchLive({ target: openTargetOptions[0] as TargetScreen, targets: [openTargetOptions[0] as ScreenId] });
+  }, [phoneMode, state.live.active, state.live.target, state.live.targets?.join("|"), openTargetOptions.join("|")]);
 
   const popoutScreens = popoutMode === "all" ? allScreens : [previewScreen];
   const previewPortal = previewWindow && !previewWindow.closed && previewWindow.document.getElementById("lantern-live-preview-root")
@@ -6909,8 +7056,16 @@ function LivePreviewPanel({
         {phoneSettingsOpen && <div className="phone-broadcast-fields">
           <LabeledInput label="Your name" value={state.live.title} onChange={(title) => patchLive({ title })} />
           <LabeledInput label="Message" value={state.live.lowerThird} onChange={(lowerThird) => patchLive({ lowerThird })} />
-          <LabeledSelect label="Broadcast to" value={openTargetOptions.includes(state.live.target as ScreenId) ? state.live.target : ""} options={["", ...openTargetOptions]} optionLabels={{ "": openTargetOptions.length ? "Choose an open display" : "No displays are open" , ...openTargetLabels }} onChange={(target) => target && patchLive({ target: target as TargetScreen })} />
+          <div className="field phone-display-targets"><span>Broadcast to</span><div className="phone-target-pills" role="group" aria-label="Open display destinations">{openTargetOptions.length ? <>{openTargetOptions.map((target) => <button key={target} type="button" className={selectedLiveTargets.includes(target) ? "selected" : ""} aria-pressed={selectedLiveTargets.includes(target)} onClick={() => {
+            const nextTargets = selectedLiveTargets.includes(target) ? selectedLiveTargets.filter((id) => id !== target) : [...selectedLiveTargets, target];
+            patchLive({ target: nextTargets[0] ?? target, targets: nextTargets });
+          }}>{openTargetLabels[target]}</button>)}<button type="button" className={openTargetOptions.length > 0 && openTargetOptions.every((target) => selectedLiveTargets.includes(target)) ? "selected" : ""} onClick={() => {
+            const allSelected = openTargetOptions.every((target) => selectedLiveTargets.includes(target));
+            const nextTargets = allSelected ? [] : openTargetOptions;
+            patchLive({ target: nextTargets[0] ?? state.live.target, targets: nextTargets });
+          }}>All open</button></> : <small>No displays are open</small>}</div></div>
           <label className="switch-row phone-background-removal"><input type="checkbox" checked={backgroundRemoval.enabled} onChange={(event) => setBackgroundRemovalEnabled(event.target.checked)} /><span>Remove background</span></label>
+          <label className="switch-row phone-audio-capture"><input type="checkbox" checked={state.live.audioEnabled !== false} onChange={(event) => patchLive({ audioEnabled: event.target.checked })} /><span><strong>Share microphone audio</strong><small>Your phone microphone is sent to the display when its sound is on. Restart the camera after changing this.</small></span></label>
         </div>}
         {phoneMode && state.live.active && <PhoneBroadcastDelivery screen={previewScreen} delivery={previewScreen ? displayDelivery[previewScreen.id] : undefined} />}
         <footer className="phone-broadcast-actions">
@@ -7074,7 +7229,23 @@ function LivePreviewPanel({
 
         <section className="effect-settings-card face-settings-card">
           <div className="effect-card-heading"><div><strong>Face effects</strong><span>Choose a friendly style, then turn on the camera preview.</span></div><b>{trackingStatus?.phase === "tracking" || trackingStatus?.phase === "degraded" ? `${Math.round(trackingStatus.renderedFps)} FPS` : trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "DETECTING" : "LOCAL"}</b></div>
-          <label className="switch-row face-effect-toggle"><input type="checkbox" checked={state.live.effects.faceTracking} onChange={(event) => patchLive({ effects: { ...state.live.effects, faceTracking: event.target.checked, puppetPreview: event.target.checked && state.live.effects.puppetPreview, trackingDebug: event.target.checked && state.live.effects.trackingDebug, trackedPointsOverlay: event.target.checked && state.live.effects.trackedPointsOverlay } })} /><ScanFace size={16} /><span><strong>Face, body & hand tracking</strong><small>{trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "Detecting face…" : "Head, ears, eyes, mouth, shoulders, hands and fingers"}</small></span><InfoDot text="The local tracker warms once, stabilizes landmarks between frames, and adapts between 60 and 30 FPS when needed." /></label>
+          <label className="switch-row face-effect-toggle"><input type="checkbox" checked={state.live.effects.faceTracking} onChange={(event) => {
+            const enabled = event.target.checked;
+            patchLive({ effects: {
+              ...state.live.effects,
+              faceTracking: enabled,
+              puppetPreview: enabled && state.live.effects.puppetPreview,
+              trackingDebug: enabled && state.live.effects.trackingDebug,
+              trackedPointsOverlay: enabled && state.live.effects.trackedPointsOverlay,
+              // This is the authoritative off switch. Dependent wearables must
+              // not keep the inference loop and a stale costume alive.
+              glassesEnabled: enabled && state.live.effects.glassesEnabled,
+              hatEnabled: enabled && state.live.effects.hatEnabled,
+              partyHatEnabled: enabled && state.live.effects.partyHatEnabled,
+              costumeEnabled: enabled && state.live.effects.costumeEnabled,
+              handProp: enabled ? state.live.effects.handProp : "none"
+            } });
+          }} /><ScanFace size={16} /><span><strong>Face, body & hand tracking</strong><small>{trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "Detecting face…" : "Head, ears, eyes, mouth, shoulders, hands and fingers"}</small></span><InfoDot text="The local tracker warms once, stabilizes landmarks between frames, and adapts between 60 and 30 FPS when needed." /></label>
           <div className="phase4-effect-choice-grid">
             <div><span>Glasses</span><div className="accessory-options"><button type="button" className={!state.live.effects.glassesEnabled ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, glassesEnabled: false } })}>Off</button>{(["classic", "playful"] as const).map((style) => <button type="button" key={style} className={state.live.effects.glassesEnabled && (state.live.effects.glassesStyle ?? "classic") === style ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, glassesEnabled: true, glassesStyle: style, accessory: "glasses", faceTracking: true } })}><Glasses size={15} /> {style === "classic" ? "Classic" : "Playful"}</button>)}</div></div>
             <div><span>Hats</span><div className="accessory-options"><button type="button" className={!state.live.effects.hatEnabled ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, hatEnabled: false, partyHatEnabled: false } })}>Off</button>{(["party", "wizard"] as const).map((style) => <button type="button" key={style} className={state.live.effects.hatEnabled && (state.live.effects.hatStyle ?? "party") === style ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, hatEnabled: true, partyHatEnabled: style === "party", hatStyle: style, faceTracking: true } })}><PartyPopper size={15} /> {style === "party" ? "Party" : "Wizard"}</button>)}</div></div>
@@ -7204,7 +7375,11 @@ function AnnouncementMonitorSurface({
         {viewMode === "2d" && <FixedAnnouncementComposition screen={screen} announcement={announcement} startedAt={startedAt} playOnComplete={playOnComplete} editing={editing} onPatch={onPatch} />}
       </div>
     </div>
-    <div className="monitor-view-hint">{editing ? <><Move size={13} /> Drag the text box, timer, or image · click text to edit</> : viewMode === "3d" ? <><Move3d size={13} /> Drag to orbit · Shift-drag to pan · wheel to zoom</> : <><Move size={13} /> Drag to pan · wheel to zoom</>}</div>
+    {editing && <div className="board-editor-view-controls announcement-editor-view-controls" aria-label="Announcement editor view controls">
+      <div className="board-editor-zoom-controls"><button type="button" onClick={() => adjustZoom(-1)} title="Zoom out" aria-label="Zoom out"><ZoomOut size={15} /></button><button type="button" className="board-editor-zoom-value" onClick={resetView} title="Reset zoom and pan">{Math.round(view.zoom * 100)}%</button><button type="button" onClick={() => adjustZoom(1)} title="Zoom in" aria-label="Zoom in"><ZoomIn size={15} /></button></div>
+      <div className="board-editor-pan-controls" aria-label="Pan announcement view"><span /><button type="button" onClick={() => setView((current) => ({ ...current, y: current.y + 44 }))} title="Pan up" aria-label="Pan up"><ChevronUp size={15} /></button><span /><button type="button" onClick={() => setView((current) => ({ ...current, x: current.x + 44 }))} title="Pan left" aria-label="Pan left"><ChevronLeft size={15} /></button><button type="button" onClick={resetView} title="Reset announcement view" aria-label="Reset announcement view"><RotateCcw size={14} /></button><button type="button" onClick={() => setView((current) => ({ ...current, x: current.x - 44 }))} title="Pan right" aria-label="Pan right"><ChevronRight size={15} /></button><span /><button type="button" onClick={() => setView((current) => ({ ...current, y: current.y - 44 }))} title="Pan down" aria-label="Pan down"><ChevronDown size={15} /></button><span /></div>
+    </div>}
+    <div className="monitor-view-hint">{editing ? <><Move size={13} /> Drag an element to edit · use the navigation pad to inspect the full canvas</> : viewMode === "3d" ? <><Move3d size={13} /> Drag to orbit · Shift-drag to pan · wheel to zoom</> : <><Move size={13} /> Drag to pan · wheel to zoom</>}</div>
   </div>;
 }
 
@@ -7686,6 +7861,22 @@ function MediaStreamAudioOutput({ stream, muted, gain }: { stream: MediaStream |
   return null;
 }
 
+/** The visible camera element is intentionally muted, so public displays need
+ * their own native audio output for a presenter's microphone. */
+function LiveDisplayAudioOutput({ stream }: { stream: MediaStream | null }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.srcObject = stream;
+    if (stream?.getAudioTracks().length) void audio.play().catch(() => undefined);
+    return () => { audio.srcObject = null; };
+  }, [stream]);
+
+  return <audio ref={audioRef} autoPlay playsInline className="sr-only" />;
+}
+
 function ScreensView({
   state,
   activeUserId,
@@ -8102,7 +8293,8 @@ function ScreensView({
         {editorTab === "setup" &&
         <div className="screen-editor-grid">
           <LabeledInput label="Display name" info="User-facing name for this physical display, such as Entrance Display - Portrait." value={editingScreen.label} onChange={(value) => patchDisplay(editingScreen.id, { label: value })} />
-          <LabeledSelect label="Orientation" info="Physical screen orientation." value={editingScreen.orientation} options={["Portrait", "Landscape"]} onChange={(value) => patchDisplay(editingScreen.id, { orientation: value as DisplayProfile["orientation"], resolution: value === "Portrait" ? "1080 x 1920" : "1920 x 1080" })} />
+          <LabeledSelect label="Display format" info="The layout your board was designed for. Choose Portrait for a portrait board, even when its landscape TV is mounted on its side." value={editingScreen.orientation} options={["Portrait", "Landscape"]} onChange={(value) => patchDisplay(editingScreen.id, { orientation: value as DisplayProfile["orientation"], resolution: value === "Portrait" ? "1080 x 1920" : "1920 x 1080" })} />
+          <LabeledSelect label="TV mounting" info="Use this when a landscape TV is physically mounted on its side. The app rotates the complete live output, including boards, messages, and broadcasts." value={editingScreen.mountRotation ?? "none"} options={["none", "clockwise", "counterclockwise"]} optionLabels={{ none: "Normal — TV reports its orientation", clockwise: "Sideways — rotate output clockwise", counterclockwise: "Sideways — rotate output counterclockwise" }} onChange={(value) => patchDisplay(editingScreen.id, { mountRotation: value as NonNullable<DisplayProfile["mountRotation"]> })} />
           <LabeledSelect label="Default monitor" info="Desktop app: opens this display preview centered on the chosen monitor. Browser previews use their current window." value={String(editingScreen.defaultMonitorId ?? "")} options={monitorOptions} optionLabels={monitorLabels} onChange={(value) => patchDisplay(editingScreen.id, { defaultMonitorId: value === "" ? undefined : Number(value) })} />
           <div className="display-particle-controls">
             <label className="switch-row"><input type="checkbox" checked={editingScreen.particleAnimationEnabled ?? false} onChange={(event) => patchDisplay(editingScreen.id, { particleAnimationEnabled: event.target.checked })} /><span>Particle animation</span></label>
@@ -9060,7 +9252,12 @@ function ImageLibraryManager({ state, updateState }: { state: LanternState; upda
   const [renaming, setRenaming] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [viewMode, setViewMode] = useState<"thumbnails" | "details" | "names">("details");
+  const [sortBy, setSortBy] = useState<"name" | "usage">("name");
   const images = useMemo(() => collectManagedImages(state), [state]);
+  const visibleImages = useMemo(() => [...images].sort((left, right) => sortBy === "usage"
+    ? right.uses.length - left.uses.length || left.name.localeCompare(right.name)
+    : left.name.localeCompare(right.name)), [images, sortBy]);
   const replaceEverywhere = (current: LanternState, oldUrl: string, newUrl?: string): LanternState => ({
     ...current,
     boardPrograms: current.boardPrograms.map((board) => ({ ...board, backgroundImage: board.backgroundImage === oldUrl ? newUrl : board.backgroundImage, panels: board.panels?.map((panel) => panel.imageUrl === oldUrl ? { ...panel, imageUrl: newUrl } : panel) })),
@@ -9103,17 +9300,17 @@ function ImageLibraryManager({ state, updateState }: { state: LanternState; upda
     </button>
     {expanded && <div className="image-library-body" id="image-library-options">
       <label className="command-button primary compact image-upload-button image-library-add"><Upload size={14} /> {uploading ? "Adding…" : "Add image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading} onChange={(event) => { void addImage(event.target.files?.[0]); event.target.value = ""; }} /></label>
-      <p className="field-note image-library-note">Added images are saved in this library and can be selected later from the Board Editor.</p>
-      {images.length ? images.map((image) => <article className="image-library-item" key={image.url}>
+      <div className="image-library-toolbar"><p className="field-note image-library-note">Added images are saved in this library and can be selected later from the Board Editor.</p><div className="image-library-browser-controls"><label>Sort <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}><option value="name">Name</option><option value="usage">Usage</option></select></label><div className="segmented image-library-view-controls" role="group" aria-label="Image library view"><button type="button" className={viewMode === "thumbnails" ? "selected" : ""} onClick={() => setViewMode("thumbnails")}>Thumbnails</button><button type="button" className={viewMode === "details" ? "selected" : ""} onClick={() => setViewMode("details")}>Details</button><button type="button" className={viewMode === "names" ? "selected" : ""} onClick={() => setViewMode("names")}>Names</button></div></div></div>
+      {images.length ? <div className={`image-library-browser ${viewMode}`}>{visibleImages.map((image) => <article className="image-library-item" key={image.url}>
         <img src={resolveProjectAssetUrl(image.url)} alt="" />
-        <div><strong>{image.name}</strong><small>{image.uses.length ? `Used by ${image.uses.join(", ")}` : "Saved in library — not yet in use"}</small></div>
+        <div className="image-library-item-details"><strong>{image.name}</strong><small>{image.uses.length ? `Used by ${image.uses.join(", ")}` : "Saved in library — not yet in use"}</small><small className="image-library-file-type">Image file · {image.uses.length} {image.uses.length === 1 ? "use" : "uses"}</small></div>
         <span className="image-library-actions">
           <button type="button" className="command-button secondary compact" onClick={() => { setRenaming(image.url); setName(image.name); }} title="Rename image"><Pencil size={14} /> Rename</button>
           <label className="command-button secondary compact image-upload-button"><Upload size={14} /> Replace<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => void replaceImage(image.url, event.target.files?.[0])} /></label>
           <button type="button" className="icon-button danger-icon" onClick={() => updateState((current) => replaceEverywhere(current, image.url))} title="Remove image from every item using it" aria-label={`Remove ${image.name}`}><Trash2 size={15} /></button>
         </span>
         {renaming === image.url && <form className="image-library-rename" onSubmit={(event) => { event.preventDefault(); saveName(image.url); }}><input autoFocus value={name} onChange={(event) => setName(event.target.value)} aria-label="Image name" /><button type="submit" className="command-button primary compact">Save name</button><button type="button" className="command-button secondary compact" onClick={() => setRenaming(null)}>Cancel</button></form>}
-      </article>) : <p className="field-note">No images are currently in use. Add an image to a board, message, or Blip and it will appear here.</p>}
+      </article>)}</div> : <p className="field-note">No images are currently in use. Add an image to a board, message, or Blip and it will appear here.</p>}
     </div>}
   </section>;
 }
@@ -9772,7 +9969,7 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
     return () => window.removeEventListener("pagehide", releaseOwnership);
   }, [deviceId, screenId]);
 
-  const showLive = state.live.active && targetIncludes(state.live.target, screenId);
+  const showLive = state.live.active && liveTargets(state.live, state).includes(screenId);
   const liveComposition = normalizeBroadcastComposition(liveCompositionForDisplay(state.live, screenId));
   const liveCropEdges = normalizeCropEdges(liveComposition.frame.cropEdges);
   const displayCostume = state.effectStudio.costumes.find((costume) => costume.id === liveComposition.effects.costumeId);
@@ -9846,13 +10043,19 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
       setDisplayMenu(null);
     }
   };
+  const toggleDisplayMenuAt = (x: number, y: number) => {
+    setDisplayMenu((current) => current ? null : {
+      x: Math.max(8, Math.min(x, window.innerWidth - 250)),
+      y: Math.max(8, Math.min(y, window.innerHeight - 230))
+    });
+  };
 
   if (!stateReady) return <LanternStateLoading />;
 
   return (
     <div
-      className={`display-shell ${orientationClass(screen)}${fitToScreen ? " fit-board" : ""}${showLive && liveComposition.backgroundMode === "none" ? " transparent-live-background" : ""}`}
-      onClick={() => setDisplayMenu(null)}
+      className={`display-shell ${orientationClass(screen)}${screen.mountRotation && screen.mountRotation !== "none" ? ` mounted-${screen.mountRotation}` : ""}${fitToScreen ? " fit-board" : ""}${showLive && liveComposition.backgroundMode === "none" ? " transparent-live-background" : ""}`}
+      onClick={(event) => toggleDisplayMenuAt(event.clientX, event.clientY)}
       onContextMenu={(event) => {
         event.preventDefault();
         setDisplayMenu({
@@ -9895,6 +10098,7 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
           {(!stream || liveMediaNotice) && <div className="video-waiting">{liveMediaNotice ?? "Waiting for local video signal"}</div>}
         </div>
       )}
+      {showLive && <LiveDisplayAudioOutput stream={stream} />}
       {showLive && <div className="live-broadcast-text live-broadcast-title" style={{ left: `${liveComposition.titlePosition.x}%`, top: `${liveComposition.titlePosition.y}%` }}><strong>{liveComposition.title}</strong></div>}
       {showLive && <div className="live-broadcast-text live-broadcast-lower-third" style={{ left: `${liveComposition.lowerThirdPosition.x}%`, top: `${liveComposition.lowerThirdPosition.y}%` }}><span>{liveComposition.lowerThird}</span></div>}
       {identify && (
@@ -10176,6 +10380,20 @@ function makeDisplay(id: string, number: number): DisplayProfile {
 
 function firstDisplayId(state: LanternState) {
   return Object.keys(state.screens)[0] ?? "display-1";
+}
+
+function MediaLibraryPicker({ images, selectedUrl, onChoose, onClose }: { images: Array<{ name: string; imageUrl: string }>; selectedUrl?: string; onChoose: (url: string) => void; onClose: () => void }) {
+  const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<"thumbnails" | "details" | "names">("thumbnails");
+  const [selected, setSelected] = useState(selectedUrl ?? "");
+  const matchingImages = useMemo(() => images.filter((image) => image.name.toLowerCase().includes(search.trim().toLowerCase())).sort((left, right) => left.name.localeCompare(right.name)), [images, search]);
+  const confirmChoice = () => { if (selected) onChoose(selected); };
+  return <div className="modal-backdrop media-library-picker-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="editor-modal media-library-picker" role="dialog" aria-modal="true" aria-labelledby="media-library-picker-title"><header className="editor-modal-head"><div><p className="eyebrow">Site media</p><h2 id="media-library-picker-title">Choose from image library</h2></div><button type="button" className="icon-button" title="Close image library" aria-label="Close image library" onClick={onClose}><X size={18} /></button></header><div className="media-library-picker-toolbar"><label className="media-library-search"><Search size={16} /><span className="sr-only">Search images</span><input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search image names" /></label><div className="segmented image-library-view-controls" role="group" aria-label="Image picker view"><button type="button" className={viewMode === "thumbnails" ? "selected" : ""} onClick={() => setViewMode("thumbnails")}>Thumbnails</button><button type="button" className={viewMode === "details" ? "selected" : ""} onClick={() => setViewMode("details")}>Details</button><button type="button" className={viewMode === "names" ? "selected" : ""} onClick={() => setViewMode("names")}>Names</button></div></div><div className={`media-library-picker-content ${viewMode}`}>{matchingImages.map((image) => <button type="button" className={selected === image.imageUrl ? "selected" : ""} key={image.imageUrl} onClick={() => setSelected(image.imageUrl)} onDoubleClick={() => onChoose(image.imageUrl)}><img src={resolveProjectAssetUrl(image.imageUrl)} alt="" /><span><strong>{image.name}</strong><small>Site media image</small></span></button>)}{!matchingImages.length && <p className="field-note">No images match “{search}”.</p>}</div><footer className="editor-modal-actions"><span className="media-library-selection">{selected ? images.find((image) => image.imageUrl === selected)?.name : "No image selected"}</span><button type="button" className="command-button secondary" onClick={onClose}>Cancel</button><button type="button" className="command-button primary" disabled={!selected} onClick={confirmChoice}><CheckCircle2 size={16} /> Use image</button></footer></section></div>;
+}
+
+function liveTargets(live: LanternState["live"], state: Pick<LanternState, "screens">): ScreenId[] {
+  if (live.targets?.length) return live.targets.filter((id) => Boolean(state.screens[id]));
+  return live.target === "all" ? Object.keys(state.screens) : state.screens[live.target] ? [live.target] : [];
 }
 
 function orientationClass(screen: DisplayProfile) {

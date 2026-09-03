@@ -163,11 +163,21 @@ export function migratePhase3Schedules(
   reference = new Date()
 ): ScheduleEntry[] {
   if (incomingContentVersion >= PHASE3_CONTENT_VERSION) return [...existing];
-  // Phase 3 entries are generated demo content rather than curator-created
-  // schedules. Replace only those stable IDs so the compact rotation takes
-  // effect without touching custom schedules or legacy content.
+  // Phase 3 entries began as generated demo content, but the event IDs are
+  // stable and operators can edit them in place. Replacing by ID alone would
+  // silently restore the old board assignment whenever a stale state needed
+  // migration. Refresh only records that are still an exact seed match.
   const phase3Entries = createPhase3DemoSchedule(reference);
-  return [...existing.filter((entry) => !isPhase3DemoScheduleId(entry.id)), ...phase3Entries];
+  const seededById = new Map(phase3Entries.map((entry) => [entry.id, entry]));
+  const existingIds = new Set(existing.map((entry) => entry.id));
+  const sameSchedule = (left: ScheduleEntry, right: ScheduleEntry) => JSON.stringify(left) === JSON.stringify(right);
+  return [
+    ...existing.map((entry) => {
+      const seed = seededById.get(entry.id);
+      return seed && sameSchedule(entry, seed) ? { ...seed } : { ...entry };
+    }),
+    ...phase3Entries.filter((entry) => !existingIds.has(entry.id)).map((entry) => ({ ...entry }))
+  ];
 }
 
 /**

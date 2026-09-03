@@ -23,7 +23,9 @@ export const SCHEDULE_RESET_CONTENT_VERSION = 19;
 /** Reconciles the Development Director's confirmed roster without deleting historical names. */
 export const CONFIRMED_DONOR_ROSTER_CONTENT_VERSION = 20;
 export const BOARD_LIBRARY_CLEANUP_CONTENT_VERSION = 21;
-export const LANTERN_CONTENT_VERSION = BOARD_LIBRARY_CLEANUP_CONTENT_VERSION;
+/** Restores current status to active Toy Soldier Brigade Play and Explore members. */
+export const BRIGADE_DONOR_STATUS_CORRECTION_CONTENT_VERSION = 22;
+export const LANTERN_CONTENT_VERSION = BRIGADE_DONOR_STATUS_CORRECTION_CONTENT_VERSION;
 
 export const confirmedDonorNames = [
   "Denise and Rob Aitken", "Diane Batres", "Mary Bava", "Patricia Busher", "Sandra and Clarence Chan",
@@ -159,10 +161,7 @@ const withOpeningPayment = (donor: Donor): Donor => ({
 });
 const exploreDonors = exploreNames.map((name, index) => withOpeningPayment(makeBrigadeDonor(name, index, toySoldierProgram.levels[0])));
 const playDonors = playNames.map((name, index) => withOpeningPayment(makeBrigadeDonor(name, index, toySoldierProgram.levels[1])));
-const supersededConfirmedAliasIds = new Set(["toy-play-10", "toy-play-15", "toy-play-20"]);
-const officialDonors = [...exploreDonors, ...playDonors].map((donor) => supersededConfirmedAliasIds.has(donor.id)
-  ? { ...donor, recordStatus: "deprecated-legacy" as const, tags: [...(donor.tags ?? []), "Deprecated/Legacy"] }
-  : donor);
+const officialDonors = [...exploreDonors, ...playDonors];
 const exploreIds = exploreDonors.map((donor) => donor.id);
 const playIds = playDonors.map((donor) => donor.id);
 const brigadeIds = [...exploreIds, ...playIds];

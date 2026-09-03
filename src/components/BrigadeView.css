@@ -3,7 +3,7 @@
   color: #fff7df;
   border-color: rgba(244, 196, 93, .34);
   background: linear-gradient(135deg, rgba(189, 64, 50, .92), rgba(142, 43, 44, .94));
-  box-shadow: 0 7px 18px rgba(151, 48, 43, .2);
+  box-shadow: none;
 }
 
 .dashboard-brigade-entry:hover {

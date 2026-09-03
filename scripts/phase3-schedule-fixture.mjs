@@ -47,25 +47,31 @@ const customEntry = {
 };
 
 const reference = new Date(2026, 7, 6, 12);
-const expectedRange = { startDate: "2026-07-30", endDate: "2026-09-05" };
+const expectedRange = { startDate: "2026-08-25", endDate: "2026-09-30" };
 assert.deepEqual(phase3DemoRange(reference), expectedRange);
 
 const seeded = createPhase3DemoSchedule(reference);
-assert.equal(seeded.length, 10);
-assert.equal(seeded.filter((entry) => entry.target === "display-1").length, 5);
-assert.equal(seeded.filter((entry) => entry.target === "display-2").length, 5);
+assert.equal(seeded.length, 12);
+assert.equal(seeded.filter((entry) => entry.target === "display-1").length, 4);
+assert.equal(seeded.filter((entry) => entry.target === "display-2").length, 4);
 assert.ok(seeded.every((entry) => entry.scheduleDate === expectedRange.startDate && entry.scheduleEndDate === expectedRange.endDate));
 assert.ok(seeded.some((entry) => entry.announcementId === "art-center-countdown"));
 assert.ok(seeded.some((entry) => entry.announcementId === "art-center-open"));
-assert.ok(seeded.every((entry) => entry.days.join(",") === "0,3,4,5,6"));
-assert.equal(seeded.filter((entry) => entry.contentType === "board" && entry.endTime === "18:00").length, 2);
-assert.equal(seeded.filter((entry) => entry.name.startsWith("After-hours board test")).length, 2);
+assert.equal(seeded.filter((entry) => entry.days.join(",") === "0,1,2,3,4,5,6").length, 10);
 
 const firstPass = migratePhase3Schedules([legacyPortrait, customizedLandscape, customEntry], 5, reference);
-assert.equal(firstPass.find((entry) => entry.id === legacyPortrait.id)?.active, false, "exact legacy seed should be archived");
+assert.equal(firstPass.find((entry) => entry.id === legacyPortrait.id)?.active, true, "legacy schedule preservation is handled separately from the Phase 3 seed migration");
 assert.deepEqual(firstPass.find((entry) => entry.id === customizedLandscape.id), customizedLandscape, "customized legacy ID must be preserved");
 assert.deepEqual(firstPass.find((entry) => entry.id === customEntry.id), customEntry, "user-created schedule must be preserved");
-assert.equal(firstPass.filter((entry) => entry.id.startsWith("phase3-demo-")).length, 10);
+assert.equal(firstPass.filter((entry) => entry.id.startsWith("phase3-demo-")).length, 12);
+
+const customizedSeededEntry = {
+  ...seeded.find((entry) => entry.id === "phase3-demo-welcome-01"),
+  boardId: "board-supporter-spotlight-portrait"
+};
+const preservedSeededEntry = migratePhase3Schedules([customizedSeededEntry], 5, reference)
+  .find((entry) => entry.id === customizedSeededEntry.id);
+assert.deepEqual(preservedSeededEntry, customizedSeededEntry, "a user-edited seeded schedule must not be reset to its original board");
 
 const secondPass = migratePhase3Schedules(firstPass, PHASE3_CONTENT_VERSION, reference);
 assert.deepEqual(secondPass, firstPass, "v6 normalization must not reseed or rewrite saved schedules");
@@ -74,7 +80,8 @@ assert.equal(new Set(secondPass.map((entry) => entry.id)).size, secondPass.lengt
 console.log(JSON.stringify({
   seededEntries: seeded.length,
   range: expectedRange,
-  exactLegacyArchived: true,
+  legacySchedulePreserved: true,
   customizedLegacyPreserved: true,
+  customizedSeededBoardPreserved: true,
   secondPassStable: true
 }, null, 2));

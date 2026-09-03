@@ -1,4 +1,4 @@
-import { ANNOUNCEMENT_LAYOUT_CONTENT_VERSION, BOARD_LIBRARY_CLEANUP_CONTENT_VERSION, brigadeAnnouncements, brigadeBlips, brigadeBoardPrograms, CONFIRMED_DONOR_ROSTER_CONTENT_VERSION, confirmedGeneralDonors, DONOR_ROSTER_BOARDS_CONTENT_VERSION, generousDonorBoardPrograms, initialState, legacyBoardPrograms, legacyDonors, LEGACY_DONOR_STARS_CONTENT_VERSION, LEGACY_DONOR_TAGS_CONTENT_VERSION, LEGACY_STAR_LAYER_CONTENT_VERSION, LEGACY_STAR_RECOVERY_CONTENT_VERSION, LANTERN_CONTENT_VERSION, QUESTIONING_TOY_SOLDIER_CONTENT_VERSION } from "../sampleData";
+import { ANNOUNCEMENT_LAYOUT_CONTENT_VERSION, BOARD_LIBRARY_CLEANUP_CONTENT_VERSION, BRIGADE_DONOR_STATUS_CORRECTION_CONTENT_VERSION, brigadeAnnouncements, brigadeBlips, brigadeBoardPrograms, CONFIRMED_DONOR_ROSTER_CONTENT_VERSION, confirmedGeneralDonors, DONOR_ROSTER_BOARDS_CONTENT_VERSION, generousDonorBoardPrograms, initialState, legacyBoardPrograms, legacyDonors, LEGACY_DONOR_STARS_CONTENT_VERSION, LEGACY_DONOR_TAGS_CONTENT_VERSION, LEGACY_STAR_LAYER_CONTENT_VERSION, LEGACY_STAR_RECOVERY_CONTENT_VERSION, LANTERN_CONTENT_VERSION, QUESTIONING_TOY_SOLDIER_CONTENT_VERSION } from "../sampleData";
 import { withBrigadeOpeningPayment } from "../donorDomain";
 import { appendMissingPhase3Content, migratePhase3Schedules, phase3Announcements, PHASE3_CONTENT_VERSION, replacePhase3Announcements } from "../phase3Schedule";
 import type { Announcement, BoardDonorPresentation, BoardOpenOwner, BoardPanel, Donor, GivingProgram, HostMessage, LanternState, LiveSource, ScheduleEntry, ScreenId, TargetScreen } from "../types";
@@ -477,6 +477,22 @@ export function canReadSharedLanternState() {
   return Boolean(LANTERN_READ_SERVICE_ROOT);
 }
 
+export type DisplaySessionSnapshot = {
+  sessions: Array<{ screenId: string; deviceName: string; serverSeenAt: number; online?: boolean }>;
+  history: Array<{ screenId: string; deviceName: string; status: "opened" | "closed" | "offline" | "online" | "unreachable"; at: number }>;
+};
+
+export async function loadDisplaySessionSnapshot(): Promise<DisplaySessionSnapshot> {
+  if (!LANTERN_READ_SERVICE_ROOT) return { sessions: [], history: [] };
+  try {
+    const response = await fetch(`${LANTERN_READ_SERVICE_ROOT}/live/sessions`, { cache: "no-store", headers: { Accept: "application/json" } });
+    if (!response.ok) return { sessions: [], history: [] };
+    return await response.json() as DisplaySessionSnapshot;
+  } catch {
+    return { sessions: [], history: [] };
+  }
+}
+
 async function shareImageUrl(value: string | undefined, name: string) {
   if (!value?.startsWith("data:") && !value?.startsWith("blob:")) return value;
   try {
@@ -796,7 +812,7 @@ export function openBrowserDisplayWindows(screens = Object.values(loadLanternSta
     const popupName = `lantern-display-${screen.id}`;
     const knownPopup = browserDisplayWindows.get(screen.id);
     const wasAlreadyOpen = Boolean(knownPopup && !knownPopup.closed);
-    const portrait = screen.orientation === "Portrait";
+    const portrait = screen.orientation === "Portrait" && screen.mountRotation !== "clockwise" && screen.mountRotation !== "counterclockwise";
     const width = portrait ? 540 : 960;
     const height = portrait ? 900 : 620;
     const cascade = index * 28;
@@ -852,6 +868,7 @@ export async function openDisplayWindows(screens = Object.values(loadLanternStat
         id: screen.id,
         label: screen.label,
         orientation: screen.orientation,
+        mountRotation: screen.mountRotation ?? "none",
         defaultMonitorId: screen.defaultMonitorId
       }))
     });
@@ -1415,6 +1432,7 @@ export function normalizeState(state: LanternState): LanternState {
   const needsQuestioningToySoldierMigration = incomingContentVersion < QUESTIONING_TOY_SOLDIER_CONTENT_VERSION;
   const needsConfirmedDonorRosterMigration = incomingContentVersion < CONFIRMED_DONOR_ROSTER_CONTENT_VERSION;
   const needsBoardLibraryCleanup = incomingContentVersion < BOARD_LIBRARY_CLEANUP_CONTENT_VERSION;
+  const needsBrigadeDonorStatusCorrection = incomingContentVersion < BRIGADE_DONOR_STATUS_CORRECTION_CONTENT_VERSION;
   const normalizedContentVersion = Math.max(incomingContentVersion, LANTERN_CONTENT_VERSION);
 
   const incomingDonors = state.donors ?? initialState.donors;
@@ -1430,17 +1448,21 @@ export function normalizeState(state: LanternState): LanternState {
       ? { ...donor, tier: "Legacy donor", category: "Legacy", tags: uniqueStrings(donor.tags, ["Legacy"]), recordStatus: "deprecated-legacy" as const }
       : donor)
     : starWallDonors;
-  const supersededConfirmedAliases = new Set(["toy-play-10", "toy-play-15", "toy-play-20"]);
   const donorRecordsWithStatus = needsConfirmedDonorRosterMigration
-    ? taggedDonors.map((donor) => legacyDonorIds.has(donor.id) || supersededConfirmedAliases.has(donor.id)
+    ? taggedDonors.map((donor) => legacyDonorIds.has(donor.id)
       ? { ...donor, recordStatus: "deprecated-legacy" as const, tags: uniqueStrings(donor.tags, ["Deprecated/Legacy"]) }
       : donor)
     : taggedDonors;
-  const normalizeDonorName = (name: string) => name.toLowerCase().replace(/\s*&\s*/g, " and ").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
-  const existingNormalizedNames = new Set(donorRecordsWithStatus.map((donor) => normalizeDonorName(donor.name)));
-  const donors = needsConfirmedDonorRosterMigration
-    ? [...donorRecordsWithStatus, ...confirmedGeneralDonors.filter((donor) => !existingNormalizedNames.has(normalizeDonorName(donor.name)))]
+  const correctedBrigadeDonorStatuses = needsBrigadeDonorStatusCorrection
+    ? donorRecordsWithStatus.map((donor) => donor.givingProgramId === "toy-soldier-brigade" && (donor.givingLevelId === "explore" || donor.givingLevelId === "play")
+      ? { ...donor, recordStatus: "current" as const, tags: donor.tags?.filter((tag) => tag !== "Deprecated/Legacy") }
+      : donor)
     : donorRecordsWithStatus;
+  const normalizeDonorName = (name: string) => name.toLowerCase().replace(/\s*&\s*/g, " and ").replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+  const existingNormalizedNames = new Set(correctedBrigadeDonorStatuses.map((donor) => normalizeDonorName(donor.name)));
+  const donors = needsConfirmedDonorRosterMigration
+    ? [...correctedBrigadeDonorStatuses, ...confirmedGeneralDonors.filter((donor) => !existingNormalizedNames.has(normalizeDonorName(donor.name)))]
+    : correctedBrigadeDonorStatuses;
   const donorAliases = donorMigration.aliases;
 
   const incomingPrograms = state.boardPrograms ?? initialState.boardPrograms;
@@ -1904,6 +1926,7 @@ function normalizeScreen(
     ...screenWithoutRetiredDisplayState,
     id,
     label: screen?.label ?? fallback.label,
+    mountRotation: screen?.mountRotation === "clockwise" || screen?.mountRotation === "counterclockwise" ? screen.mountRotation : "none",
     style: screen?.style ?? fallback.style,
     backgroundMode: screen?.backgroundMode ?? (screen?.style === "image" ? "image" : "board"),
     backgroundMediaType: screen?.backgroundMediaType ?? (screen?.backgroundImage?.startsWith("data:video/") ? "video" : screen?.backgroundImage ? "image" : undefined),

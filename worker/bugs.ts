@@ -19,7 +19,10 @@ type BugRecord = {
   enteredBy?: string;
   evidence?: BugEvidence[];
   agentWork?: unknown[];
+  statusHistory?: unknown[];
 };
+
+const allowedBugStatuses = new Set(["open", "assigned-to-codex", "in-progress", "ready-for-test", "verified", "closed"]);
 
 const allowedOrigins = new Set([
   "https://ijustcreate.github.io",
@@ -131,15 +134,57 @@ export class MuseumLiveRoom {
   constructor(private state: DurableObjectState) {}
 
   async fetch(request: Request): Promise<Response> {
-    if (request.headers.get("Upgrade") !== "websocket") return new Response("WebSocket required", { status: 426 });
+    if (request.headers.get("Upgrade") !== "websocket") {
+      if (request.method !== "GET") return new Response("Method not allowed", { status: 405 });
+      const sessions = (await this.state.storage.get<Record<string, Record<string, unknown>>>("display-sessions")) ?? {};
+      const history = (await this.state.storage.get<unknown[]>("display-history")) ?? [];
+      const now = Date.now();
+      const active = Object.values(sessions).filter((item) => item.online !== false && now - Number(item.serverSeenAt ?? 0) <= 5_000).map(({ networkAddress: _networkAddress, userAgent: _userAgent, ...safe }) => safe);
+      return Response.json({ sessions: active, history: history.slice(-100) });
+    }
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.state.acceptWebSocket(server);
+    server.serializeAttachment({
+      networkAddress: request.headers.get("CF-Connecting-IP") ?? undefined,
+      userAgent: request.headers.get("User-Agent") ?? undefined,
+      connectedAt: new Date().toISOString()
+    });
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async webSocketMessage(sender: WebSocket, message: string | ArrayBuffer): Promise<void> {
     if (typeof message !== "string" || message.length > 250_000) return;
+    try {
+      const envelope = JSON.parse(message) as { sender?: string; message?: { type?: string; screenId?: string; deviceId?: string; deviceName?: string; userAgent?: string; timestamp?: string; status?: "closed" | "offline" | "online" } };
+      const presence = envelope.message;
+      if ((presence?.type === "display-presence" || presence?.type === "display-session-status") && presence.screenId && presence.deviceId) {
+        const attachment = sender.deserializeAttachment() as { networkAddress?: string; userAgent?: string } | null;
+        const sessions = (await this.state.storage.get<Record<string, unknown>>("display-sessions")) ?? {};
+        const now = Date.now();
+        for (const [key, value] of Object.entries(sessions)) {
+          const seenAt = typeof (value as { serverSeenAt?: number }).serverSeenAt === "number" ? (value as { serverSeenAt: number }).serverSeenAt : 0;
+          if (now - seenAt > 15_000) delete sessions[key];
+        }
+        const prior = sessions[presence.deviceId] as { serverSeenAt?: number } | undefined;
+        const status = presence.type === "display-presence" ? "opened" : presence.status!;
+        const history = (await this.state.storage.get<Array<Record<string, unknown>>>("display-history")) ?? [];
+        if (status !== "opened" || !prior || now - Number(prior.serverSeenAt ?? 0) > 5_000) history.push({ screenId: presence.screenId, deviceName: String(presence.deviceName ?? "Display browser").slice(0, 120), status, at: now });
+        if (history.length > 100) history.splice(0, history.length - 100);
+        await this.state.storage.put("display-history", history);
+        sessions[presence.deviceId] = {
+          screenId: presence.screenId,
+          deviceName: String(presence.deviceName ?? "Display browser").slice(0, 120),
+          userAgent: String(presence.userAgent ?? attachment?.userAgent ?? "").slice(0, 500),
+          networkAddress: attachment?.networkAddress,
+          serverSeenAt: now,
+          online: status !== "offline" && status !== "closed"
+        };
+        await this.state.storage.put("display-sessions", sessions);
+      }
+    } catch {
+      // Signaling can be relayed without telemetry if a client sends a legacy payload.
+    }
     // SDP and ICE candidates are tiny; relay only signaling, never camera media.
     for (const socket of this.state.getWebSockets()) if (socket !== sender) socket.send(message);
   }
@@ -207,21 +252,24 @@ async function saveBug(request: Request, env: Env) {
   const saved: BugRecord = {
     ...input,
     bugId,
-    summary: String(input.summary ?? "").trim().slice(0, 300),
+    // Submitted report copy is evidence. Keep spelling and whitespace exactly as
+    // entered when workflow metadata changes; only enforce the storage ceiling.
+    summary: String(input.summary ?? "").slice(0, 300),
     details: String(input.details ?? "").slice(0, 20000),
     fixTips: String(input.fixTips ?? "").slice(0, 10000),
     tags: Array.isArray(input.tags) ? input.tags.map(String).slice(0, 20) : [],
-    status: String(input.status ?? "open").slice(0, 40),
+    status: allowedBugStatuses.has(String(input.status)) ? String(input.status) : (existing?.status ?? "open"),
     enteredBy: String(input.enteredBy ?? existing?.enteredBy ?? "Unattributed").trim().slice(0, 80) || "Unattributed",
     createdAt: existing?.createdAt ?? input.createdAt ?? now,
     updatedAt: now,
     evidence: evidence.length ? evidence : (existing?.evidence ?? []),
     attachments: evidence.length ? evidence.map((item) => item.path ?? item.name) : (existing?.attachments ?? []),
     agentWork: Array.isArray(input.agentWork) ? input.agentWork : (existing?.agentWork ?? []),
+    statusHistory: Array.isArray(input.statusHistory) ? input.statusHistory : (existing?.statusHistory ?? []),
     folder: `shared/${bugId}`
   };
 
-  if (!saved.summary) return json(request, { error: "A brief description is required" }, 400);
+  if (!saved.summary.trim()) return json(request, { error: "A brief description is required" }, 400);
   await env.BUGS_DB.prepare(`
     INSERT INTO bug_reports (bug_id, summary, status, created_at, updated_at, record_json)
     VALUES (?, ?, ?, ?, ?, ?)
@@ -277,6 +325,13 @@ export default {
       if (request.method === "GET" && pathname === "/live") {
         const room = env.LIVE_ROOM.get(env.LIVE_ROOM.idFromName("museum"));
         return room.fetch(request);
+      }
+      if (request.method === "GET" && pathname === "/live/sessions") {
+        const room = env.LIVE_ROOM.get(env.LIVE_ROOM.idFromName("museum"));
+        const upstream = await room.fetch(new Request("https://live-room.internal/sessions"));
+        const headers = new Headers(upstream.headers);
+        Object.entries(corsHeaders(request)).forEach(([key, value]) => headers.set(key, value));
+        return new Response(upstream.body, { status: upstream.status, headers });
       }
       if (request.method === "GET" && pathname === "/state") return await readSharedState(request, env);
       if (request.method === "PUT" && pathname === "/state") return await saveSharedState(request, env);
