@@ -1,5 +1,27 @@
 [
   {
+    "id": "DEV-0501",
+    "title": "Improve donor roster and profile workflow",
+    "summary": "Board editors can find and manage donors in a full roster, while donor profiles now support board-first list assignment and image management.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 1:04 PM",
+    "areas": [
+      "Board Editor",
+      "Donors",
+      "Settings",
+      "Display rendering"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/boardPresentation.ts",
+      "src/components/BoardDonorPresentationEditor.tsx",
+      "src/display/BabylonDonorWall.tsx",
+      "src/styles.css",
+      "src/types.ts"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0500",
     "title": "Clarify iPhone broadcast destinations",
     "summary": "The phone broadcast settings now show each active display as a clear card with its name, orientation, open status, and selected state.",
