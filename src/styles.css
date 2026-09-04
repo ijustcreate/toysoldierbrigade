@@ -7794,7 +7794,9 @@ textarea:focus-visible,
 }
 
 .direct-donor-grid { column-gap: 7%; }
-.direct-donor-name { display: flex; min-width: 0; min-height: 0; align-items: center; justify-content: center; gap: 5px; padding: 2px 4px; overflow: hidden; border-bottom: var(--donor-divider-thickness) solid color-mix(in srgb, var(--donor-divider-color) var(--donor-divider-opacity), transparent); font-size: min(var(--donor-name-size), var(--donor-shared-size, 7.2cqw), var(--donor-column-cap, 7.2cqw)); line-height: 1.12; letter-spacing: .07em; white-space: nowrap; }
+/* Name size is an authored value. A shorter donor box should make rows tighter
+   * or clip overflow—not silently shrink the names. */
+.direct-donor-name { display: flex; min-width: 0; min-height: 0; align-items: center; justify-content: center; gap: 5px; padding: 2px 4px; overflow: hidden; border-bottom: var(--donor-divider-thickness) solid color-mix(in srgb, var(--donor-divider-color) var(--donor-divider-opacity), transparent); font-size: min(var(--donor-name-size), var(--donor-column-cap, 8.6cqw)); line-height: 1.12; letter-spacing: .07em; white-space: nowrap; }
 .direct-donor-name > .editable-board-text { min-width: 0; overflow: hidden; font-size: 1em; letter-spacing: .035em; white-space: nowrap; }
 .direct-donor-name small { display: block; color: #9faaaa; font-size: .68em; letter-spacing: 0; }
 .board-donor-presentation-editor {

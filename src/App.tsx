@@ -4235,6 +4235,7 @@ function ThemeStudio({
               </section>
               {selectedPanel.type === "donors" && <>
                 <div className="field"><span>Names in each row</span><SegmentedControl value={String(selectedPanel.columns ?? selectedProgram.columns)} options={[["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"]]} onChange={(value) => patchPanel(selectedPanel.id, { columns: Number(value) as BoardPanel["columns"] })} /></div>
+                <div className="two-col"><Slider label="Row spacing" info="Space between donor names. Lower this to pack rows closer without shrinking the text." value={selectedPanel.donorRowGap ?? 0} min={0} max={32} onChange={(donorRowGap) => patchPanel(selectedPanel.id, { donorRowGap })} /><Slider label="Column spacing" info="Space between donor-name columns. Lower this to make the list tighter." value={selectedPanel.donorColumnGap ?? 7} min={0} max={30} onChange={(donorColumnGap) => patchPanel(selectedPanel.id, { donorColumnGap })} /></div>
                 <details className="inspector-details" open>
                   <summary>Scrolling credits</summary>
                   <div className="inspector-block">
@@ -4694,7 +4695,7 @@ function DirectBoardCanvas({
         {panel.type === "text" && <AutoFitBoardContent className="direct-single-text-content" fitOneLine={panel.textFlow === "fit-one-line"} fontSize={panel.fontSize} fontFamily={panel.fontFamily ?? "Montserrat"}><EditableBoardText className="board-text" value={panel.title} multiline onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
         {panel.type === "heading" && <AutoFitBoardContent className="direct-single-text-content"><EditableBoardText className="board-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
         {panel.type === "supporters-heading" && <AutoFitBoardContent className="direct-single-text-content"><EditableBoardText className="board-section-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
-        {panel.type === "donors" && <div className="direct-donor-grid" style={directDonorGridStyle(panelDonors(panel), panel.columns ?? program.columns, panel.rows, display)}>{panelDonors(panel).slice(0, (panel.rows ?? Math.max(1, Math.ceil(panelDonors(panel).length / (panel.columns ?? program.columns)))) * (panel.columns ?? program.columns)).map((donor) => <DirectBoardDonorName donor={donor} display={display} panel={panel} palette={palette} onRename={onRenameDonor} key={donor.id} />)}{!panelDonors(panel).length && <button className="empty-board-action" type="button">Select donors or recognition levels in the inspector</button>}</div>}
+        {panel.type === "donors" && <div className="direct-donor-grid" style={directDonorGridStyle(panelDonors(panel), panel.columns ?? program.columns, panel.rows, display, panel)}>{panelDonors(panel).slice(0, (panel.rows ?? Math.max(1, Math.ceil(panelDonors(panel).length / (panel.columns ?? program.columns)))) * (panel.columns ?? program.columns)).map((donor) => <DirectBoardDonorName donor={donor} display={display} panel={panel} palette={palette} onRename={onRenameDonor} key={donor.id} />)}{!panelDonors(panel).length && <button className="empty-board-action" type="button">Select donors or recognition levels in the inspector</button>}</div>}
         {panel.type === "message" && <AutoFitBoardContent className="direct-message-content"><EditableBoardText className="board-eyebrow" value={panel.eyebrow ?? ""} onCommit={(value) => commitText(panel, "eyebrow", value)} /><EditableBoardText className="board-message-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /><EditableBoardText className="board-copy" value={panel.body ?? ""} onCommit={(value) => commitText(panel, "body", value)} /></AutoFitBoardContent>}
         {panel.type === "story" && <><div className="direct-story-image" style={state.board.storyImageUrl ? { backgroundImage: `url(${state.board.storyImageUrl})` } : undefined}><ImageIcon size={22} /></div><AutoFitBoardContent className="direct-story-copy"><EditableBoardText className="board-eyebrow" value={panel.eyebrow ?? ""} onCommit={(value) => commitText(panel, "eyebrow", value)} /><EditableBoardText className="board-message-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /><EditableBoardText className="board-copy" value={panel.body ?? ""} onCommit={(value) => commitText(panel, "body", value)} /></AutoFitBoardContent></>}
         {panel.type === "image" && <div className={`direct-image-panel fit-${panel.imageFit ?? "contain"}`}>{panel.imageUrl ? <img src={resolveProjectAssetUrl(panel.imageUrl)} alt="" style={{ transform: `rotate(${panel.imageRotation ?? 0}deg) scaleX(${panel.imageMirrored ? -1 : 1})` }} /> : <><ImagePlus size={28} /><span>Choose an image in the right menu</span></>}</div>}
@@ -4717,7 +4718,7 @@ function DirectBoardCanvas({
   </div>;
 }
 
-function directDonorGridStyle(donors: Donor[], columns: number, requestedRows: number | undefined, display: DisplayProfile): React.CSSProperties {
+function directDonorGridStyle(donors: Donor[], columns: number, requestedRows: number | undefined, display: DisplayProfile, panel?: BoardPanel): React.CSSProperties {
   const rowCount = requestedRows ?? Math.max(1, Math.ceil(donors.length / columns));
   const layout = buildDonorNameGridLayout(donors.map((donor) => ({
     name: donor.name,
@@ -4726,8 +4727,9 @@ function directDonorGridStyle(donors: Donor[], columns: number, requestedRows: n
   return {
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
     gridTemplateRows: layout.rowUnits.map((units) => `${units}fr`).join(" "),
-    "--donor-shared-size": `${Math.max(.65, 82 / layout.totalUnits)}cqh`,
-    "--donor-column-cap": columns > 1 ? "3.5cqw" : "7.2cqw"
+    rowGap: `${panel?.donorRowGap ?? 0}px`,
+    columnGap: `${panel?.donorColumnGap ?? 7}%`,
+    "--donor-column-cap": columns > 1 ? "5.2cqw" : "8.6cqw"
   } as React.CSSProperties;
 }
 

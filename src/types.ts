@@ -367,6 +367,9 @@ export interface BoardPanel {
   donorDividerColor?: string;
   donorDividerThickness?: number;
   donorDividerOpacity?: number;
+  /** Space between donor rows and columns, independent of name font size. */
+  donorRowGap?: number;
+  donorColumnGap?: number;
 }
 export interface BoardWidget { id: string; name: string; panels: BoardPanel[]; defaultImageUrl?: string; }
 

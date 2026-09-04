@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0470",
+    "title": "Add independent donor spacing controls",
+    "summary": "Lets board editors increase donor name size and independently tighten row or column spacing without donor-box height shrinking the type.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 6:21 PM",
+    "areas": [
+      "Board editor"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/types.ts",
+      "src/styles.css"
+    ],
+    "tests": "npx tsc --noEmit; npm run test:tv-safe-board-renderer"
+  },
+  {
     "id": "DEV-0469",
     "title": "Restore full desktop board renderer",
     "summary": "Restricts the TV compatibility renderer to TV browsers and TV Mode, restoring the original rich Board Editor renderer to desktop dashboard and schedule previews.",
