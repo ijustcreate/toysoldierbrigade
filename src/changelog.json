@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0469",
+    "title": "Restore full desktop board renderer",
+    "summary": "Restricts the TV compatibility renderer to TV browsers and TV Mode, restoring the original rich Board Editor renderer to desktop dashboard and schedule previews.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 6:14 PM",
+    "areas": [
+      "Dashboard",
+      "Schedule",
+      "TV mode",
+      "Display delivery"
+    ],
+    "files": [
+      "src/display/BabylonDonorWall.tsx",
+      "scripts/test-tv-safe-board-renderer.mjs"
+    ],
+    "tests": "npx tsc --noEmit; npm run test:tv-safe-board-renderer; npm run test:sideways-mounted-display; Playwright dashboard route"
+  },
+  {
     "id": "DEV-0468",
     "title": "Subdue TV board particles",
     "summary": "Reduces particle size, brightness, and glow in the TV-safe board renderer so donor names remain the visual focus.",

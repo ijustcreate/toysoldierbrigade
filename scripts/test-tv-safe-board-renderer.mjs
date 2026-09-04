@@ -3,7 +3,9 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../src/display/BabylonDonorWall.tsx", import.meta.url), "utf8");
 
-assert.match(source, /const useSafeCanvasRenderer = fitToScreen && viewMode === "2d"/);
+assert.match(source, /const isTvBrowser = typeof navigator !== "undefined"/);
+assert.match(source, /const isExplicitTvMode = typeof window !== "undefined"/);
+assert.match(source, /const useSafeCanvasRenderer = fitToScreen && viewMode === "2d" && \(isTvBrowser \|\| isExplicitTvMode\);/);
 assert.match(source, /if \(useSafeCanvasRenderer \|\| useHtmlFallback\) return;/);
 assert.match(source, /canvas\?\.getContext\("2d"\)/);
 assert.match(source, /const widthCss = canvas\.clientWidth;/);

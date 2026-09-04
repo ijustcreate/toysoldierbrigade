@@ -52,10 +52,12 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [canvasSafeFailed, setCanvasSafeFailed] = useState(false);
   // TV browsers frequently have limited WebGL memory or no reliable WebGL 2
-  // implementation. A straight-on board does not need a 3D scene, so paint it
-  // directly with Canvas 2D and reserve Babylon only for intentional 3D views.
-  const useSafeCanvasRenderer = fitToScreen && viewMode === "2d";
-  const requiresTvHtmlFallback = useSafeCanvasRenderer && typeof navigator !== "undefined" && /web0s|webos|tizen|smart-tv|smarttv|netcast|viera|hisense|hbbtv/i.test(navigator.userAgent);
+  // implementation. Keep their safe path isolated: desktop dashboard cards
+  // must retain the full Babylon renderer used by the Board Editor preview.
+  const isTvBrowser = typeof navigator !== "undefined" && /web0s|webos|tizen|smart-tv|smarttv|netcast|viera|hisense|hbbtv/i.test(navigator.userAgent);
+  const isExplicitTvMode = typeof window !== "undefined" && /#\/display\/[^?]+\?[^#]*\btv=1\b/.test(window.location.hash);
+  const useSafeCanvasRenderer = fitToScreen && viewMode === "2d" && (isTvBrowser || isExplicitTvMode);
+  const requiresTvHtmlFallback = useSafeCanvasRenderer && isTvBrowser;
   const useHtmlFallback = requiresTvHtmlFallback || canvasSafeFailed;
   const [scheduleMinute, setScheduleMinute] = useState(() => Math.floor(Date.now() / 60_000));
   const previewProgram = useMemo(
