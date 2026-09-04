@@ -91,6 +91,7 @@ export class DirectorVideoBridge {
       if (this.stream) {
         const sender = peer.addTrack(track, this.stream);
         if (track.kind === "video") {
+          preferTvSafeVideoCodec(peer, sender);
           void sender.setParameters({ ...sender.getParameters(), degradationPreference: "maintain-framerate" }).catch(() => undefined);
         }
       }
@@ -253,6 +254,28 @@ export class DirectorVideoBridge {
         else this.pendingRemoteCandidates.set(source!, [...(this.pendingRemoteCandidates.get(source!) ?? []), message.candidate]);
       }
     }
+  }
+}
+
+/**
+ * Older smart-TV WebRTC implementations can advertise VP8, then fail to
+ * decode Chrome's desktop-camera stream after negotiation. H.264 baseline is
+ * broadly hardware-decoded on those displays and works for both camera and
+ * phone presenters. Limit the offer to baseline variants when the browser
+ * exposes codec selection; leave legacy browsers untouched.
+ */
+function preferTvSafeVideoCodec(peer: RTCPeerConnection, sender: RTCRtpSender) {
+  if (typeof RTCRtpSender === "undefined" || !RTCRtpSender.getCapabilities) return;
+  const capabilities = RTCRtpSender.getCapabilities("video");
+  const h264 = capabilities?.codecs.filter((codec) => codec.mimeType.toLowerCase() === "video/h264") ?? [];
+  if (!h264.length) return;
+  const baseline = h264.filter((codec) => /profile-level-id=42/i.test(codec.sdpFmtpLine ?? ""));
+  const transceiver = peer.getTransceivers().find((candidate) => candidate.sender === sender);
+  try {
+    transceiver?.setCodecPreferences(baseline.length ? baseline : h264);
+  } catch {
+    // Codec preferences are an interoperability enhancement. The default
+    // browser codec order remains available where this API is partial.
   }
 }
 
