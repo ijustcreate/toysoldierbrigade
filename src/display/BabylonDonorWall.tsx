@@ -152,10 +152,15 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
     let redrawTimer: number | undefined;
     let resizeFrame = 0;
     const redraw = () => {
-      const bounds = canvas.getBoundingClientRect();
+      // A mounted TV rotates this canvas with CSS. getBoundingClientRect()
+      // reports the post-rotation landscape bounds, while the canvas layout
+      // box remains portrait. Draw using the layout dimensions so the bitmap
+      // is never stretched into the rotated stage.
+      const widthCss = canvas.clientWidth;
+      const heightCss = canvas.clientHeight;
       const density = Math.min(1.5, Math.max(1, renderWindow.devicePixelRatio || 1));
-      const width = Math.max(1, Math.round(bounds.width * density));
-      const height = Math.max(1, Math.round(bounds.height * density));
+      const width = Math.max(1, Math.round(widthCss * density));
+      const height = Math.max(1, Math.round(heightCss * density));
       if (canvas.width !== width || canvas.height !== height) {
         canvas.width = width;
         canvas.height = height;

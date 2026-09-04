@@ -1,5 +1,25 @@
 [
   {
+    "id": "DEV-0466",
+    "title": "Preserve board proportions on TV and dashboard",
+    "summary": "Fixes stretched portrait boards after sideways TV rotation and makes dashboard previews contain each display at its configured aspect ratio.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 6:03 PM",
+    "areas": [
+      "TV mode",
+      "Dashboard",
+      "Display delivery"
+    ],
+    "files": [
+      "src/display/BabylonDonorWall.tsx",
+      "src/styles.css",
+      "scripts/test-tv-safe-board-renderer.mjs",
+      "scripts/test-dashboard-display-aspect-ratio.mjs",
+      "package.json"
+    ],
+    "tests": "npx tsc --noEmit; npm run test:dashboard-display-aspect-ratio; npm run test:tv-safe-board-renderer; npm run test:sideways-mounted-display"
+  },
+  {
     "id": "DEV-0465",
     "title": "Correct sideways TV rotation direction",
     "summary": "Swaps the physical rotation mapping for sideways-mounted TV browsers so the configured clockwise setup renders upright instead of upside down.",

@@ -6,6 +6,9 @@ const source = await readFile(new URL("../src/display/BabylonDonorWall.tsx", imp
 assert.match(source, /const useSafeCanvasRenderer = fitToScreen && viewMode === "2d"/);
 assert.match(source, /if \(useSafeCanvasRenderer \|\| useHtmlFallback\) return;/);
 assert.match(source, /canvas\?\.getContext\("2d"\)/);
+assert.match(source, /const widthCss = canvas\.clientWidth;/);
+assert.match(source, /const heightCss = canvas\.clientHeight;/);
+assert.doesNotMatch(source, /canvas\.getBoundingClientRect\(\)/);
 assert.match(source, /drawTextureContent\([^\n]+false\)/);
 assert.match(source, /if \(mirrorForTexture\)/);
 assert.match(source, /requiresTvHtmlFallback/);

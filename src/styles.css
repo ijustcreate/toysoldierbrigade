@@ -3292,12 +3292,31 @@ body,
 
 .dashboard-display-preview.landscape .wall-canvas {
   width: 100%;
-  height: 100%;
+  height: auto;
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
 }
 
 .dashboard-display-preview.portrait .wall-canvas {
-  width: 100%;
+  width: auto;
   height: 100%;
+  max-width: 100%;
+  aspect-ratio: 9 / 16;
+}
+
+/* The dashboard is a monitor, not a crop tool. Keep every preview surface
+   * inside the card at the same shape as its real-world display. */
+.dashboard-display-preview.landscape > .tv-browser-board {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
+}
+.dashboard-display-preview.portrait > .tv-browser-board {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 9 / 16;
 }
 
 .dashboard-live-overlay-surface {
