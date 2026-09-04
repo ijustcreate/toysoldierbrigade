@@ -118,7 +118,6 @@ import {
   openedBoardIds,
   publishState,
   saveLanternStateDurably,
-  saveSharedLanternState,
   shareLanternImages,
   storeLanternMedia,
   targetIncludes,
@@ -367,6 +366,7 @@ function ControlCenter() {
   const [query, setQuery] = useState("");
   const [selectedDisplayId, setSelectedDisplayId] = useState<ScreenId>(() => firstDisplayId(loadLanternState()));
   const [requestedBoardEditorId, setRequestedBoardEditorId] = useState<string | null>(null);
+  const [requestedBoardEditorPanelId, setRequestedBoardEditorPanelId] = useState<string | null>(null);
   const [videoStatus, setVideoStatus] = useState("Idle");
   const [donorSetupOpen, setDonorSetupOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -1259,10 +1259,10 @@ function ControlCenter() {
             addDonor={addDonor}
             donorSetupOpen={donorSetupOpen}
             closeDonorSetup={() => setDonorSetupOpen(false)}
-            onOpenBoard={(boardId) => { setRequestedBoardEditorId(boardId); setView("theme"); }}
+            onOpenBoard={(boardId, panelId) => { setRequestedBoardEditorId(boardId); setRequestedBoardEditorPanelId(panelId ?? null); setView("theme"); }}
           />
         )}
-        {view === "theme" && <ThemeStudio state={state} selectedDisplayId={selectedDisplayId} setSelectedDisplayId={setSelectedDisplayId} requestedBoardId={requestedBoardEditorId} onRequestedBoardHandled={() => setRequestedBoardEditorId(null)} updateState={updateState} />}
+        {view === "theme" && <ThemeStudio state={state} selectedDisplayId={selectedDisplayId} setSelectedDisplayId={setSelectedDisplayId} requestedBoardId={requestedBoardEditorId} requestedPanelId={requestedBoardEditorPanelId} onRequestedBoardHandled={() => { setRequestedBoardEditorId(null); setRequestedBoardEditorPanelId(null); }} updateState={updateState} />}
         {view === "schedule" && <ScheduleCalendarView
           state={state}
           updateState={updateState}
@@ -2643,7 +2643,7 @@ function DonorsView({
   addDonor: () => void;
   donorSetupOpen: boolean;
   closeDonorSetup: () => void;
-  onOpenBoard: (boardId: string) => void;
+  onOpenBoard: (boardId: string, panelId?: string) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Donor | null>(null);
@@ -2657,10 +2657,11 @@ function DonorsView({
   const [sortOrder, setSortOrder] = useState<"manual" | "az" | "za">(
     () => state.userPreferences.find((preferences) => preferences.userId === activeUserId)?.donorSort ?? "manual"
   );
-  const [editTab, setEditTab] = useState<"basic" | "giving" | "history" | "displays">("basic");
+  const [editTab, setEditTab] = useState<"basic" | "images" | "giving" | "history" | "displays">("basic");
   const [discardDraftPending, setDiscardDraftPending] = useState(false);
   const [draftDonorListIds, setDraftDonorListIds] = useState<string[]>([]);
   const [originalDonorListIds, setOriginalDonorListIds] = useState<string[]>([]);
+  const [selectedDonorBoardId, setSelectedDonorBoardId] = useState("");
   const [selectedDonorListId, setSelectedDonorListId] = useState("");
   const availableDonorLists = useMemo(() => donorListOptions(state), [state.boardPrograms]);
   const discardEditor = () => {
@@ -2669,6 +2670,7 @@ function DonorsView({
     setDraft(null);
     setDraftDonorListIds([]);
     setOriginalDonorListIds([]);
+    setSelectedDonorBoardId("");
     setSelectedDonorListId("");
   };
   const closeEditor = () => {
@@ -2773,7 +2775,9 @@ function DonorsView({
     setDraft({ ...donor, boardIds: donor.boardIds ?? state.boardPrograms.filter((board) => board.donorIds.includes(donor.id)).map((board) => board.id) });
     setDraftDonorListIds(assignedListIds);
     setOriginalDonorListIds(assignedListIds);
-    setSelectedDonorListId(assignedListIds[0] ?? donorListOptions(state)[0]?.id ?? "");
+    const initialListId = assignedListIds[0] ?? donorListOptions(state)[0]?.id ?? "";
+    setSelectedDonorListId(initialListId);
+    setSelectedDonorBoardId(donorListOptions(state).find((option) => option.id === initialListId)?.boardId ?? "");
     setEditTab("basic");
   };
 
@@ -2786,6 +2790,61 @@ function DonorsView({
     const levelName = givingProgram?.levels.find((level) => level.id === donor.givingLevelId)?.name ?? donor.tier;
     const levelFilters = [...new Set(board.panels?.flatMap((panel) => panel.donorTierFilter ?? []) ?? [])];
     return levelFilters.length === 0 || levelFilters.some((filter) => filter.localeCompare(levelName, undefined, { sensitivity: "base" }) === 0);
+  };
+
+  const toggleSelectedDonorList = () => {
+    if (!draft) return;
+    const selected = availableDonorLists.find((option) => option.id === selectedDonorListId);
+    if (!selected) return;
+    const assigned = draftDonorListIds.includes(selected.id);
+    const boardListIds = availableDonorLists.filter((option) => option.boardId === selected.boardId).map((option) => option.id);
+    const nextListIds = assigned
+      ? draftDonorListIds.filter((id) => !boardListIds.includes(id))
+      : [...new Set([...draftDonorListIds, ...boardListIds])];
+    const nextBoardIds = assigned
+      ? (draft.boardIds ?? []).filter((id) => id !== selected.boardId)
+      : [...new Set([...(draft.boardIds ?? []), selected.boardId])];
+    const nextDraft = { ...draft, boardIds: nextBoardIds };
+    updateState((current) => ({
+      ...current,
+      donors: current.donors.map((donor) => donor.id === draft.id ? { ...donor, boardIds: nextBoardIds } : donor),
+      boardPrograms: current.boardPrograms.map((board) => board.id !== selected.boardId ? board : {
+        ...board,
+        donorIds: assigned ? board.donorIds.filter((id) => id !== draft.id) : [...new Set([...board.donorIds, draft.id])],
+        panels: board.panels?.map((panel) => panel.type !== "donors" ? panel : {
+          ...panel,
+          donorIds: assigned ? (panel.donorIds ?? board.donorIds).filter((id) => id !== draft.id) : [...new Set([...(panel.donorIds ?? board.donorIds), draft.id])]
+        })
+      })
+    }));
+    setDraft(nextDraft);
+    setDraftDonorListIds(nextListIds);
+    setOriginalDonorListIds(nextListIds);
+  };
+
+  const addDonorImage = async (file: File | undefined) => {
+    if (!file || !draft) return;
+    let url = "";
+    await readSharedImageFile(file, (value) => { url = value; });
+    if (!url) return;
+    const orientation = await new Promise<"portrait" | "landscape" | "square">((resolve) => {
+      const image = new Image();
+      image.onload = () => resolve(image.naturalWidth === image.naturalHeight ? "square" : image.naturalWidth > image.naturalHeight ? "landscape" : "portrait");
+      image.onerror = () => resolve("landscape");
+      image.src = url;
+    });
+    const image = { id: `donor-image-${Date.now()}`, url, name: file.name, orientation };
+    const nextDraft = { ...draft, images: [...(draft.images ?? []), image] };
+    setDraft(nextDraft);
+    updateState((current) => ({ ...current, donors: current.donors.map((donor) => donor.id === draft.id ? nextDraft : donor), imageAssets: [...(current.imageAssets ?? []).filter((asset) => asset.url !== url), { url, name: file.name, donorId: draft.id, orientation }] }));
+  };
+
+  const removeDonorImage = (imageId: string) => {
+    if (!draft) return;
+    const image = draft.images?.find((item) => item.id === imageId);
+    const nextDraft = { ...draft, images: (draft.images ?? []).filter((item) => item.id !== imageId) };
+    setDraft(nextDraft);
+    updateState((current) => ({ ...current, donors: current.donors.map((donor) => donor.id === draft.id ? nextDraft : donor), imageAssets: (current.imageAssets ?? []).filter((asset) => asset.url !== image?.url) }));
   };
 
   const saveDonor = () => {
@@ -2805,20 +2864,17 @@ function DonorsView({
           const boardLists = currentListOptions.filter((option) => option.boardId === board.id);
           if (!boardLists.length) return board;
           const donorIsOnBoard = boardLists.some((option) => selectedListIds.has(option.id));
+          const donorIds = donorIsOnBoard
+            ? [...new Set([...board.donorIds, draft.id])]
+            : board.donorIds.filter((id) => id !== draft.id);
           return {
             ...board,
-            donorIds: donorIsOnBoard
-              ? [...new Set([...board.donorIds, draft.id])]
-              : board.donorIds.filter((id) => id !== draft.id),
+            donorIds,
             panels: board.panels?.map((panel) => {
               if (panel.type !== "donors") return panel;
-              const optionId = `${board.id}::${panel.id}`;
-              const inheritedRoster = panel.donorIds === undefined ? board.donorIds : panel.donorIds;
               return {
                 ...panel,
-                donorIds: selectedListIds.has(optionId)
-                  ? [...new Set([...inheritedRoster, draft.id])]
-                  : inheritedRoster.filter((id) => id !== draft.id)
+                donorIds
               };
             })
           };
@@ -3054,7 +3110,7 @@ function DonorsView({
       {draft && editingId && createPortal(<div className="modal-backdrop donor-editor-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditor(); }}>
         <section className="editor-modal donor-editor-modal" role="dialog" aria-modal="true" aria-labelledby="donor-editor-title">
           <div className="editor-modal-head"><div><p className="eyebrow">Recognition profile</p><h2 id="donor-editor-title">Edit donor</h2></div><button className="icon-button" onClick={closeEditor} title="Close editor"><X size={18} /></button></div>
-          <EditorTabs value={editTab} options={[["basic", "Donor info"], ["giving", "Pledge & donations"], ["history", "Donation history"], ["displays", "Donor lists"]]} onChange={(value) => setEditTab(value as typeof editTab)} />
+          <EditorTabs value={editTab} options={[["basic", "Donor info"], ["images", "Donor images"], ["giving", "Pledge & donations"], ["history", "Donation history"], ["displays", "Donor lists"]]} onChange={(value) => setEditTab(value as typeof editTab)} />
           <div className="editor-modal-body donor-editor-body">
             {editTab === "basic" && <div className="editor-form-grid">
               <LabeledInput label="Name" info="Donor or organization name used for recognition." value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
@@ -3075,6 +3131,7 @@ function DonorsView({
               <label className="field span-two"><span>Favorite joke</span><textarea value={draft.favoriteJoke ?? ""} onChange={(event) => setDraft({ ...draft, favoriteJoke: event.target.value })} /></label>
               <label className="field span-two"><span>Favorite inspirational quote</span><textarea value={draft.favoriteQuote ?? ""} onChange={(event) => setDraft({ ...draft, favoriteQuote: event.target.value })} /></label>
             </div>}
+            {editTab === "images" && <section className="donor-images-editor"><header><div><p className="eyebrow">Donor media</p><h3>Donor images</h3><span>Portrait, landscape, or square tags are detected automatically from the image dimensions.</span></div><label className="command-button primary compact image-upload-button"><Upload size={15} /> Add image<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { void addDonorImage(event.target.files?.[0]); event.target.value = ""; }} /></label></header>{draft.images?.length ? <div className="donor-image-grid">{draft.images.map((image) => <article key={image.id}><img src={resolveProjectAssetUrl(image.url)} alt={image.name} /><div><strong>{image.name}</strong><span>{image.orientation}</span></div><button type="button" className="icon-button danger-icon" onClick={() => removeDonorImage(image.id)} aria-label={`Remove ${image.name}`} title="Remove image"><Trash2 size={15} /></button></article>)}</div> : <div className="donor-images-empty"><ImagePlus size={22} /><strong>No donor images yet</strong><span>Add a portrait or landscape image to use it throughout the recognition workspace.</span></div>}</section>}
             {editTab === "giving" && <><DonorPledgeEditor state={state} donor={draft} onChange={(nextDonor) => {
               const previousBoardIds = new Set(draft.boardIds ?? []);
               const nextBoardIds = new Set(nextDonor.boardIds ?? []);
@@ -3086,10 +3143,22 @@ function DonorsView({
               }, current));
             }} /></>}
             {editTab === "history" && <DonationHistoryEditor donor={draft} users={state.users} activeUserId={activeUserId} onChange={(donations) => setDraft({ ...draft, donations })} />}
-            {editTab === "displays" && <div className="donor-list-manager"><label className="field"><span>Donor list</span><select value={selectedDonorListId} onChange={(event) => setSelectedDonorListId(event.target.value)}>{availableDonorLists.map((option) => <option key={option.id} value={option.id}>{draftDonorListIds.includes(option.id) ? "✓ " : ""}{option.label}</option>)}</select></label>{(() => { const selected = availableDonorLists.find((option) => option.id === selectedDonorListId); return selected ? <section className="donor-list-preview"><header><div><p className="eyebrow">Selected board preview</p><strong>{selected.board.name}</strong><small>{selected.board.orientation} · {selected.label}</small></div><button type="button" className="command-button secondary compact" onClick={() => onOpenBoard(selected.boardId)}><ExternalLink size={14} /> Open board</button></header><div className="donor-list-preview-surface" style={{ background: selected.board.backgroundColor ?? "#243a60" }}><span>{selected.board.name}</span><b>{selected.label}</b><small>{draftDonorListIds.includes(selected.id) ? `${draft.name} is included in this list` : `${draft.name} is not included in this list`}</small></div></section> : null; })()}<div className="display-assignment-grid">{availableDonorLists.map((option) => {
-              const assigned = draftDonorListIds.includes(option.id);
-              return <div className={assigned ? "display-assignment selected" : "display-assignment"} key={option.id}><input className="display-assignment-toggle" type="checkbox" checked={assigned} onChange={(event) => setDraftDonorListIds((current) => event.target.checked ? [...new Set([...current, option.id])] : current.filter((id) => id !== option.id))} aria-label={`${assigned ? "Remove" : "Add"} ${draft.name} ${assigned ? "from" : "to"} ${option.label}`} /><span><strong>{assigned ? "✓ " : ""}{option.label}</strong><small>{assigned ? "Included in this donor list" : "Add to this donor list"}</small></span></div>;
-            })}</div>{!availableDonorLists.length && <div className="empty-inspector"><Users size={24} /><strong>No donor lists available</strong><span>Add a donor-list panel to a board to assign donors here.</span></div>}</div>}
+            {editTab === "displays" && <div className="donor-list-manager">{(() => {
+              const boardOptions = state.boardPrograms.filter((board) => availableDonorLists.some((option) => option.boardId === board.id));
+              const listsOnBoard = availableDonorLists.filter((option) => option.boardId === selectedDonorBoardId);
+              const selected = listsOnBoard.find((option) => option.id === selectedDonorListId) ?? listsOnBoard[0];
+              const assigned = Boolean(selected && draftDonorListIds.includes(selected.id));
+              return <>
+                <div className="donor-list-selector-stack">
+                  <label className="field"><span>Board</span><select value={selectedDonorBoardId} onChange={(event) => { const boardId = event.target.value; const firstList = availableDonorLists.find((option) => option.boardId === boardId); setSelectedDonorBoardId(boardId); setSelectedDonorListId(firstList?.id ?? ""); }}>{boardOptions.map((board) => <option key={board.id} value={board.id}>{board.name} · {board.orientation}</option>)}</select></label>
+                  <label className="field"><span>Donor list</span><select value={selected?.id ?? ""} onChange={(event) => setSelectedDonorListId(event.target.value)}>{listsOnBoard.map((option, index) => <option key={option.id} value={option.id}>{draftDonorListIds.includes(option.id) ? "✓ " : ""}{option.panel.title || `Donor list ${index + 1}`}</option>)}</select></label>
+                  {selected && <div className={assigned ? "donor-list-assignment-status assigned" : "donor-list-assignment-status"}><strong>{assigned ? "Included in this donor list" : "Not in this donor list"}</strong><small>{assigned ? "Removing will update and save this board's roster." : "Adding will update and save this board's roster."}</small></div>}
+                  {selected && <button type="button" className={assigned ? "command-button danger" : "command-button primary"} onClick={toggleSelectedDonorList}>{assigned ? <><X size={16} /> Remove donor from this donor list</> : <><Plus size={16} /> Add donor to this donor list</>}</button>}
+                </div>
+                {selected && <section className="donor-list-preview board-list-preview"><header><div><p className="eyebrow">Selected board preview</p><strong>{selected.board.name}</strong><small>{selected.board.orientation} · highlighted: {selected.panel.title || "donor list"}</small></div><button type="button" className="command-button secondary compact" onClick={() => onOpenBoard(selected.boardId, selected.panel.id)}><ExternalLink size={14} /> Open board</button></header><div className="donor-list-board-canvas"><AuthoredBoardPresentation state={state} display={{ ...Object.values(state.screens)[0], orientation: selected.board.orientation }} program={selected.board} highlightedPanelId={selected.panel.id} /></div><footer><span>The highlighted area is the selected donor list.</span><strong>{assigned ? `${draft.name} is on this list` : `${draft.name} is not on this list`}</strong></footer></section>}
+                {!availableDonorLists.length && <div className="empty-inspector"><Users size={24} /><strong>No donor lists available</strong><span>Add a donor-list panel to a board to assign donors here.</span></div>}
+              </>;
+            })()}</div>}
           </div>
           <div className="editor-modal-actions"><button className="command-button secondary" onClick={closeEditor}>Cancel</button><button className="command-button primary" onClick={saveDonor}><Save size={17} /> Save changes</button></div>
         </section>
@@ -3742,6 +3811,7 @@ function ThemeStudio({
   selectedDisplayId,
   setSelectedDisplayId,
   requestedBoardId,
+  requestedPanelId,
   onRequestedBoardHandled,
   updateState
 }: {
@@ -3749,33 +3819,51 @@ function ThemeStudio({
   selectedDisplayId: ScreenId;
   setSelectedDisplayId: (screenId: ScreenId) => void;
   requestedBoardId: string | null;
+  requestedPanelId: string | null;
   onRequestedBoardHandled: () => void;
   updateState: (updater: (current: LanternState) => LanternState) => void;
 }) {
   const [draftState, setDraftState] = useState<LanternState>(() => structuredClone(savedState));
+  // ContentEditable input and the Save button can occur before React has
+  // rendered the input update. Keep the latest authored board available to
+  // save synchronously so a click immediately after typing cannot lose text.
+  const draftStateRef = useRef(draftState);
   const [savedDraftSnapshot, setSavedDraftSnapshot] = useState(() => boardEditorDraftSnapshot(savedState));
   const observedSavedSnapshot = useRef(boardEditorDraftSnapshot(savedState));
+  const pendingSavedBoardSnapshot = useRef<string | null>(null);
   const state = draftState;
   const draftSnapshot = boardEditorDraftSnapshot(draftState);
   const incomingSavedSnapshot = boardEditorDraftSnapshot(savedState);
   const hasUnsavedChanges = draftSnapshot !== savedDraftSnapshot;
   const updateDraftState = useCallback((updater: (current: LanternState) => LanternState) => {
-    setDraftState((current) => updater(current));
+    setDraftState((current) => {
+      const next = updater(current);
+      draftStateRef.current = next;
+      return next;
+    });
   }, []);
   const display = state.screens[selectedDisplayId] ?? Object.values(state.screens)[0];
   const [selectedProgramId, setSelectedProgramId] = useState(() => state.boardPrograms.some((program) => program.id === requestedBoardId) ? requestedBoardId! : resolveDisplayedBoardProgramId(state, display.id));
   useEffect(() => {
     if (!requestedBoardId) return;
-    if (state.boardPrograms.some((program) => program.id === requestedBoardId)) setSelectedProgramId(requestedBoardId);
+    if (state.boardPrograms.some((program) => program.id === requestedBoardId)) {
+      setSelectedProgramId(requestedBoardId);
+      if (requestedPanelId && state.boardPrograms.find((program) => program.id === requestedBoardId)?.panels?.some((panel) => panel.id === requestedPanelId)) {
+        setSelectedPanelId(requestedPanelId);
+        setSelectedPanelIds([requestedPanelId]);
+      }
+    }
     onRequestedBoardHandled();
-  }, [onRequestedBoardHandled, requestedBoardId, state.boardPrograms]);
+  }, [onRequestedBoardHandled, requestedBoardId, requestedPanelId, state.boardPrograms]);
   const [selectedPanelId, setSelectedPanelId] = useState("");
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
   const [panelClipboard, setPanelClipboard] = useState<BoardPanel | null>(null);
   const [newPanelType, setNewPanelType] = useState<BoardPanelType>("message");
   const [placingPanelType, setPlacingPanelType] = useState<BoardPanelType | null>(null);
-  const [donorPage, setDonorPage] = useState(0);
   const [donorSearch, setDonorSearch] = useState("");
+  const [rosterLevelFilter, setRosterLevelFilter] = useState("all");
+  const [rosterPledgeFilter, setRosterPledgeFilter] = useState("all");
+  const [rosterSort, setRosterSort] = useState<"name-asc" | "name-desc" | "level">("name-asc");
   const [boardSearch, setBoardSearch] = useState("");
   const [boardEditorZoom, setBoardEditorZoom] = useState(1);
   const [boardEditorPan, setBoardEditorPan] = useState({ x: 0, y: 0 });
@@ -3794,9 +3882,17 @@ function ThemeStudio({
   const panels = selectedProgram?.panels ?? [];
   const selectedPanel = panels.find((panel) => panel.id === selectedPanelId);
   const selectedDonorTierFilters = selectedPanel?.type === "donors" ? selectedPanel.donorTierFilter ?? [] : [];
-  const selectedDonorTierFilterKey = selectedDonorTierFilters.join("\u0001");
-  const donorPageSize = 8;
-  const filteredBoardDonors = state.donors.filter((donor) => donor.active && donor.name.toLowerCase().includes(donorSearch.trim().toLowerCase()) && (!selectedDonorTierFilters.length || selectedDonorTierFilters.includes(donor.tier)));
+  const rosterPledgeTypes = [...new Set(state.donors.filter((donor) => donor.active).map((donor) => donor.donationType).filter((type): type is NonNullable<Donor["donationType"]> => Boolean(type)))].sort();
+  const filteredBoardDonors = state.donors
+    .filter((donor) => donor.active
+      && donor.name.toLocaleLowerCase().includes(donorSearch.trim().toLocaleLowerCase())
+      && (rosterLevelFilter === "all" || donor.tier === rosterLevelFilter)
+      && (rosterPledgeFilter === "all" || donor.donationType === rosterPledgeFilter))
+    .sort((a, b) => rosterSort === "name-desc"
+      ? b.name.localeCompare(a.name)
+      : rosterSort === "level"
+        ? a.tier.localeCompare(b.tier) || a.name.localeCompare(b.name)
+        : a.name.localeCompare(b.name));
   const donorListRoster = selectedProgram?.donorIds
     .map((donorId) => state.donors.find((donor) => donor.id === donorId))
     .filter((donor): donor is Donor => donor !== undefined)
@@ -3825,13 +3921,26 @@ function ThemeStudio({
       : { imageUrl, imageFit: "contain" });
     setImagePickerOpen(false);
   };
-  const donorPageCount = Math.max(1, Math.ceil(filteredBoardDonors.length / donorPageSize));
-  const donorPageItems = filteredBoardDonors.slice(donorPage * donorPageSize, donorPage * donorPageSize + donorPageSize);
   useEffect(() => {
     if (incomingSavedSnapshot === observedSavedSnapshot.current) return;
     observedSavedSnapshot.current = incomingSavedSnapshot;
+    // Saving first updates the local editor, then the app-wide state is relayed
+    // to other surfaces. Ignore older relay messages during that handoff so a
+    // just-saved board never briefly renders an unrelated prior version.
+    if (pendingSavedBoardSnapshot.current) {
+      if (incomingSavedSnapshot === pendingSavedBoardSnapshot.current) {
+        pendingSavedBoardSnapshot.current = null;
+        const nextDraft = structuredClone(savedState);
+        draftStateRef.current = nextDraft;
+        setDraftState(nextDraft);
+        setSavedDraftSnapshot(incomingSavedSnapshot);
+      }
+      return;
+    }
     if (hasUnsavedChanges) return;
-    setDraftState(structuredClone(savedState));
+    const nextDraft = structuredClone(savedState);
+    draftStateRef.current = nextDraft;
+    setDraftState(nextDraft);
     setSavedDraftSnapshot(incomingSavedSnapshot);
   }, [hasUnsavedChanges, incomingSavedSnapshot, savedState]);
   useEffect(() => {
@@ -3844,10 +3953,6 @@ function ThemeStudio({
     document.addEventListener("pointerdown", closeBoardPopovers);
     return () => document.removeEventListener("pointerdown", closeBoardPopovers);
   }, []);
-  useEffect(() => setDonorPage(0), [donorSearch, selectedPanel?.id, selectedDonorTierFilterKey]);
-  useEffect(() => {
-    if (donorPage >= donorPageCount) setDonorPage(donorPageCount - 1);
-  }, [donorPage, donorPageCount]);
   useEffect(() => {
     setSelectedPanelId("");
     setBoardEditorZoom(1);
@@ -4069,7 +4174,8 @@ function ThemeStudio({
 
   const setProgramDonorIds = (donorIds: string[]) => {
     if (!selectedProgram) return;
-    const roster = new Set(donorIds);
+    const normalizedDonorIds = [...new Set(donorIds)];
+    const roster = new Set(normalizedDonorIds);
     updateDraftState((current) => ({
       ...current,
       donors: current.donors.map((donor) => ({
@@ -4078,7 +4184,13 @@ function ThemeStudio({
           ? [...new Set([...(donor.boardIds ?? []), selectedProgram.id])]
           : (donor.boardIds ?? []).filter((id) => id !== selectedProgram.id)
       })),
-      boardPrograms: current.boardPrograms.map((program) => program.id === selectedProgram.id ? { ...program, donorIds } : program)
+      boardPrograms: current.boardPrograms.map((program) => program.id === selectedProgram.id ? {
+        ...program,
+        donorIds: normalizedDonorIds,
+        // The roster picker is board-wide. Keep every donor-list panel aligned
+        // so an older panel-specific roster cannot hide a newly added donor.
+        panels: program.panels?.map((panel) => panel.type === "donors" ? { ...panel, donorIds: normalizedDonorIds } : panel)
+      } : program)
     }));
   };
 
@@ -4095,28 +4207,33 @@ function ThemeStudio({
   };
 
   const saveBoard = async () => {
-    if (!hasUnsavedChanges) return;
+    const currentDraft = draftStateRef.current;
+    const currentDraftSnapshot = boardEditorDraftSnapshot(currentDraft);
+    if (currentDraftSnapshot === savedDraftSnapshot) return;
     setSaveStatus("saving");
+    const savedBoardSnapshot = currentDraftSnapshot;
+    pendingSavedBoardSnapshot.current = savedBoardSnapshot;
     const boardDraft = {
       ...savedState,
-      board: draftState.board,
-      boardPrograms: draftState.boardPrograms,
-      donors: draftState.donors,
-      widgets: draftState.widgets,
-      screens: draftState.screens
+      board: currentDraft.board,
+      boardPrograms: currentDraft.boardPrograms,
+      donors: currentDraft.donors,
+      widgets: currentDraft.widgets,
+      screens: currentDraft.screens
     };
     const persistence = await saveLanternStateDurably(boardDraft);
     if (persistence === "failed") {
+      pendingSavedBoardSnapshot.current = null;
       setSaveStatus("error");
       return;
     }
     updateState((current) => ({
       ...current,
-      board: draftState.board,
-      boardPrograms: draftState.boardPrograms,
-      donors: draftState.donors,
-      widgets: draftState.widgets,
-      screens: draftState.screens
+      board: currentDraft.board,
+      boardPrograms: currentDraft.boardPrograms,
+      donors: currentDraft.donors,
+      widgets: currentDraft.widgets,
+      screens: currentDraft.screens
     }));
     savedState.boardPrograms.forEach((savedProgram) => {
       const draftProgram = draftState.boardPrograms.find((program) => program.id === savedProgram.id);
@@ -4124,20 +4241,16 @@ function ThemeStudio({
         void deleteLanternMedia(savedProgram.backgroundMediaId);
       }
     });
-    setSavedDraftSnapshot(draftSnapshot);
+    setSavedDraftSnapshot(savedBoardSnapshot);
     if (!canWriteSharedLanternState()) {
       setSaveStatus("local");
       window.setTimeout(() => setSaveStatus("idle"), 2600);
       return;
     }
-    try {
-      await saveSharedLanternState(boardDraft);
-      setSaveStatus("saved");
-    } catch (error) {
-      // The local save already succeeded. Do not imply the server received it.
-      console.warn("Project Lantern saved this board locally but could not sync it.", error);
-      setSaveStatus("sync-error");
-    }
+    // updateState publishes the version built from the current app state. Do
+    // not issue another whole-state write from boardDraft: it can be older than
+    // concurrent changes and would overwrite them after this save.
+    setSaveStatus("saved");
     window.setTimeout(() => setSaveStatus("idle"), 2600);
   };
 
@@ -4253,6 +4366,20 @@ function ThemeStudio({
               {selectedPanel.type === "donors" && <>
                 <div className="field"><span>Names in each row</span><SegmentedControl value={String(selectedPanel.columns ?? selectedProgram.columns)} options={[["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"]]} onChange={(value) => patchPanel(selectedPanel.id, { columns: Number(value) as BoardPanel["columns"] })} /></div>
                 <div className="two-col"><Slider label="Row spacing" info="Space between donor names. Lower this to pack rows closer without shrinking the text." value={selectedPanel.donorRowGap ?? 0} min={0} max={32} onChange={(donorRowGap) => patchPanel(selectedPanel.id, { donorRowGap })} /><Slider label="Column spacing" info="Space between donor-name columns. Lower this to make the list tighter." value={selectedPanel.donorColumnGap ?? 7} min={0} max={30} onChange={(donorColumnGap) => patchPanel(selectedPanel.id, { donorColumnGap })} /></div>
+                <details className="inspector-details roster-details">
+                  <summary>Choose board roster <span>{donorListRoster.length} selected for this list</span></summary>
+                  <div className="inspector-block board-roster-browser">
+                    <div className="board-roster-browser-head"><div><strong>All supporters</strong><small>{donorListRoster.length} on this board · {filteredBoardDonors.length} shown</small></div><span>Click a name to add or remove it</span></div>
+                    <label className="board-roster-search"><Search size={15} /><span className="sr-only">Find a supporter</span><input value={donorSearch} onChange={(event) => setDonorSearch(event.target.value)} placeholder="Find a supporter by name" /></label>
+                    <div className="board-roster-filters" aria-label="Filter board roster">
+                      <label><span>Recognition level</span><select value={rosterLevelFilter} onChange={(event) => setRosterLevelFilter(event.target.value)}><option value="all">All levels</option>{state.recognitionSettings.tiers.map((tier) => <option key={tier} value={tier}>{tier}</option>)}</select></label>
+                      <label><span>Pledge / gift type</span><select value={rosterPledgeFilter} onChange={(event) => setRosterPledgeFilter(event.target.value)}><option value="all">All types</option>{rosterPledgeTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+                      <label><span>Sort</span><select value={rosterSort} onChange={(event) => setRosterSort(event.target.value as typeof rosterSort)}><option value="name-asc">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="level">Level, then name</option></select></label>
+                    </div>
+                    <div className="board-roster-actions"><button type="button" onClick={() => setProgramDonorIds([...new Set([...selectedProgram.donorIds, ...filteredBoardDonors.map((donor) => donor.id)])])}>Add shown</button><button type="button" onClick={() => setProgramDonorIds(selectedProgram.donorIds.filter((id) => !filteredBoardDonors.some((donor) => donor.id === id)))}>Remove shown</button><button type="button" className="danger" onClick={() => setProgramDonorIds([])}>Clear roster</button></div>
+                    <div className="board-donor-picker full-roster-picker">{filteredBoardDonors.map((donor) => <label key={donor.id} className={selectedProgram.donorIds.includes(donor.id) ? "selected" : ""}><input type="checkbox" checked={selectedProgram.donorIds.includes(donor.id)} onChange={(event) => toggleProgramDonor(donor.id, event.target.checked)} /><span><strong>{donor.name}</strong><small>{donor.tier || "No recognition level"}{donor.donationType ? ` · ${donor.donationType}` : ""}</small></span><b>{selectedProgram.donorIds.includes(donor.id) ? "Added" : "Add"}</b></label>)}{!filteredBoardDonors.length && <p className="board-roster-empty">No supporters match these filters. Try a different name, level, or pledge type.</p>}</div>
+                  </div>
+                </details>
                 <details className="inspector-details" open>
                   <summary>Scrolling credits</summary>
                   <div className="inspector-block">
@@ -4270,6 +4397,8 @@ function ThemeStudio({
                     fontLabels={boardFontLabels}
                     iconsVisible={selectedPanel.showIcons ?? false}
                     onIconsVisibleChange={(showIcons) => patchPanel(selectedPanel.id, { showIcons })}
+                    iconPlacement={selectedPanel.recognitionIconPlacement ?? "left"}
+                    onIconPlacementChange={(recognitionIconPlacement) => patchPanel(selectedPanel.id, { recognitionIconPlacement })}
                     onPatchDefaults={(patch) => patchPanelPresentation(selectedPanel, patch)}
                     onPatchDonor={(donorId, patch) => patchPanelDonorPresentation(selectedPanel, donorId, patch)}
                     onClearDefaults={() => patchPanel(selectedPanel.id, { donorPresentation: undefined })}
@@ -4277,17 +4406,6 @@ function ThemeStudio({
                   />
                   <p className="field-note">These settings affect only this donor-list panel. Donor profile data remains unchanged.</p>
                 </div></details>
-                <div className="field panel-tier-filter"><span>Recognition levels <InfoDot text="Selected levels filter both the available supporter names and this donor-list panel." /></span><details className="donor-tier-filter-dropdown"><summary><strong>{selectedDonorTierFilters.length ? selectedDonorTierFilters.join(", ") : "All levels"}</strong><span aria-hidden="true">⌄</span></summary><div className="donor-tier-filter-options"><label><input type="checkbox" checked={!selectedDonorTierFilters.length} onChange={() => patchPanel(selectedPanel.id, { donorTierFilter: undefined })} /><span>All levels</span></label>{state.recognitionSettings.tiers.map((tier) => { const selected = selectedDonorTierFilters.includes(tier); return <label key={tier}><input type="checkbox" checked={selected} onChange={() => { const next = selected ? selectedDonorTierFilters.filter((item) => item !== tier) : [...selectedDonorTierFilters, tier]; patchPanel(selectedPanel.id, { donorTierFilter: next.length ? next : undefined }); }} /><span>{tier}</span></label>; })}</div></details></div>
-                <details className="inspector-details roster-details">
-                  <summary>Choose board roster <span>{donorListRoster.length} selected for this list</span></summary>
-                  <div className="inspector-block">
-                    <LabeledInput label="Find a supporter" info="Search the museum's supporter list." value={donorSearch} onChange={setDonorSearch} />
-                    <p className="field-note">Available names honor the selected recognition levels. Roster membership applies to every donor-list element on this board.</p>
-                    <div className="mini-actions"><button type="button" onClick={() => setProgramDonorIds(state.donors.filter((donor) => donor.active && (!selectedDonorTierFilters.length || selectedDonorTierFilters.includes(donor.tier))).map((donor) => donor.id))}>Use all matching</button><button type="button" onClick={() => setProgramDonorIds([])}>Clear roster</button></div>
-                    <div className="board-donor-picker compact-picker">{donorPageItems.map((donor) => <label key={donor.id}><input type="checkbox" checked={selectedProgram.donorIds.includes(donor.id)} onChange={(event) => toggleProgramDonor(donor.id, event.target.checked)} /><span>{donor.name}</span></label>)}{!donorPageItems.length && <p className="field-note">No supporters match “{donorSearch}”.</p>}</div>
-                    <Pager page={donorPage} pageCount={donorPageCount} onChange={setDonorPage} />
-                  </div>
-                </details>
                 <details className="inspector-details">
                   <summary>Lines & capacity</summary>
                   <div className="inspector-block">
@@ -4298,7 +4416,6 @@ function ThemeStudio({
                   </div>
                 </details>
               </>}
-              {selectedPanel.type === "donors" && <details className="inspector-details donor-style-section" open><summary>Style</summary><div className="inspector-block"><LabeledSelect label="Name font" info="Typeface used only by this donor-list element." value={selectedPanel.fontFamily ?? "Montserrat"} options={boardFontOptions} optionLabels={boardFontLabels} onChange={(fontFamily) => patchPanel(selectedPanel.id, { fontFamily: fontFamily as BoardPanel["fontFamily"] })} /></div></details>}
               {selectedPanel.type !== "image" && <details className="inspector-details" open><summary>Typography</summary><div className="inspector-block"><LabeledSelect label="Element font" info="Typeface used only by this element." value={selectedPanel.fontFamily ?? "Montserrat"} options={boardFontOptions} optionLabels={boardFontLabels} onChange={(fontFamily) => patchPanel(selectedPanel.id, { fontFamily: fontFamily as BoardPanel["fontFamily"] })} /><div className="panel-type-row"><TypographyNumberField label="Font size" info="Type a point size or use the arrows. It applies directly to this element." value={selectedPanel.fontSize ?? (selectedPanel.type === "donors" ? display.nameSize ?? 28 : 24)} min={4} max={240} suffix="px" onChange={(fontSize) => patchPanel(selectedPanel.id, { fontSize })} /><ColorOverrideField label="Font color" value={selectedPanel.textColor} fallback="#F5F2EB" onChange={(textColor) => patchPanel(selectedPanel.id, { textColor })} /></div><div className="typography-number-row"><TypographyNumberField label="Letter spacing" info="Extra space between letters." value={selectedPanel.letterSpacing ?? 0} min={-8} max={40} step={0.1} suffix="px" onChange={(letterSpacing) => patchPanel(selectedPanel.id, { letterSpacing })} /><TypographyNumberField label="Line spacing" info="Space from one line of text to the next." value={selectedPanel.lineHeight ?? 1.2} min={0.6} max={4} step={0.1} suffix="×" onChange={(lineHeight) => patchPanel(selectedPanel.id, { lineHeight })} /></div><div className="typography-toolbar" aria-label="Text formatting"><button type="button" className={selectedPanel.fontWeight === "bold" ? "active" : ""} aria-pressed={selectedPanel.fontWeight === "bold"} title="Bold" onClick={() => patchPanel(selectedPanel.id, { fontWeight: selectedPanel.fontWeight === "bold" ? "normal" : "bold" })}><strong>B</strong></button><button type="button" className={selectedPanel.fontStyle === "italic" ? "active" : ""} aria-pressed={selectedPanel.fontStyle === "italic"} title="Italic" onClick={() => patchPanel(selectedPanel.id, { fontStyle: selectedPanel.fontStyle === "italic" ? "normal" : "italic" })}><em>I</em></button><button type="button" className={selectedPanel.underline ? "active" : ""} aria-pressed={Boolean(selectedPanel.underline)} title="Underline" onClick={() => patchPanel(selectedPanel.id, { underline: !selectedPanel.underline })}><u>U</u></button><button type="button" className={selectedPanel.strikethrough ? "active" : ""} aria-pressed={Boolean(selectedPanel.strikethrough)} title="Strikethrough" onClick={() => patchPanel(selectedPanel.id, { strikethrough: !selectedPanel.strikethrough })}><s>S</s></button></div><div className="typography-choice-row">{selectedPanel.type === "text" && <div className="field"><span>Text flow <InfoDot text="Wrap is the default. Fit one line keeps a heading on one line and reduces its size only when needed." /></span><SegmentedControl value={selectedPanel.textFlow ?? "wrap"} options={[["wrap", "Wrap"], ["fit-one-line", "Fit one line"]]} onChange={(textFlow) => patchPanel(selectedPanel.id, { textFlow: textFlow as BoardPanel["textFlow"] })} /></div>}<div className="field"><span>Text alignment</span><SegmentedControl value={selectedPanel.textAlign ?? "center"} options={[["left", "Left"], ["center", "Center"], ["right", "Right"]]} onChange={(textAlign) => patchPanel(selectedPanel.id, { textAlign: textAlign as BoardPanel["textAlign"] })} /></div><div className="field"><span>Text direction</span><SegmentedControl value={selectedPanel.textDirection ?? "horizontal"} options={[["horizontal", "Horizontal"], ["vertical", "Vertical"]]} onChange={(textDirection) => patchPanel(selectedPanel.id, { textDirection: textDirection as BoardPanel["textDirection"] })} /></div><div className="field"><span>Text arc</span><SegmentedControl value={selectedPanel.textArc ?? "none"} options={[["none", "Straight"], ["up", "Arc up"], ["down", "Arc down"]]} onChange={(textArc) => patchPanel(selectedPanel.id, { textArc: textArc as BoardPanel["textArc"] })} /></div></div></div></details>}
               {selectedPanel.type !== "image" && <details className="inspector-details"><summary>Text treatment</summary><div className="inspector-block">
                 <LabeledSelect label="Text finish" info="Applies only to this selected element." value={selectedPanel.textFinish ?? "flat"} options={["flat", "outline", "gradient", "glow"]} optionLabels={{ flat: "Flat color", outline: "Outline", gradient: "Bottom-up gradient", glow: "Glow" }} onChange={(textFinish) => patchPanel(selectedPanel.id, { textFinish: textFinish as BoardPanel["textFinish"] })} />
@@ -4312,6 +4429,7 @@ function ThemeStudio({
               <details className="inspector-details"><summary>Layout & position</summary><div className="inspector-block"><div className="panel-position-grid">{(["x", "y", "width", "height"] as const).map((field) => <label className="field" key={field}><span>{field === "width" ? "W" : field === "height" ? "H" : field.toUpperCase()} (%)</span><input type="number" min={field === "width" || field === "height" ? 4 : -50} max={field === "width" || field === "height" ? 150 : 100} step="0.5" value={Math.round((selectedPanel[field] ?? 0) * 10) / 10} onChange={(event) => { const value = Number(event.target.value); const isSize = field === "width" || field === "height"; const limit = field === "width" ? Math.min(150, 150 - (selectedPanel.x ?? 0)) : field === "height" ? Math.min(150, 150 - (selectedPanel.y ?? 0)) : 100; patchPanel(selectedPanel.id, { [field]: Math.max(isSize ? 4 : -50, Math.min(limit, value)) }); }} /></label>)}</div><small className="panel-position-note">Panels may extend beyond the board edge; anything outside the board stays clipped.</small><button type="button" className="command-button danger compact" disabled={panels.length === 1} onClick={(event) => requestRemovePanel(selectedPanel.id, { x: event.clientX, y: event.clientY })}><Trash2 size={14} /> Remove element</button></div></details>
             </div> : <>
             <details className="inspector-details" open><summary>Essentials</summary><div className="inspector-block">
+              <LabeledInput label="Board name" info="The name shown in the board library and editor." value={selectedProgram.name} onChange={(name) => patchProgram({ name })} />
               <div className="field"><span>Format <InfoDot text="Saved with this board and applied when the board is assigned to a display." /></span><SegmentedControl value={selectedProgram.orientation} options={[["Portrait", "Portrait"], ["Landscape", "Landscape"]]} onChange={(orientation) => patchProgram({ orientation: orientation as DisplayProfile["orientation"] })} /></div>
               <LabeledSelect label="Board background" info="Choose the color behind this board's content." value={boardBackgroundChoice(selectedProgram.backgroundColor)} options={["classic", "red", "orange", "yellow", "green", "blue", "purple", "pink", "navy", "coffee", "black", "white", "custom"]} optionLabels={{ classic: "Lantern classic", red: "Red", orange: "Orange", yellow: "Yellow", green: "Green", blue: "Blue", purple: "Purple", pink: "Pink", navy: "Navy", coffee: "Coffee", black: "Black", white: "White", custom: "Pick a color…" }} onChange={(choice) => {
                 if (choice === "custom") {
@@ -4747,10 +4865,11 @@ function DirectBoardCanvas({
  * canvas.  This keeps panel geometry, typography, image fit, and animated GIF
  * playback identical in the editor, previews, and on a TV.
  */
-function AuthoredBoardPresentation({ state, display, program }: {
+function AuthoredBoardPresentation({ state, display, program, highlightedPanelId = "" }: {
   state: LanternState;
   display: DisplayProfile;
   program: LanternState["boardPrograms"][number];
+  highlightedPanelId?: string;
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -4760,7 +4879,7 @@ function AuthoredBoardPresentation({ state, display, program }: {
       display={display}
       program={program}
       panels={program.panels ?? []}
-      selectedPanelId=""
+      selectedPanelId={highlightedPanelId}
       onSelect={() => undefined}
       onPatch={() => undefined}
       onRemove={() => undefined}
@@ -4807,17 +4926,20 @@ function DirectBoardDonorName({ donor, display, panel, palette, onRename }: {
   });
   const showIcon = Boolean(panel.showIcons) && presentation.recognitionIcon !== "none";
   return <div
-    className={`direct-donor-name board-highlight-${presentation.highlight} board-animation-${presentation.animation}${donor.recordStatus === "deprecated-legacy" ? " deprecated-legacy" : ""}`}
+    className={`direct-donor-name board-highlight-${presentation.highlight} icon-${panel.recognitionIconPlacement ?? "left"}${donor.recordStatus === "deprecated-legacy" ? " deprecated-legacy" : ""}`}
     style={{
       "--board-donor-name": presentation.nameColor,
       "--board-donor-accent": presentation.accentColor,
+      "--board-donor-underline-thickness": `${presentation.underlineThickness ?? (presentation.highlight === "soft-underline" ? 3 : 1)}px`,
+      "--board-donor-underline-offset": `${presentation.underlineOffset ?? 0}px`,
+      "--board-donor-underline-opacity": `${presentation.underlineOpacity ?? (presentation.highlight === "soft-underline" ? 48 : 78)}%`,
       fontFamily: `${presentation.fontFamily}, sans-serif`
     } as React.CSSProperties}
   >
     {showIcon && (presentation.recognitionIconImage
       ? <img className="board-donor-custom-icon" src={presentation.recognitionIconImage} alt="" />
       : <span className="board-donor-preview-icon" aria-hidden="true">{recognitionIconGlyph(presentation.recognitionIcon)}</span>)}
-    <EditableBoardText value={donor.name} animation={presentation.animation} multiline onCommit={(value) => onRename(donor.id, value)} />
+    <EditableBoardText value={donor.name} animation={presentation.animation} multiline normalizeDonorLines onCommit={(value) => onRename(donor.id, value)} />
     {donorSubtextVisibleForDisplay(display, donor.id) && donor.subtext && <small>{donor.subtext}</small>}
   </div>;
 }
@@ -4878,9 +5000,16 @@ function AutoFitBoardContent({ className, children, fitOneLine = false, fontSize
   return <div ref={ref} className={`${className}${fitOneLine ? " fit-one-line" : ""}`}>{children}</div>;
 }
 
-function EditableBoardText({ value, onCommit, className = "", animation, multiline = false }: { value: string; onCommit: (value: string) => void; className?: string; animation?: BoardDonorPresentation["animation"]; multiline?: boolean }) {
+function EditableBoardText({ value, onCommit, className = "", animation, multiline = false, normalizeDonorLines = false }: { value: string; onCommit: (value: string) => void; className?: string; animation?: BoardDonorPresentation["animation"]; multiline?: boolean; /** Donor rows have a deliberate name-line layout; ordinary text panels must retain their authored line breaks. */ normalizeDonorLines?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
-  const text = multiline ? splitDonorNameLines(value).join("\n") : value;
+  const text = multiline && normalizeDonorLines ? splitDonorNameLines(value).join("\n") : value;
+  const normalize = (rawValue: string) => {
+    const updatedText = rawValue.replace(/\u00a0/g, " ");
+    if (!multiline) return updatedText.replace(/\s+/g, " ").trim();
+    const lines = updatedText.split(/\r?\n/).map((line) => line.replace(/[ \t]+/g, " ").trim());
+    const authoredText = lines.filter((line) => line.length > 0).join("\n");
+    return normalizeDonorLines ? splitDonorNameLines(authoredText).join("\n") : authoredText;
+  };
   useLayoutEffect(() => {
     const element = ref.current;
     // The browser edits contentEditable descendants directly. Keeping React
@@ -4888,7 +5017,7 @@ function EditableBoardText({ value, onCommit, className = "", animation, multili
     // inserting nodes the browser has already changed while the user types.
     if (element && document.activeElement !== element && element.textContent !== text) element.textContent = text;
   }, [text]);
-  return <div ref={ref} className={`editable-board-text${multiline ? " multiline-donor-name" : ""} ${className}`} contentEditable suppressContentEditableWarning role="textbox" tabIndex={0} onFocus={(event) => { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(event.currentTarget); selection?.removeAllRanges(); selection?.addRange(range); }} onBlur={(event) => { const updatedText = event.currentTarget.innerText.replace(/\u00a0/g, " "); onCommit(multiline ? updatedText.split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean).join("\n") : updatedText.replace(/\s+/g, " ").trim()); }} onKeyDown={(event) => { if (event.key === "Enter" && !multiline) { event.preventDefault(); event.currentTarget.blur(); } }} />;
+  return <div ref={ref} className={`editable-board-text${multiline ? " multiline-donor-name" : ""} ${className}`} contentEditable suppressContentEditableWarning role="textbox" tabIndex={0} onFocus={(event) => { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(event.currentTarget); selection?.removeAllRanges(); selection?.addRange(range); }} onInput={(event) => onCommit(normalize(event.currentTarget.innerText))} onBlur={(event) => onCommit(normalize(event.currentTarget.innerText))} onKeyDown={(event) => { if (event.key === "Enter" && !multiline) { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
 
 function LegacyThemeStudio({
@@ -9437,6 +9566,7 @@ function ImageLibraryManager({ state, updateState }: { state: LanternState; upda
   const visibleImages = useMemo(() => [...images].sort((left, right) => sortBy === "usage"
     ? right.uses.length - left.uses.length || left.name.localeCompare(right.name)
     : left.name.localeCompare(right.name)), [images, sortBy]);
+  const donorImages = state.donors.flatMap((donor) => (donor.images ?? []).map((image) => ({ ...image, donorName: donor.name })));
   const replaceEverywhere = (current: LanternState, oldUrl: string, newUrl?: string): LanternState => ({
     ...current,
     boardPrograms: current.boardPrograms.map((board) => ({ ...board, backgroundImage: board.backgroundImage === oldUrl ? newUrl : board.backgroundImage, panels: board.panels?.map((panel) => panel.imageUrl === oldUrl ? { ...panel, imageUrl: newUrl } : panel) })),
@@ -9480,6 +9610,7 @@ function ImageLibraryManager({ state, updateState }: { state: LanternState; upda
     {expanded && <div className="image-library-body" id="image-library-options">
       <label className="command-button primary compact image-upload-button image-library-add"><Upload size={14} /> {uploading ? "Adding…" : "Add image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading} onChange={(event) => { void addImage(event.target.files?.[0]); event.target.value = ""; }} /></label>
       <div className="image-library-toolbar"><p className="field-note image-library-note">Added images are saved in this library and can be selected later from the Board Editor.</p><div className="image-library-browser-controls"><label>Sort <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}><option value="name">Name</option><option value="usage">Usage</option></select></label><div className="segmented image-library-view-controls" role="group" aria-label="Image library view"><button type="button" className={viewMode === "thumbnails" ? "selected" : ""} onClick={() => setViewMode("thumbnails")}>Thumbnails</button><button type="button" className={viewMode === "details" ? "selected" : ""} onClick={() => setViewMode("details")}>Details</button><button type="button" className={viewMode === "names" ? "selected" : ""} onClick={() => setViewMode("names")}>Names</button></div></div></div>
+      <section className="settings-donor-images"><header><div><p className="eyebrow">Recognition media</p><h3>Donor images</h3></div><span>{donorImages.length} saved</span></header>{donorImages.length ? <div>{donorImages.map((image) => <article key={image.id}><img src={resolveProjectAssetUrl(image.url)} alt={image.name} /><span><strong>{image.donorName}</strong><small>{image.name} · {image.orientation}</small></span></article>)}</div> : <p className="field-note">Images added from a donor profile appear here.</p>}</section>
       {images.length ? <div className={`image-library-browser ${viewMode}`}>{visibleImages.map((image) => <article className="image-library-item" key={image.url}>
         <img src={resolveProjectAssetUrl(image.url)} alt="" />
         <div className="image-library-item-details"><strong>{image.name}</strong><small>{image.uses.length ? `Used by ${image.uses.join(", ")}` : "Saved in library — not yet in use"}</small><small className="image-library-file-type">Image file · {image.uses.length} {image.uses.length === 1 ? "use" : "uses"}</small></div>

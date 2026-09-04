@@ -1147,10 +1147,10 @@ function drawComposableBoard(
           accentColor: gold
         });
         context.save();
-        drawBoardDonorHighlight(context, presentation.highlight, x, baseline, cellWidth * 0.72, baseSize * Math.max(1, lines.length * .92) * scale, presentation.accentColor);
+        drawBoardDonorHighlight(context, presentation.highlight, x, baseline, cellWidth * 0.72, baseSize * Math.max(1, lines.length * .92) * scale, presentation.accentColor, presentation.underlineThickness, presentation.underlineOffset, presentation.underlineOpacity);
         context.font = `500 ${Math.round(baseSize * scale)}px ${presentation.fontFamily}, Inter, sans-serif`;
         drawBoardDonorName(context, donor.name, x, baseline, cellWidth * 0.88, Math.round(baseSize * scale), 7, presentation, animationTime, donor.id);
-        if (panel.showIcons && presentation.recognitionIcon !== "none" && screen) drawBoardRecognitionIcons(context, left + cellWidth * column + cellWidth * 0.05, left + cellWidth * column + cellWidth * 0.95, baseline - baseSize * 0.25, presentation, screen, Math.max(7, baseSize * 0.35));
+        if (panel.showIcons && presentation.recognitionIcon !== "none" && screen) drawBoardRecognitionIcons(context, left + cellWidth * column + cellWidth * 0.05, left + cellWidth * column + cellWidth * 0.95, baseline - baseSize * 0.25, presentation, screen, Math.max(7, baseSize * 0.35), panel.recognitionIconPlacement);
         if (showSubtext && (donor.subtext || donor.note)) {
           context.fillStyle = muted;
           context.font = `400 ${Math.max(8, Math.round(baseSize * 0.48))}px ${presentation.fontFamily}, Inter, sans-serif`;
@@ -1913,32 +1913,29 @@ function drawBoardDonorHighlight(
   y: number,
   width: number,
   height: number,
-  accent: string
+  accent: string,
+  thickness?: number,
+  offset?: number,
+  opacity?: number
 ) {
   if (highlight === "none") return;
   context.save();
   if (highlight === "soft-highlight") {
-    context.fillStyle = accent;
-    context.globalAlpha = 0.1;
-    context.fillRect(x - width * 0.46, y - height * 0.76, width * 0.92, height * 1.14);
-    context.strokeStyle = accent;
-    context.globalAlpha = 0.28;
-    context.lineWidth = Math.max(1, height * 0.025);
-    context.strokeRect(x - width * 0.46, y - height * 0.76, width * 0.92, height * 1.14);
     context.restore();
     return;
   }
   context.strokeStyle = accent;
-  context.globalAlpha = highlight === "soft-underline" ? 0.48 : 0.78;
-  context.lineWidth = Math.max(1, height * (highlight === "soft-underline" ? 0.085 : 0.035));
+  context.globalAlpha = (opacity ?? (highlight === "soft-underline" ? 48 : 78)) / 100;
+  context.lineWidth = Math.max(1, thickness ?? height * (highlight === "soft-underline" ? 0.085 : 0.035));
   context.lineCap = "round";
   if (highlight === "soft-underline") {
     context.shadowColor = accent;
     context.shadowBlur = Math.max(2, height * 0.16);
   }
   context.beginPath();
-  context.moveTo(x - width * 0.35, y + height * 0.36);
-  context.lineTo(x + width * 0.35, y + height * 0.36);
+  const underlineY = y + height * 0.36 + (offset ?? 0);
+  context.moveTo(x - width * 0.35, underlineY);
+  context.lineTo(x + width * 0.35, underlineY);
   context.stroke();
   context.restore();
 }
@@ -1954,12 +1951,13 @@ function drawBoardRecognitionIcons(
   y: number,
   presentation: ResolvedBoardDonorPresentation,
   screen: DisplayProfile,
-  size: number
+  size: number,
+  placement?: "left" | "right" | "above" | "below"
 ) {
-  const positions = screen.donorIconPlacement === "both" ? [leftX, rightX] : [leftX];
-  positions.forEach((x) => {
+  const positions = placement === "right" ? [[rightX, y] as const] : placement === "above" ? [[(leftX + rightX) / 2, y - size * 1.8] as const] : placement === "below" ? [[(leftX + rightX) / 2, y + size * 1.8] as const] : screen.donorIconPlacement === "both" ? [[leftX, y] as const, [rightX, y] as const] : [[leftX, y] as const];
+  positions.forEach(([x, iconY]) => {
     if (presentation.recognitionIconImage) {
-      drawDonorIcon(context, x, y, screen.donorIconStyle ?? "circle", presentation.accentColor, size, presentation.recognitionIconImage);
+      drawDonorIcon(context, x, iconY, screen.donorIconStyle ?? "circle", presentation.accentColor, size, presentation.recognitionIconImage);
       return;
     }
     context.save();
@@ -1967,7 +1965,7 @@ function drawBoardRecognitionIcons(
     context.font = `700 ${Math.max(9, size * 1.55)}px Georgia, serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(boardRecognitionIconGlyph(presentation.recognitionIcon), x, y);
+    context.fillText(boardRecognitionIconGlyph(presentation.recognitionIcon), x, iconY);
     context.restore();
   });
 }

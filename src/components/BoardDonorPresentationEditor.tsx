@@ -19,24 +19,18 @@ interface BoardDonorPresentationEditorProps {
   fontLabels: Record<FontFamily, string>;
   iconsVisible: boolean;
   onIconsVisibleChange: (visible: boolean) => void;
+  iconPlacement: "left" | "right" | "above" | "below";
+  onIconPlacementChange: (placement: "left" | "right" | "above" | "below") => void;
   onPatchDefaults: (patch: Partial<BoardDonorPresentation>) => void;
   onPatchDonor: (donorId: string, patch: Partial<BoardDonorPresentation>) => void;
   onClearDefaults: () => void;
   onClearDonor: (donorId: string) => void;
 }
 
-const highlightLabels: Record<BoardDonorHighlight, string> = {
+const underlineLabels: Record<Exclude<BoardDonorHighlight, "soft-highlight">, string> = {
   none: "None",
   "fine-underline": "Fine underline",
-  "soft-underline": "Soft underline",
-  "soft-highlight": "Soft highlight"
-};
-
-const animationLabels: Record<BoardDonorAnimation, string> = {
-  none: "None",
-  "grow-shrink": "Grow / Shrink",
-  "slow-shimmer": "Slow Shimmer",
-  "letter-wave": "Letter Wave"
+  "soft-underline": "Soft underline"
 };
 
 const iconLabels: Record<RecognitionIcon, string> = {
@@ -78,6 +72,8 @@ export function BoardDonorPresentationEditor({
   fontLabels,
   iconsVisible,
   onIconsVisibleChange,
+  iconPlacement,
+  onIconPlacementChange,
   onPatchDefaults,
   onPatchDonor,
   onClearDefaults,
@@ -111,10 +107,13 @@ export function BoardDonorPresentationEditor({
     </label>
 
     <div
-      className={`board-donor-style-preview board-highlight-${presentation.highlight} board-animation-${presentation.animation}`}
+      className={`board-donor-style-preview board-highlight-${presentation.highlight} icon-${iconPlacement}`}
       style={{
         "--board-donor-name": presentation.nameColor,
         "--board-donor-accent": presentation.accentColor,
+        "--board-donor-underline-thickness": `${presentation.underlineThickness ?? (presentation.highlight === "soft-underline" ? 3 : 1)}px`,
+        "--board-donor-underline-offset": `${presentation.underlineOffset ?? 0}px`,
+        "--board-donor-underline-opacity": `${presentation.underlineOpacity ?? (presentation.highlight === "soft-underline" ? 48 : 78)}%`,
         fontFamily: presentation.fontFamily
       } as React.CSSProperties}
       aria-label={`${previewName} presentation preview`}
@@ -122,7 +121,7 @@ export function BoardDonorPresentationEditor({
       {iconsVisible && presentation.recognitionIcon !== "none" && (presentation.recognitionIconImage
         ? <img src={presentation.recognitionIconImage} alt="" />
         : <span className="board-donor-preview-icon" aria-hidden="true">{recognitionIconGlyph(presentation.recognitionIcon)}</span>)}
-      <AnimatedDonorName name={previewName} animation={presentation.animation} />
+      <AnimatedDonorName name={previewName} animation="none" />
     </div>
 
     <label className="field">
@@ -138,11 +137,16 @@ export function BoardDonorPresentationEditor({
     </div>
 
     <label className="field">
-      <span>Underline / highlight</span>
+      <span>Underline</span>
       <select value={presentation.highlight} onChange={(event) => patch({ highlight: event.target.value as BoardDonorHighlight })}>
-        {(Object.keys(highlightLabels) as BoardDonorHighlight[]).map((value) => <option value={value} key={value}>{highlightLabels[value]}</option>)}
+        {(Object.keys(underlineLabels) as Array<Exclude<BoardDonorHighlight, "soft-highlight">>).map((value) => <option value={value} key={value}>{underlineLabels[value]}</option>)}
       </select>
     </label>
+    {presentation.highlight !== "none" && <div className="board-donor-underline-controls">
+      <label><span>Thickness</span><input type="range" min="1" max="8" value={presentation.underlineThickness ?? (presentation.highlight === "soft-underline" ? 3 : 1)} onChange={(event) => patch({ underlineThickness: Number(event.target.value) })} /><b>{presentation.underlineThickness ?? (presentation.highlight === "soft-underline" ? 3 : 1)} px</b></label>
+      <label><span>Offset</span><input type="range" min="0" max="16" value={presentation.underlineOffset ?? 0} onChange={(event) => patch({ underlineOffset: Number(event.target.value) })} /><b>{presentation.underlineOffset ?? 0} px</b></label>
+      <label><span>Opacity</span><input type="range" min="10" max="100" value={presentation.underlineOpacity ?? (presentation.highlight === "soft-underline" ? 48 : 78)} onChange={(event) => patch({ underlineOpacity: Number(event.target.value) })} /><b>{presentation.underlineOpacity ?? (presentation.highlight === "soft-underline" ? 48 : 78)}%</b></label>
+    </div>}
 
     <label className="field">
       <span>Recognition icon</span>
@@ -151,14 +155,7 @@ export function BoardDonorPresentationEditor({
       </select>
     </label>
     <label className="switch-row"><input type="checkbox" checked={iconsVisible} onChange={(event) => onIconsVisibleChange(event.target.checked)} /><span>Show recognition icons in this donor list</span></label>
-
-    <label className="field">
-      <span>Animation</span>
-      <select value={presentation.animation} onChange={(event) => patch({ animation: event.target.value as BoardDonorAnimation })}>
-        {(Object.keys(animationLabels) as BoardDonorAnimation[]).map((value) => <option value={value} key={value}>{animationLabels[value]}</option>)}
-      </select>
-      <small>Slow Shimmer is clipped to the letters. Letter Wave enlarges one letter at a time.</small>
-    </label>
+    {iconsVisible && <label className="field"><span>Icon position</span><select value={iconPlacement} onChange={(event) => onIconPlacementChange(event.target.value as typeof iconPlacement)}><option value="left">Left of name</option><option value="right">Right of name</option><option value="above">Above name</option><option value="below">Below name</option></select></label>}
 
     <button type="button" className="command-button secondary compact" disabled={!explicit || !Object.values(explicit).some((value) => value != null)} onClick={reset}>
       {selectedDonor ? "Use panel defaults" : "Use panel font and palette defaults"}

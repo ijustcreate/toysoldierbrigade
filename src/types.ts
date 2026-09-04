@@ -47,6 +47,8 @@ export interface Donor {
   relationshipManager?: string;
   generalDonationFund?: string;
   subtext?: string;
+  /** Images managed from the donor profile. */
+  images?: Array<{ id: string; url: string; name: string; orientation: "portrait" | "landscape" | "square" }>;
   tags?: string[];
   groupId?: string;
   donationType?: "Cash" | "In-kind" | "Sponsorship" | "Legacy" | "Volunteer";
@@ -249,6 +251,10 @@ export interface BoardDonorPresentation {
   nameColor?: string;
   accentColor?: string;
   highlight?: BoardDonorHighlight;
+  /** Fine controls for the donor-name underline. Highlight is retained for older boards. */
+  underlineThickness?: number;
+  underlineOffset?: number;
+  underlineOpacity?: number;
   recognitionIcon?: RecognitionIcon;
   recognitionIconImage?: string;
   animation?: BoardDonorAnimation;
@@ -322,6 +328,8 @@ export interface BoardPanel {
   donorStyles?: Record<string, BoardDonorPresentation>;
   /** Recognition icons are shown only within this donor-list panel. */
   showIcons?: boolean;
+  /** Where recognition icons sit relative to each donor name in this panel. */
+  recognitionIconPlacement?: "left" | "right" | "above" | "below";
   footerIconPlacement?: "left" | "both";
   x?: number;
   y?: number;
@@ -848,6 +856,8 @@ export interface RevisionRecord {
 export interface SiteImageAsset {
   url: string;
   name: string;
+  donorId?: string;
+  orientation?: "portrait" | "landscape" | "square";
 }
 
 export interface LanternState {

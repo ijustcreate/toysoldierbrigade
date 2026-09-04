@@ -1,5 +1,340 @@
 [
   {
+    "id": "DEV-0500",
+    "title": "Clarify iPhone broadcast destinations",
+    "summary": "The phone broadcast settings now show each active display as a clear card with its name, orientation, open status, and selected state.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 10:48 AM",
+    "areas": [
+      "Mobile controls",
+      "Display discovery"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "GitHub Pages build and deploy"
+  },
+  {
+    "id": "DEV-0499",
+    "title": "Preserve board editor text and saves",
+    "summary": "Text panels now preserve their authored line breaks, mark boards unsaved while typing, and save the latest text even when Save is clicked immediately.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 10:48 AM",
+    "areas": [
+      "Board Editor",
+      "Board display"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; npm run test:bug-workflow"
+  },
+  {
+    "id": "DEV-0498",
+    "title": "Stabilize phone broadcast delivery",
+    "summary": "Phone broadcast settings now use active display heartbeats, read-only sessions join live signaling, iPhone video avoids a destabilizing canvas recapture, and the mic label is concise.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:47 AM",
+    "areas": [
+      "Live broadcasting",
+      "Display discovery",
+      "Mobile controls"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/host/lanternHost.ts",
+      "src/host/videoBridge.ts"
+    ],
+    "tests": "npm run build; npm run build:worker"
+  },
+  {
+    "id": "DEV-0497",
+    "title": "Prevent board saves from overwriting newer edits",
+    "summary": "Board saves now publish one current-state update and keep the editor stable while that save is acknowledged, preventing stale snapshots from flashing or replacing recent board changes.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:43 AM",
+    "areas": [
+      "Board Editor",
+      "State sync"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npx tsc --noEmit --pretty false; git diff --check; npm run build"
+  },
+  {
+    "id": "DEV-0496",
+    "title": "Add donor image management",
+    "summary": "Added donor image uploads with automatic orientation tags, profile-level thumbnail management, shared image-library records, and a Donor images section in Settings.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:34 AM",
+    "areas": [
+      "Donors",
+      "Settings",
+      "Image library"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "src/types.ts"
+    ],
+    "tests": "npx tsc --noEmit --pretty false; git diff --check"
+  },
+  {
+    "id": "DEV-0495",
+    "title": "Rework donor board-list assignment",
+    "summary": "Donor editing now selects a board then list, previews and highlights the chosen list, updates the board roster directly through add/remove actions, and opens the exact list in Board Editor.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:31 AM",
+    "areas": [
+      "Donors",
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0494",
+    "title": "Remove duplicate donor-list style controls",
+    "summary": "Removed the redundant Style section from donor-list panels so Typography is the single source for font selection.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:28 AM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0493",
+    "title": "Remove duplicate donor-list style controls",
+    "summary": "Removed the redundant Style section from donor-list panels so Typography is the single source for font selection.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:28 AM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0492",
+    "title": "Remove donor-list level chooser",
+    "summary": "Removed the confusing Recognition Levels checkbox control from the Board Editor donor-list panel while preserving saved board data.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:27 AM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0491",
+    "title": "Refine donor-list name treatments",
+    "summary": "Removed donor-list highlight and animation controls, added adjustable underline settings, and added visible recognition-icon placement controls for left, right, above, or below donor names.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:26 AM",
+    "areas": [
+      "Board Editor",
+      "Donor lists",
+      "Live displays"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/boardPresentation.ts",
+      "src/components/BoardDonorPresentationEditor.tsx",
+      "src/display/BabylonDonorWall.tsx",
+      "src/styles.css",
+      "src/types.ts"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0490",
+    "title": "Prioritize donor roster selection controls",
+    "summary": "Moved the board donor roster browser directly above Scrolling credits in the donor-list editor so staff reach donor selection first.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:22 AM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0489",
+    "title": "Prioritize donor roster selection controls",
+    "summary": "Moved the board donor roster browser directly above Scrolling credits in the donor-list editor so staff reach donor selection first.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:22 AM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0488",
+    "title": "Make board donor rosters easy to browse",
+    "summary": "Replaced the cramped paged donor picker with a full searchable roster, recognition-level and pledge/gift filters, alphabetic sorting, and filtered bulk add/remove controls.",
+    "author": "Codex",
+    "createdAt": "Sep 4, 2026, 8:20 AM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check; Playwright live Board Editor roster search/filter verification"
+  },
+  {
+    "id": "DEV-0487",
+    "title": "Improve microphone signal checks",
+    "summary": "Enable automatic microphone gain control and lower the signal threshold so normal speech registers in the broadcast microphone check.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:40 PM",
+    "areas": [
+      "Broadcast / Stream"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; node scripts/test-broadcast-composition.mjs; npm run test:bug-workflow; git diff --check"
+  },
+  {
+    "id": "DEV-0486",
+    "title": "Normalize desktop video for TV broadcasts",
+    "summary": "Repaint desktop preview video into a browser-generated capture stream before sending it to smart TVs, avoiding webcam-specific video formats that negotiated but rendered black.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:40 PM",
+    "areas": [
+      "Broadcast / Stream",
+      "Public display"
+    ],
+    "files": [
+      "src/host/videoBridge.ts"
+    ],
+    "tests": "npm run build; node scripts/test-broadcast-composition.mjs; npm run test:bug-workflow; git diff --check"
+  },
+  {
+    "id": "DEV-0485",
+    "title": "Use TV-safe desktop camera capture",
+    "summary": "Limit desktop webcam broadcasts to 640x480 at 30 fps with a capped bitrate so embedded smart-TV decoders can render the same feed that works from phones.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:12 PM",
+    "areas": [
+      "Broadcast / Stream",
+      "Public display"
+    ],
+    "files": [
+      "src/host/videoBridge.ts"
+    ],
+    "tests": "npm run build; node scripts/test-broadcast-composition.mjs; npm run test:bug-workflow; git diff --check"
+  },
+  {
+    "id": "DEV-0484",
+    "title": "Render desktop broadcasts on smart TVs",
+    "summary": "Use the display canvas for decoded broadcast frames so embedded smart-TV browsers avoid the native video compositor that left desktop camera broadcasts blank.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:05 PM",
+    "areas": [
+      "Broadcast / Stream",
+      "Public display"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/components/ChromaVideo.tsx"
+    ],
+    "tests": "npm run build; node scripts/test-tracking-runtime.mjs; node scripts/test-broadcast-composition.mjs; npm run test:bug-workflow; git diff --check"
+  },
+  {
+    "id": "DEV-0483",
+    "title": "Show live microphone readiness in Broadcast",
+    "summary": "Broadcast source controls now include a selected-microphone signal meter so operators can see active, muted, or no-signal status before going live.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 8:01 PM",
+    "areas": [
+      "Broadcast source",
+      "Microphone"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; node scripts/test-tracking-runtime.mjs; npm run test:bug-workflow"
+  },
+  {
+    "id": "DEV-0482",
+    "title": "Use TV-safe desktop broadcast video",
+    "summary": "Desktop broadcasts now offer H.264 baseline to smart-TV displays, avoiding a negotiated Chrome video codec that can leave the TV blank while the local preview is healthy.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 7:58 PM",
+    "areas": [
+      "Desktop broadcast",
+      "TV display",
+      "WebRTC"
+    ],
+    "files": [
+      "src/host/videoBridge.ts"
+    ],
+    "tests": "npm run build; node scripts/test-broadcast-composition.mjs; node scripts/test-recording-source.mjs; npm run test:bug-workflow"
+  },
+  {
+    "id": "DEV-0481",
+    "title": "Fit desktop broadcasts and restore display audio",
+    "summary": "Portrait displays now show the full desktop camera image instead of magnifying its center, while TV playback and audio retry as WebRTC tracks become usable.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 7:46 PM",
+    "areas": [
+      "Desktop broadcast",
+      "TV display",
+      "Live audio"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/components/ChromaVideo.tsx"
+    ],
+    "tests": "npm run build; node scripts/test-tracking-runtime.mjs; node scripts/test-broadcast-composition.mjs; node scripts/test-recording-source.mjs; npm run test:bug-workflow"
+  },
+  {
+    "id": "DEV-0480",
+    "title": "Synchronize donor board rosters",
+    "summary": "Keep donor board membership and every donor-list panel synchronized whether an operator edits the board roster or assigns a donor through their profile, and add a Board name field to the Board Editor.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 7:35 PM",
+    "areas": [
+      "Board Editor",
+      "Donors"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; reviewed both roster update paths"
+  },
+  {
     "id": "DEV-0479",
     "title": "Restore phone video on TV broadcasts",
     "summary": "Wait for WebRTC ICE details before signaling and bind the display to its browser-provided remote stream, so embedded TV browsers render the active phone camera instead of the no-feed placeholder.",

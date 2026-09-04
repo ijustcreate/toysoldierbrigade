@@ -20,6 +20,9 @@ export interface ResolvedBoardDonorPresentation {
   nameColor: string;
   accentColor: string;
   highlight: NonNullable<BoardDonorPresentation["highlight"]>;
+  underlineThickness?: number;
+  underlineOffset?: number;
+  underlineOpacity?: number;
   recognitionIcon: RecognitionIcon;
   recognitionIconImage?: string;
   animation: NonNullable<BoardDonorPresentation["animation"]>;
@@ -36,7 +39,12 @@ export function resolveBoardDonorPresentation(
     fontFamily: donorStyle.fontFamily ?? boardStyle.fontFamily ?? scope.fontFamily ?? fallbacks.fontFamily,
     nameColor: donorStyle.nameColor ?? boardStyle.nameColor ?? fallbacks.nameColor,
     accentColor: donorStyle.accentColor ?? boardStyle.accentColor ?? fallbacks.accentColor,
-    highlight: donorStyle.highlight ?? boardStyle.highlight ?? "none",
+    // "soft-highlight" was an older visual treatment. It is no longer
+    // offered, so older boards fall back to a clean name rather than a box.
+    highlight: (donorStyle.highlight ?? boardStyle.highlight) === "soft-highlight" ? "none" : donorStyle.highlight ?? boardStyle.highlight ?? "none",
+    underlineThickness: donorStyle.underlineThickness ?? boardStyle.underlineThickness,
+    underlineOffset: donorStyle.underlineOffset ?? boardStyle.underlineOffset,
+    underlineOpacity: donorStyle.underlineOpacity ?? boardStyle.underlineOpacity,
     recognitionIcon: donorStyle.recognitionIcon ?? boardStyle.recognitionIcon ?? "star",
     recognitionIconImage: donorStyle.recognitionIconImage ?? boardStyle.recognitionIconImage,
     animation: donorStyle.animation ?? boardStyle.animation ?? "none"
