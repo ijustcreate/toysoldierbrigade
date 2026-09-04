@@ -67,10 +67,10 @@ export class DirectorVideoBridge {
     this.activeTargets = targets?.length ? targets : undefined;
     // Desktop webcams can expose a hardware-native track that a smart TV
     // accepts at the WebRTC layer but never turns into visible frames. Repaint
-    // the already-working local preview into a standard canvas capture track
-    // before negotiating it. The phone path remains untouched and is already
-    // proven to work on the display.
-    this.stream = createTvSafeBroadcastStream(stream);
+    // those desktop sources through a canvas capture before negotiating them.
+    // iPhone camera tracks must stay direct: iOS can negotiate a canvas
+    // capture successfully while delivering no frames to the display.
+    this.stream = isMobilePresenter() ? stream as DemoStream : createTvSafeBroadcastStream(stream);
     this.watchSourceTracks();
     this.announceMediaState("available", detail);
     this.onStatus("camera", detail);
@@ -625,6 +625,10 @@ function createTvSafeBroadcastStream(sourceStream: MediaStream): DemoStream {
     sourceVideo.stop();
   };
   return stream;
+}
+
+function isMobilePresenter() {
+  return /Mobi|iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
 
 function labelFor(screenId: ScreenId) {
