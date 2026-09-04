@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0479",
+    "title": "Restore phone video on TV broadcasts",
+    "summary": "Wait for WebRTC ICE details before signaling and bind the display to its browser-provided remote stream, so embedded TV browsers render the active phone camera instead of the no-feed placeholder.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 7:30 PM",
+    "areas": [
+      "Phone broadcast",
+      "TV display",
+      "Live video"
+    ],
+    "files": [
+      "src/host/videoBridge.ts"
+    ],
+    "tests": "npm run build; node scripts/test-bug-workflow.mjs; node scripts/test-broadcast-composition.mjs; node scripts/test-recording-source.mjs"
+  },
+  {
     "id": "DEV-0478",
     "title": "Fit TV setup on sideways screens",
     "summary": "Changed TV setup into compact remote steps so a sideways TV browser can complete orientation and display selection without scrolling.",

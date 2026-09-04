@@ -132,12 +132,16 @@ export class DirectorVideoBridge {
     try {
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
+      // Several embedded TV browsers are unreliable when an offer arrives
+      // before its host/STUN candidates. Give ICE a short head start, then
+      // send the current local description (which includes gathered SDP).
+      await waitForIceGathering(peer);
       if (this.peers.get(screenId) !== peer) return;
       this.channel.post({
         type: "webrtc-offer",
         target: screenId,
         source: "control",
-        sdp: offer
+        sdp: peer.localDescription?.toJSON() ?? offer
       } satisfies HostMessage);
     } catch {
       if (this.peers.get(screenId) === peer) this.peers.delete(screenId);
@@ -256,7 +260,7 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
   let peer: RTCPeerConnection | null = null;
   let activeOfferKey = "";
   let pendingRemoteCandidates: RTCIceCandidateInit[] = [];
-  let remoteTracks: MediaStreamTrack[] = [];
+  let remoteStream: MediaStream | null = null;
   let channel: ReturnType<typeof createHostChannel>;
 
   const announcePresence = () => {
@@ -288,7 +292,7 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
         const previousPeer = peer;
         const nextPeer = new RTCPeerConnection({ iceServers });
         peer = nextPeer;
-        remoteTracks = [];
+        remoteStream = null;
         previousPeer?.close();
         const report = (status: "connecting" | "receiving" | "reconnecting" | "unavailable", detail?: string, fps?: number, bitrateKbps?: number) => channel.post({
           type: "display-video-status", screenId, status, detail, fps, bitrateKbps, timestamp: new Date().toISOString()
@@ -296,12 +300,14 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
         report("connecting", "Connecting to the broadcast source.");
         nextPeer.addEventListener("track", (trackEvent) => {
           if (peer !== nextPeer) return;
-          // Safari and some TV browsers legitimately leave `streams` empty
-          // for a remote track. Build the stream from the tracks ourselves so
-          // a connected peer never looks like a missing local video signal.
-          if (!remoteTracks.some((track) => track.id === trackEvent.track.id)) remoteTracks.push(trackEvent.track);
-          const receivedStream = new MediaStream(remoteTracks);
-          onStream(receivedStream);
+          // Prefer the stream created by the browser itself; some TV engines
+          // bind its decoder only to that object. Safari can omit it, so build
+          // a fallback stream only in that case.
+          remoteStream ??= trackEvent.streams[0] ?? new MediaStream();
+          if (!remoteStream.getTracks().some((track) => track.id === trackEvent.track.id)) {
+            try { remoteStream.addTrack(trackEvent.track); } catch { /* already attached by this browser */ }
+          }
+          onStream(remoteStream);
           if (trackEvent.track.kind === "video") report("receiving", "Display is receiving video.");
         });
         nextPeer.addEventListener("icecandidate", (candidateEvent) => {
@@ -318,7 +324,7 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
           if (peer !== nextPeer) return;
           // Connection alone only proves ICE/DTLS. Wait for a video track
           // before telling the presenter that the picture is on the display.
-          if (nextPeer.connectionState === "connected" && remoteTracks.some((track) => track.kind === "video")) report("receiving", "Display is receiving video.");
+          if (nextPeer.connectionState === "connected" && remoteStream?.getVideoTracks().length) report("receiving", "Display is receiving video.");
           if (nextPeer.connectionState === "disconnected") report("reconnecting", "Connection was interrupted; retrying.");
           if (nextPeer.connectionState === "failed") {
             report("unavailable", "Display could not receive the broadcast.");
@@ -334,19 +340,20 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
           if (peer !== nextPeer) return;
           const answer = await nextPeer.createAnswer();
           await nextPeer.setLocalDescription(answer);
+          await waitForIceGathering(nextPeer);
           if (peer !== nextPeer) return;
           channel.post({
             type: "webrtc-answer",
             target: "control",
             source: screenId,
-            sdp: answer
+            sdp: nextPeer.localDescription?.toJSON() ?? answer
           } satisfies HostMessage);
         } catch {
           if (peer !== nextPeer) return;
           nextPeer.close();
           peer = null;
           activeOfferKey = "";
-          remoteTracks = [];
+          remoteStream = null;
           onStream(null);
           announcePresence();
         }
@@ -363,7 +370,7 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
       peer = null;
       activeOfferKey = "";
       pendingRemoteCandidates = [];
-      remoteTracks = [];
+      remoteStream = null;
       onStream(null);
     }
 
@@ -403,7 +410,7 @@ export function attachDisplayVideoReceiver(screenId: ScreenId, onStream: StreamL
     window.clearInterval(presenceTimer);
     window.clearInterval(telemetryTimer);
     peer?.close();
-    remoteTracks = [];
+    remoteStream = null;
     window.removeEventListener("online", announceOnline);
     window.removeEventListener("offline", announceOffline);
     window.removeEventListener("pagehide", announceClosed);
@@ -419,6 +426,22 @@ async function addIceCandidateSafely(peer: RTCPeerConnection, candidate: RTCIceC
     // A peer can be replaced while ICE is still in flight. Its next presence
     // heartbeat starts a clean negotiation without surfacing an unhandled error.
   }
+}
+
+function waitForIceGathering(peer: RTCPeerConnection, timeoutMs = 1_500) {
+  if (peer.iceGatheringState === "complete") return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const timer = window.setTimeout(finish, timeoutMs);
+    function finish() {
+      window.clearTimeout(timer);
+      peer.removeEventListener("icegatheringstatechange", onChange);
+      resolve();
+    }
+    function onChange() {
+      if (peer.iceGatheringState === "complete") finish();
+    }
+    peer.addEventListener("icegatheringstatechange", onChange);
+  });
 }
 
 async function getCameraOrDemoStream(onStatus: (status: DirectorStatus) => void, videoDeviceId?: string, audioDeviceId?: string): Promise<DemoStream> {
