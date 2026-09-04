@@ -1,5 +1,39 @@
 [
   {
+    "id": "DEV-0473",
+    "title": "Center authored display previews",
+    "summary": "Centered the proportional authored-board presentation by its rendered surface and removed non-authored preview chrome without changing board content.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 6:54 PM",
+    "areas": [
+      "Dashboard",
+      "Displays",
+      "Board rendering"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npx tsc --noEmit; npm run build"
+  },
+  {
+    "id": "DEV-0472",
+    "title": "Center authored display previews",
+    "summary": "Centered the proportional authored-board presentation by its rendered surface and removed non-authored preview chrome without changing board content.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 6:54 PM",
+    "areas": [
+      "Dashboard",
+      "Displays",
+      "Board rendering"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npx tsc --noEmit; npm run build"
+  },
+  {
     "id": "DEV-0471",
     "title": "Match live boards to authored layouts",
     "summary": "Live displays and 2D previews now render authored board panels directly, preserving panel geometry, sharp DOM text, image aspect ratios, and animated GIF playback.",

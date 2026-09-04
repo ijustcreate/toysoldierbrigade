@@ -7535,9 +7535,16 @@ textarea:focus-visible,
   place-items: center;
 }
 .authored-board-presentation > .direct-board-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
   flex: none;
   pointer-events: none;
   transition: none;
+  /* The editor canvas is scaled with transform. Anchor that transformed visual
+     rectangle, rather than the unscaled editing box, in the display center. */
+  transform: translate(-50%, -50%) scale(var(--board-editor-scale, 1));
+  box-shadow: none;
 }
 
 .direct-board-canvas {

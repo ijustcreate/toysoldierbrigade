@@ -4593,7 +4593,7 @@ function DirectBoardCanvas({
     });
     if (candidate && !target.closest(`[data-panel-id="${candidate.id}"] .panel-move-handle`)) beginManipulation(event, candidate, "move");
   };
-  return <div ref={canvasRef} className={`direct-board-canvas ${display.orientation.toLowerCase()} ${state.board.visualStyle} palette-${program.palette ?? "classic"} frame-finish-${program.frameFinish ?? "simple"}${program.showMatting ? " with-matting" : ""}${(program.showFrame ?? display.showFrame) === false ? " no-frame" : ""}${placingPanelType ? " placing-panel" : ""}`} style={{
+  return <div ref={canvasRef} className={`direct-board-canvas ${display.orientation.toLowerCase()} ${state.board.visualStyle} palette-${program.palette ?? "classic"} frame-finish-${program.frameFinish ?? "simple"}${program.showMatting ? " with-matting" : ""}${(program.showFrame ?? display.showFrame) === false ? " no-frame" : ""}${placingPanelType ? " placing-panel" : ""}${presentation ? " presentation-canvas" : ""}`} style={{
     width: `${authoredCanvasSize.width}px`,
     height: `${authoredCanvasSize.height}px`,
     fontFamily: "Montserrat",
