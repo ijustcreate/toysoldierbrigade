@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0467",
+    "title": "Restore desktop display preview layout",
+    "summary": "Removes the dashboard-only aspect override that distorted desktop cards while retaining the mounted-TV canvas measurement fix.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 6:06 PM",
+    "areas": [
+      "Dashboard",
+      "TV mode",
+      "Display delivery"
+    ],
+    "files": [
+      "src/styles.css",
+      "package.json",
+      "scripts/test-dashboard-display-aspect-ratio.mjs"
+    ],
+    "tests": "npx tsc --noEmit; npm run test:tv-safe-board-renderer; npm run test:sideways-mounted-display"
+  },
+  {
     "id": "DEV-0466",
     "title": "Preserve board proportions on TV and dashboard",
     "summary": "Fixes stretched portrait boards after sideways TV rotation and makes dashboard previews contain each display at its configured aspect ratio.",
