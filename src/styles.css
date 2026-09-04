@@ -1817,8 +1817,9 @@ h2 {
   height: 100vw;
   transform: translate(-50%, -50%);
 }
-.display-shell.mounted-clockwise { transform: translate(-50%, -50%) rotate(90deg); }
-.display-shell.mounted-counterclockwise { transform: translate(-50%, -50%) rotate(-90deg); }
+/* Browser coordinates run opposite the physical turn once the panel is mounted. */
+.display-shell.mounted-clockwise { transform: translate(-50%, -50%) rotate(-90deg); }
+.display-shell.mounted-counterclockwise { transform: translate(-50%, -50%) rotate(90deg); }
 .display-shell.mounted-clockwise .wall-canvas,
 .display-shell.mounted-counterclockwise .wall-canvas { width: 100%; height: 100%; }
 

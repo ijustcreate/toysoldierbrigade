@@ -1,5 +1,37 @@
 [
   {
+    "id": "DEV-0465",
+    "title": "Correct sideways TV rotation direction",
+    "summary": "Swaps the physical rotation mapping for sideways-mounted TV browsers so the configured clockwise setup renders upright instead of upside down.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 5:58 PM",
+    "areas": [
+      "TV mode",
+      "Display delivery"
+    ],
+    "files": [
+      "src/styles.css",
+      "scripts/test-sideways-mounted-display.mjs"
+    ],
+    "tests": "npx tsc --noEmit; npm run test:sideways-mounted-display; npm run test:tv-safe-board-renderer"
+  },
+  {
+    "id": "DEV-0464",
+    "title": "Correct sideways TV rotation direction",
+    "summary": "Swaps the physical rotation mapping for sideways-mounted TV browsers so the configured clockwise setup renders upright instead of upside down.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 5:58 PM",
+    "areas": [
+      "TV mode",
+      "Display delivery"
+    ],
+    "files": [
+      "src/styles.css",
+      "scripts/test-sideways-mounted-display.mjs"
+    ],
+    "tests": "npx tsc --noEmit; npm run test:sideways-mounted-display; npm run test:tv-safe-board-renderer"
+  },
+  {
     "id": "DEV-0463",
     "title": "Add remote-friendly TV mode",
     "summary": "Adds a dedicated TV setup route with normal and sideways mounting choices, remote-sized controls, and browser-local rotation overrides for live boards, messages, and broadcasts.",
