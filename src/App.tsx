@@ -293,6 +293,7 @@ function TvModeApp() {
   const [orientation, setOrientation] = useState<"Portrait" | "Landscape">(saved.orientation === "Portrait" ? "Portrait" : "Landscape");
   const [mountRotation, setMountRotation] = useState<TvMountRotation>(saved.mountRotation === "clockwise" || saved.mountRotation === "counterclockwise" ? saved.mountRotation : "none");
   const [screenId, setScreenId] = useState<ScreenId>(saved.screenId ?? firstDisplayId(loadLanternState()));
+  const [setupStep, setSetupStep] = useState<"mount" | "turn" | "display">("mount");
 
   useEffect(() => {
     let mounted = true;
@@ -317,6 +318,7 @@ function TvModeApp() {
     if (next === "Landscape") setMountRotation("none");
     const match = Object.values(state.screens).find((screen) => screen.orientation === next);
     if (match) setScreenId(match.id);
+    setSetupStep(next === "Portrait" ? "turn" : "display");
   };
   const launch = () => {
     if (!selectedScreen) return;
@@ -329,9 +331,9 @@ function TvModeApp() {
   return <main className="tv-mode-shell">
     <header className="tv-mode-header"><div><Monitor size={32} /><span>TV mode</span></div><button type="button" onClick={() => { window.location.hash = "#/dashboard"; }}><LayoutDashboard size={20} /> Operator dashboard</button></header>
     <section className="tv-mode-card" aria-labelledby="tv-mode-title">
-      <p className="eyebrow">Remote-friendly display setup</p>
-      <h1 id="tv-mode-title">Which way is up on this TV?</h1>
-      <p className="tv-mode-intro">Choose the physical mounting once. TV mode then opens a simplified, full-screen display with the right aspect ratio and rotation for boards, messages, and broadcasts.</p>
+      <p className="eyebrow">Remote-friendly display setup · Step {setupStep === "mount" ? "1" : setupStep === "turn" ? "2" : "3"} of 3</p>
+      {setupStep === "mount" && <><h1 id="tv-mode-title">How is this TV mounted?</h1>
+      <p className="tv-mode-intro">Choose the physical mounting. The next screen asks for the turn direction only if this TV is mounted sideways.</p>
       <div className="tv-mode-choice-grid" role="group" aria-label="TV mounting orientation">
         <button type="button" className={orientation === "Landscape" ? "selected" : ""} onClick={() => selectOrientation("Landscape")}>
           <Monitor size={42} /><strong>Landscape TV</strong><span>Mounted normally — wide screen</span>
@@ -339,14 +341,18 @@ function TvModeApp() {
         <button type="button" className={orientation === "Portrait" ? "selected" : ""} onClick={() => selectOrientation("Portrait")}>
           <Smartphone size={42} /><strong>TV mounted sideways</strong><span>Portrait display — like a large phone screen</span>
         </button>
-      </div>
-      {orientation === "Portrait" && <div className="tv-mode-rotation" role="group" aria-label="Sideways mounting direction">
-        <p>Which way is the TV turned?</p>
-        <div><button type="button" className={mountRotation === "clockwise" ? "selected" : ""} onClick={() => setMountRotation("clockwise")}><RotateCcw size={23} /> Turned right</button><button type="button" className={mountRotation === "counterclockwise" ? "selected" : ""} onClick={() => setMountRotation("counterclockwise")}><RotateCwIcon /><span>Turned left</span></button></div>
-      </div>}
-      <div className="tv-mode-displays"><p>Display to show</p><div>{availableScreens.map((screen) => <button type="button" key={screen.id} className={selectedScreen?.id === screen.id ? "selected" : ""} onClick={() => setScreenId(screen.id)}><Radio size={20} /><span><strong>{screen.label}</strong><small>{screen.assignment} · {screen.orientation}</small></span></button>)}</div></div>
-      <button type="button" className="tv-mode-launch" onClick={launch} disabled={!selectedScreen}><Play size={27} /> Open live display</button>
-      <p className="tv-mode-hint">Use the remote arrows and Select/OK. While the display is open, Select/OK opens its controls.</p>
+      </div></>}
+      {setupStep === "turn" && <><h1 id="tv-mode-title">Which way is the TV turned?</h1>
+      <p className="tv-mode-intro">Choose the direction that makes the top of this screen point upward on the wall.</p>
+      <div className="tv-mode-choice-grid tv-mode-turn-grid" role="group" aria-label="Sideways mounting direction">
+        <button type="button" className={mountRotation === "clockwise" ? "selected" : ""} onClick={() => { setMountRotation("clockwise"); setSetupStep("display"); }}><RotateCcw size={42} /><strong>Turned right</strong><span>Top points to the right before mounting</span></button>
+        <button type="button" className={mountRotation === "counterclockwise" ? "selected" : ""} onClick={() => { setMountRotation("counterclockwise"); setSetupStep("display"); }}><RotateCwIcon /><strong>Turned left</strong><span>Top points to the left before mounting</span></button>
+      </div><button className="tv-mode-back" type="button" onClick={() => setSetupStep("mount")}>Back</button></>}
+      {setupStep === "display" && <><h1 id="tv-mode-title">Which display should this TV show?</h1>
+      <p className="tv-mode-intro">Choose one display, then open the full-screen, remote-friendly board view.</p>
+      <div className="tv-mode-displays"><div>{availableScreens.map((screen) => <button type="button" key={screen.id} className={selectedScreen?.id === screen.id ? "selected" : ""} onClick={() => setScreenId(screen.id)}><Radio size={20} /><span><strong>{screen.label}</strong><small>{screen.assignment} · {screen.orientation}</small></span></button>)}</div></div>
+      <div className="tv-mode-bottom-actions"><button className="tv-mode-back" type="button" onClick={() => setSetupStep(orientation === "Portrait" ? "turn" : "mount")}>Back</button><button type="button" className="tv-mode-launch" onClick={launch} disabled={!selectedScreen}><Play size={27} /> Open live display</button></div>
+      <p className="tv-mode-hint">Use remote arrows and Select/OK. Select/OK on the display opens its controls.</p></>}
     </section>
   </main>;
 }

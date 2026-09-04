@@ -1,5 +1,38 @@
 [
   {
+    "id": "DEV-0478",
+    "title": "Fit TV setup on sideways screens",
+    "summary": "Changed TV setup into compact remote steps so a sideways TV browser can complete orientation and display selection without scrolling.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 7:23 PM",
+    "areas": [
+      "TV mode",
+      "Remote controls",
+      "Displays"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npx tsc --noEmit; npm run build"
+  },
+  {
+    "id": "DEV-0477",
+    "title": "Open the interactive TV orientation setup",
+    "summary": "Made the TV mode control react immediately, opening a remote-friendly setup that chooses normal or sideways mounting and display direction.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 7:05 PM",
+    "areas": [
+      "TV mode",
+      "Navigation",
+      "Displays"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npx tsc --noEmit; npm run build"
+  },
+  {
     "id": "DEV-0476",
     "title": "Open the interactive TV orientation setup",
     "summary": "Made the TV mode control react immediately, opening a remote-friendly setup that chooses normal or sideways mounting and display direction.",

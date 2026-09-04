@@ -1859,7 +1859,34 @@ h2 {
 .tv-mode-launch { display: flex; min-width: min(100%, 390px); min-height: 78px; margin: 36px auto 0; align-items: center; justify-content: center; gap: 13px; padding: 0 34px; border: 2px solid #9affed; border-radius: 17px; color: #042130; background: linear-gradient(135deg, #72f2db, #73bffa); font-size: clamp(20px, 2.2vw, 29px); font-weight: 900; box-shadow: 0 14px 35px rgba(82, 216, 222, .25); }
 .tv-mode-launch:disabled { opacity: .5; cursor: not-allowed; }
 .tv-mode-hint { margin: 18px 0 0; color: #a8c0d4; text-align: center; font-size: 14px; }
+.tv-mode-back { min-height: 52px; margin-top: 22px; padding: 0 20px; border: 1px solid rgba(173, 222, 245, .42); border-radius: 12px; color: #e7f9ff; background: rgba(8, 28, 48, .74); font-size: 16px; font-weight: 800; }
+.tv-mode-bottom-actions { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 30px; }
+.tv-mode-bottom-actions .tv-mode-launch { min-width: min(100%, 390px); margin: 0; }
 .tv-mode-shell button:focus-visible { outline: 5px solid #fff5a6; outline-offset: 4px; }
+/* TV browsers often report the panel's original landscape framebuffer even
+   when the television is mounted vertically. Keep each remote step entirely
+   visible in that short viewport. */
+@media (max-height: 800px) and (min-width: 681px) {
+  .tv-mode-shell { min-height: 100vh; padding: 18px 36px; }
+  .tv-mode-header { margin-bottom: 16px; }
+  .tv-mode-header > div { font-size: 26px; }
+  .tv-mode-header button { min-height: 42px; font-size: 12px; }
+  .tv-mode-card { max-width: 980px; padding: 25px 38px; border-radius: 20px; }
+  .tv-mode-card .eyebrow { margin-bottom: 5px; font-size: 10px; }
+  .tv-mode-card h1 { font-size: 38px; }
+  .tv-mode-intro { max-width: 670px; margin: 10px 0 18px; font-size: 16px; }
+  .tv-mode-choice-grid { gap: 14px; }
+  .tv-mode-choice-grid button { min-height: 118px; gap: 6px; padding: 12px; border-radius: 16px; }
+  .tv-mode-choice-grid button strong { font-size: 22px; }
+  .tv-mode-choice-grid button span { font-size: 13px; }
+  .tv-mode-choice-grid svg { width: 30px; height: 30px; }
+  .tv-mode-displays { margin-top: 0; padding-top: 0; border-top: 0; }
+  .tv-mode-displays button { min-height: 58px; }
+  .tv-mode-bottom-actions { margin-top: 18px; }
+  .tv-mode-launch { min-height: 58px; font-size: 20px; }
+  .tv-mode-back { min-height: 48px; margin-top: 14px; font-size: 14px; }
+  .tv-mode-hint { margin-top: 10px; font-size: 11px; }
+}
 @media (max-width: 680px) {
   .tv-mode-shell { padding: 18px; }
   .tv-mode-header { align-items: flex-start; }
