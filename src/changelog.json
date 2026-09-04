@@ -1,5 +1,51 @@
 [
   {
+    "id": "DEV-0476",
+    "title": "Open the interactive TV orientation setup",
+    "summary": "Made the TV mode control react immediately, opening a remote-friendly setup that chooses normal or sideways mounting and display direction.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 7:05 PM",
+    "areas": [
+      "TV mode",
+      "Navigation",
+      "Displays"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npx tsc --noEmit; npm run build"
+  },
+  {
+    "id": "DEV-0475",
+    "title": "Harden TV live-stream negotiation",
+    "summary": "Send ICE-gathered WebRTC descriptions and preserve native remote streams so Smart TV browsers can attach phone video and audio reliably.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 7:02 PM",
+    "areas": [
+      "Broadcast / Stream",
+      "Display output"
+    ],
+    "files": [
+      "src/host/videoBridge.ts"
+    ],
+    "tests": "npm run build; node scripts/test-broadcast-composition.mjs"
+  },
+  {
+    "id": "DEV-0474",
+    "title": "Harden TV live-stream negotiation",
+    "summary": "Send ICE-gathered WebRTC descriptions and preserve native remote streams so Smart TV browsers can attach phone video and audio reliably.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 7:02 PM",
+    "areas": [
+      "Broadcast / Stream",
+      "Display output"
+    ],
+    "files": [
+      "src/host/videoBridge.ts"
+    ],
+    "tests": "npm run build; node scripts/test-broadcast-composition.mjs"
+  },
+  {
     "id": "DEV-0473",
     "title": "Center authored display previews",
     "summary": "Centered the proportional authored-board presentation by its rendered surface and removed non-authored preview chrome without changing board content.",

@@ -243,20 +243,29 @@ const announcementSfxSources = {
 } as const;
 
 export function App() {
-  if (/^#\/tv(?:[/?#]|$)/.test(window.location.hash)) {
+  // The outer app owns special full-screen routes. Unlike the inner dashboard
+  // navigation, these must react to hash changes so the TV mode button can
+  // actually open its orientation setup without a manual browser refresh.
+  const [routeHash, setRouteHash] = useState(() => window.location.hash);
+  useEffect(() => {
+    const syncRoute = () => setRouteHash(window.location.hash);
+    window.addEventListener("hashchange", syncRoute);
+    return () => window.removeEventListener("hashchange", syncRoute);
+  }, []);
+  if (/^#\/tv(?:[/?#]|$)/.test(routeHash)) {
     return <TvModeApp />;
   }
-  const announcementDemoMatch = window.location.hash.match(/^#\/announcement-demo\/([^/?#]+)/);
+  const announcementDemoMatch = routeHash.match(/^#\/announcement-demo\/([^/?#]+)/);
   if (announcementDemoMatch) {
     return <AnnouncementDemoApp screenId={decodeURIComponent(announcementDemoMatch[1])} />;
   }
 
-  const displayWallMatch = window.location.hash.match(/^#\/display-wall\/([^?#]+)/);
+  const displayWallMatch = routeHash.match(/^#\/display-wall\/([^?#]+)/);
   if (displayWallMatch) {
     return <DisplayWallApp screenIds={displayWallMatch[1].split(",").map((screenId) => decodeURIComponent(screenId)).filter(Boolean)} />;
   }
 
-  const displayMatch = window.location.hash.match(/^#\/display\/([^/?#]+)/);
+  const displayMatch = routeHash.match(/^#\/display\/([^/?#]+)/);
   if (displayMatch) {
     return <DisplayApp screenId={decodeURIComponent(displayMatch[1])} />;
   }
@@ -321,14 +330,14 @@ function TvModeApp() {
     <header className="tv-mode-header"><div><Monitor size={32} /><span>TV mode</span></div><button type="button" onClick={() => { window.location.hash = "#/dashboard"; }}><LayoutDashboard size={20} /> Operator dashboard</button></header>
     <section className="tv-mode-card" aria-labelledby="tv-mode-title">
       <p className="eyebrow">Remote-friendly display setup</p>
-      <h1 id="tv-mode-title">How is this TV mounted?</h1>
-      <p className="tv-mode-intro">Choose the physical setup once. This browser will open the matching live display and keep boards, messages, and broadcasts in the correct direction.</p>
+      <h1 id="tv-mode-title">Which way is up on this TV?</h1>
+      <p className="tv-mode-intro">Choose the physical mounting once. TV mode then opens a simplified, full-screen display with the right aspect ratio and rotation for boards, messages, and broadcasts.</p>
       <div className="tv-mode-choice-grid" role="group" aria-label="TV mounting orientation">
         <button type="button" className={orientation === "Landscape" ? "selected" : ""} onClick={() => selectOrientation("Landscape")}>
           <Monitor size={42} /><strong>Landscape TV</strong><span>Mounted normally — wide screen</span>
         </button>
         <button type="button" className={orientation === "Portrait" ? "selected" : ""} onClick={() => selectOrientation("Portrait")}>
-          <Smartphone size={42} /><strong>Portrait TV</strong><span>Landscape TV mounted on its side</span>
+          <Smartphone size={42} /><strong>TV mounted sideways</strong><span>Portrait display — like a large phone screen</span>
         </button>
       </div>
       {orientation === "Portrait" && <div className="tv-mode-rotation" role="group" aria-label="Sideways mounting direction">
