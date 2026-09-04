@@ -7521,6 +7521,25 @@ textarea:focus-visible,
 .board-stage-meta span { overflow: hidden; text-overflow: ellipsis; }
 .direct-board-stage > .direct-board-canvas { align-self: center; justify-self: center; }
 
+/* Read-only board surfaces use the exact DOM that authors see in the editor.
+   Scaling the complete 9:16 or 16:9 canvas preserves every authored proportion;
+   images stay contain/cover-correct and GIFs remain native, animated <img>s. */
+.authored-board-presentation {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  place-items: center;
+}
+.authored-board-presentation > .direct-board-canvas {
+  flex: none;
+  pointer-events: none;
+  transition: none;
+}
+
 .direct-board-canvas {
   position: relative;
   box-sizing: border-box;
