@@ -125,11 +125,27 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
     if (!video) return;
     video.srcObject = stream;
     if (stream) {
+      // Some embedded TV browsers surface the remote WebRTC stream before
+      // their hardware decoder has produced its first frame. A single
+      // immediate play() call can resolve there while the element remains
+      // visually blank. Retry as the decoder reports usable media and when
+      // the remote video track transitions from muted to live.
       const play = () => void video.play().catch(() => undefined);
+      const retryTimers = [120, 420, 1_000, 2_000].map((delay) => window.setTimeout(play, delay));
       video.addEventListener("loadedmetadata", play, { once: true });
+      video.addEventListener("loadeddata", play);
+      video.addEventListener("canplay", play);
+      video.addEventListener("resize", play);
+      const videoTracks = stream.getVideoTracks();
+      videoTracks.forEach((track) => track.addEventListener("unmute", play));
       play();
       return () => {
         video.removeEventListener("loadedmetadata", play);
+        video.removeEventListener("loadeddata", play);
+        video.removeEventListener("canplay", play);
+        video.removeEventListener("resize", play);
+        videoTracks.forEach((track) => track.removeEventListener("unmute", play));
+        retryTimers.forEach((timer) => window.clearTimeout(timer));
         video.srcObject = null;
       };
     }

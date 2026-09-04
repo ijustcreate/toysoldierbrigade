@@ -8018,11 +8018,37 @@ function LiveDisplayAudioOutput({ stream }: { stream: MediaStream | null }) {
     const audio = audioRef.current;
     if (!audio) return;
     audio.srcObject = stream;
-    if (stream?.getAudioTracks().length) void audio.play().catch(() => undefined);
-    return () => { audio.srcObject = null; };
+    if (!stream) return () => { audio.srcObject = null; };
+    // A WebRTC receiver can report its video track before its audio track is
+    // live. Embedded displays then keep an earlier failed autoplay attempt
+    // and never start sound. Retry for the media readiness events and when an
+    // audio track is added or unmuted.
+    const play = () => {
+      if (stream.getAudioTracks().length) void audio.play().catch(() => undefined);
+    };
+    const onTrackAdded = (event: MediaStreamTrackEvent) => {
+      if (event.track.kind !== "audio") return;
+      event.track.addEventListener("unmute", play);
+      play();
+    };
+    const audioTracks = stream.getAudioTracks();
+    audioTracks.forEach((track) => track.addEventListener("unmute", play));
+    const retryTimers = [150, 500, 1_200, 2_500].map((delay) => window.setTimeout(play, delay));
+    audio.addEventListener("loadeddata", play);
+    audio.addEventListener("canplay", play);
+    stream.addEventListener("addtrack", onTrackAdded);
+    play();
+    return () => {
+      audioTracks.forEach((track) => track.removeEventListener("unmute", play));
+      stream.removeEventListener("addtrack", onTrackAdded);
+      audio.removeEventListener("loadeddata", play);
+      audio.removeEventListener("canplay", play);
+      retryTimers.forEach((timer) => window.clearTimeout(timer));
+      audio.srcObject = null;
+    };
   }, [stream]);
 
-  return <audio ref={audioRef} autoPlay playsInline className="sr-only" />;
+  return <audio ref={audioRef} autoPlay playsInline preload="auto" className="sr-only" />;
 }
 
 function ScreensView({
@@ -10248,7 +10274,7 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
         <div className={`live-overlay broadcast-frame-surface mask-${liveComposition.frame.maskShape ?? "rectangle"}${!liveComposition.chromaKey.enabled && liveComposition.effects.background === "remove" ? " screenless-transparent" : ""}`} style={{ left: `${liveComposition.frame.x}%`, top: `${liveComposition.frame.y}%`, width: `${liveComposition.frame.width}%`, height: `${liveComposition.frame.height}%`, clipPath: liveComposition.frame.maskShape === "polygon" ? livePolygonClip(liveComposition.frame) : undefined, ...frameSurfaceStyle(liveComposition), ...(!liveComposition.chromaKey.enabled && liveComposition.effects.background === "remove" ? { backgroundColor: "transparent" } : {}) }}>
           <div className="broadcast-crop-viewport" style={{ clipPath: `inset(${liveCropEdges.top}% ${liveCropEdges.right}% ${liveCropEdges.bottom}% ${liveCropEdges.left}%)` }}>
             <div className="live-camera-transform" style={broadcastSourceTransformStyle(liveComposition)}>
-              <ChromaVideo stream={stream} chromaKey={liveComposition.chromaKey} effects={liveComposition.effects} crop={liveComposition.frame.crop} fitMode={liveComposition.frame.fitMode} renderTrackedOverlay={displayCostumeRenderer} preserveVideoUnderDiagnostics />
+              <ChromaVideo stream={stream} chromaKey={liveComposition.chromaKey} effects={liveComposition.effects} crop={liveComposition.frame.crop} fitMode={screen.orientation === "Portrait" && liveComposition.source === "camera" ? "fit" : liveComposition.frame.fitMode} renderTrackedOverlay={displayCostumeRenderer} preserveVideoUnderDiagnostics />
             </div>
           </div>
           {(!stream || liveMediaNotice) && <div className="video-waiting">{liveMediaNotice ?? "Waiting for local video signal"}</div>}
