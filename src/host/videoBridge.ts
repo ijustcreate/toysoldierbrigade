@@ -92,7 +92,17 @@ export class DirectorVideoBridge {
         const sender = peer.addTrack(track, this.stream);
         if (track.kind === "video") {
           preferTvSafeVideoCodec(peer, sender);
-          void sender.setParameters({ ...sender.getParameters(), degradationPreference: "maintain-framerate" }).catch(() => undefined);
+          // Keep desktop webcams within the range of embedded TV hardware
+          // decoders. Phone cameras normally choose this kind of tier on their
+          // own; a C310/desktop browser can otherwise offer a much heavier
+          // stream even with H.264 negotiated.
+          const parameters = sender.getParameters();
+          const encoding = parameters.encodings[0] ?? {};
+          void sender.setParameters({
+            ...parameters,
+            encodings: [{ ...encoding, maxBitrate: 750_000, maxFramerate: 30 }],
+            degradationPreference: "maintain-framerate"
+          }).catch(() => undefined);
         }
       }
     });
@@ -471,14 +481,14 @@ async function getCameraOrDemoStream(onStatus: (status: DirectorStatus) => void,
   if (navigator.mediaDevices?.getUserMedia) {
     try {
       const cameraStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: videoDeviceId ? { exact: videoDeviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60, max: 60 } },
+        video: { deviceId: videoDeviceId ? { exact: videoDeviceId } : undefined, width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, frameRate: { ideal: 30, max: 30 } },
         audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true
       });
       return cameraStream as DemoStream;
     } catch {
       try {
         const cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: videoDeviceId ? { exact: videoDeviceId } : undefined, width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60, max: 60 } },
+        video: { deviceId: videoDeviceId ? { exact: videoDeviceId } : undefined, width: { ideal: 640, max: 640 }, height: { ideal: 480, max: 480 }, frameRate: { ideal: 30, max: 30 } },
           audio: false
         });
         return cameraStream as DemoStream;
