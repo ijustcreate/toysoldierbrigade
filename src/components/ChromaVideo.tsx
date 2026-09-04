@@ -38,6 +38,8 @@ export interface ChromaVideoProps {
   renderTrackedOverlay?: TrackingOverlayRenderer;
   /** Public displays always retain the real feed while diagnostic points are visible. */
   preserveVideoUnderDiagnostics?: boolean;
+  /** Draw decoded frames to canvas for embedded displays with unreliable video compositing. */
+  renderToCanvas?: boolean;
 }
 
 interface PointTransform {
@@ -86,7 +88,7 @@ function drawScreenlessGradient(context: CanvasRenderingContext2D, width: number
   context.fillRect(0, 0, width, height);
 }
 
-export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill", className, onTrackingStatus, onMediaSurfaceChange, renderTrackedOverlay, preserveVideoUnderDiagnostics = false }: ChromaVideoProps) {
+export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill", className, onTrackingStatus, onMediaSurfaceChange, renderTrackedOverlay, preserveVideoUnderDiagnostics = false, renderToCanvas = false }: ChromaVideoProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const settingsRef = useRef({ chromaKey, effects, crop });
@@ -112,7 +114,10 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
     transform: `translate(${-crop.x * crop.scale}%, ${-crop.y * crop.scale}%) scale(${crop.scale})`,
     transformOrigin: "center"
   };
-  const processingActive = chromaActive || aiBackgroundActive || faceEffectsActive;
+  // Several smart-TV browsers decode a WebRTC frame but occasionally fail to
+  // composite it into a native <video>. Drawing the same decoded frames to a
+  // canvas is a reliable display path without altering the stream itself.
+  const processingActive = chromaActive || aiBackgroundActive || faceEffectsActive || renderToCanvas;
 
   useEffect(() => {
     const surface = processingActive ? canvasRef.current : videoRef.current;
