@@ -6649,7 +6649,7 @@ function LivePreviewPanel({
           },
           audio: state.live.audioEnabled === false ? false : {
             deviceId: state.live.audioDeviceId,
-            constraints: { echoCancellation: true, noiseSuppression: true },
+            constraints: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
             fallbackToDefault: true,
             required: false
           }
@@ -7286,7 +7286,7 @@ function LivePreviewPanel({
       </section>
       {state.live.source === "camera" && <section className="broadcast-mic-check" aria-label="Microphone check">
         <div className="broadcast-mic-check__heading"><Mic size={15} /><div><strong>Microphone check</strong><small>{previewStream?.getAudioTracks().length ? "Speak normally to verify the selected microphone." : "Start the camera to test the selected microphone."}</small></div></div>
-        <AudioLevelMeter stream={previewStream} muted={state.live.audioEnabled === false || !previewStream?.getAudioTracks().length} label="Selected microphone" noSignalThreshold={0.006} />
+        <AudioLevelMeter stream={previewStream} muted={state.live.audioEnabled === false || !previewStream?.getAudioTracks().length} label="Selected microphone" noSignalThreshold={0.002} />
       </section>}
       </div>}
       {liveTab === "frame" && <div className="live-frame-tab live-tab-panel">

@@ -65,7 +65,12 @@ export class DirectorVideoBridge {
     this.clearMedia();
     this.activeTarget = target;
     this.activeTargets = targets?.length ? targets : undefined;
-    this.stream = stream as DemoStream;
+    // Desktop webcams can expose a hardware-native track that a smart TV
+    // accepts at the WebRTC layer but never turns into visible frames. Repaint
+    // the already-working local preview into a standard canvas capture track
+    // before negotiating it. The phone path remains untouched and is already
+    // proven to work on the display.
+    this.stream = createTvSafeBroadcastStream(stream);
     this.watchSourceTracks();
     this.announceMediaState("available", detail);
     this.onStatus("camera", detail);
@@ -567,6 +572,58 @@ function createDemoVideoStream(): DemoStream {
   const timer = window.setInterval(draw, 33);
   const stream = canvas.captureStream(30) as DemoStream;
   stream.__cleanup = () => window.clearInterval(timer);
+  return stream;
+}
+
+/**
+ * Re-encodes a presenter's locally decoded video through a canvas capture.
+ * This avoids vendor-specific webcam packets and yields a conventional 640x480
+ * 30fps browser track that embedded TV WebRTC implementations can decode.
+ */
+function createTvSafeBroadcastStream(sourceStream: MediaStream): DemoStream {
+  const sourceVideo = sourceStream.getVideoTracks()[0];
+  if (!sourceVideo || typeof document === "undefined") return sourceStream as DemoStream;
+
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.autoplay = true;
+  video.srcObject = new MediaStream([sourceVideo]);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 480;
+  const context = canvas.getContext("2d", { alpha: false });
+  const captureStream = canvas.captureStream?.(30);
+  const captureTrack = captureStream?.getVideoTracks()[0];
+  if (!context || !captureTrack) return sourceStream as DemoStream;
+
+  let animationFrame = 0;
+  let disposed = false;
+  const render = () => {
+    if (disposed) return;
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth && video.videoHeight) {
+      const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+      const width = video.videoWidth * scale;
+      const height = video.videoHeight * scale;
+      context.fillStyle = "#000";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(video, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+    }
+    animationFrame = window.requestAnimationFrame(render);
+  };
+  void video.play().catch(() => undefined);
+  animationFrame = window.requestAnimationFrame(render);
+
+  const stream = new MediaStream([captureTrack, ...sourceStream.getAudioTracks()]) as DemoStream;
+  stream.__cleanup = () => {
+    disposed = true;
+    window.cancelAnimationFrame(animationFrame);
+    captureTrack.stop();
+    video.pause();
+    video.srcObject = null;
+    sourceVideo.stop();
+  };
   return stream;
 }
 
