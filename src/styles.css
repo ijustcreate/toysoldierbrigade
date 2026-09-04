@@ -13941,6 +13941,28 @@ body.theme-light {
   font-variant-numeric: tabular-nums;
 }
 
+.broadcast-mic-check {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(89, 211, 170, .28);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(24, 92, 91, .15), rgba(9, 16, 39, .68));
+}
+
+.broadcast-mic-check__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: #78e7cd;
+}
+
+.broadcast-mic-check__heading > div { display: grid; gap: 2px; }
+.broadcast-mic-check__heading strong { color: var(--ink); font-size: 10px; }
+.broadcast-mic-check__heading small { color: var(--muted); font-size: 8px; line-height: 1.35; }
+.broadcast-mic-check .audio-level-meter { padding: 7px 8px; }
+
 .local-user-modal {
   grid-template-rows: auto auto auto auto;
   width: min(460px, calc(100vw - 32px));

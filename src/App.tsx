@@ -7284,6 +7284,10 @@ function LivePreviewPanel({
           {recordingActive ? "Source locked while recording" : previewBusy ? (state.live.source === "recording" ? "Opening…" : "Connecting…") : previewStream ? (state.live.source === "camera" ? "Stop camera" : state.live.source === "screen" ? "Stop sharing" : "Stop recording preview") : previewError ? (state.live.source === "camera" ? "Try camera again" : state.live.source === "screen" ? "Try sharing again" : "Try recording again") : (state.live.source === "camera" ? "Start camera" : state.live.source === "screen" ? "Start sharing" : "Play recording")}
         </button>}
       </section>
+      {state.live.source === "camera" && <section className="broadcast-mic-check" aria-label="Microphone check">
+        <div className="broadcast-mic-check__heading"><Mic size={15} /><div><strong>Microphone check</strong><small>{previewStream?.getAudioTracks().length ? "Speak normally to verify the selected microphone." : "Start the camera to test the selected microphone."}</small></div></div>
+        <AudioLevelMeter stream={previewStream} muted={state.live.audioEnabled === false || !previewStream?.getAudioTracks().length} label="Selected microphone" noSignalThreshold={0.006} />
+      </section>}
       </div>}
       {liveTab === "frame" && <div className="live-frame-tab live-tab-panel">
         <div className="live-toolbox direct-frame-controls">
