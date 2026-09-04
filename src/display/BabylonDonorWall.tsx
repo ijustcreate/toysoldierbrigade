@@ -2177,7 +2177,10 @@ function drawBoardStars(
     const initialX = width * (0.5 + (random(12.9898) - 0.5) * spread);
     const initialY = height * (0.5 + (random(78.233) - 0.5) * spread);
     const depth = 0.28 + random(93.184) * 0.72;
-    const radius = Math.max(0.35, size * (0.25 + random(39.346) * 0.72));
+    // Recognition boards need a quiet texture, not floating lights. Keep
+    // Canvas particles deliberately smaller than their editor control value,
+    // especially on high-density TV panels where glow is visually amplified.
+    const radius = Math.max(0.25, size * (0.12 + random(39.346) * 0.32));
     const particleLife = Math.max(1, lifetime + (random(17.719) - 0.5) * lifetimeRange);
     const particleTime = elapsed * (12 / particleLife) * (0.36 + speed * 0.055);
     const naturalDirection = random(54.531) >= 0.5 ? 1 : -1;
@@ -2196,10 +2199,10 @@ function drawBoardStars(
       ? ["#ef5959", "#f2d64b", "#4f8cff"][index % 3]
       : index % 3 === 0 ? "#e8b85f" : "#fff8e6";
     context.save();
-    context.globalAlpha = Math.max(0.08, shimmer * depth);
+    context.globalAlpha = Math.max(0.05, shimmer * depth * 0.5);
     context.fillStyle = color;
     context.shadowColor = color;
-    context.shadowBlur = radius * (1.5 + (1 - depth) * 2.5);
+    context.shadowBlur = radius * (0.7 + (1 - depth) * 1.1);
     context.beginPath();
     context.arc(x, y, radius, 0, Math.PI * 2);
     context.fill();

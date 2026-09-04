@@ -13,4 +13,6 @@ assert.match(source, /drawTextureContent\([^\n]+false\)/);
 assert.match(source, /if \(mirrorForTexture\)/);
 assert.match(source, /requiresTvHtmlFallback/);
 assert.match(source, /TvBrowserBoardFallback/);
+assert.match(source, /size \* \(0\.12 \+ random\(39\.346\) \* 0\.32\)/);
+assert.match(source, /shimmer \* depth \* 0\.5/);
 console.log("TV-safe board renderer fixture passed: straight-on output bypasses WebGL and paints through Canvas 2D.");

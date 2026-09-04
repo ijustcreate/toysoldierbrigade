@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0468",
+    "title": "Subdue TV board particles",
+    "summary": "Reduces particle size, brightness, and glow in the TV-safe board renderer so donor names remain the visual focus.",
+    "author": "Codex",
+    "createdAt": "Sep 3, 2026, 6:11 PM",
+    "areas": [
+      "Display delivery",
+      "TV mode"
+    ],
+    "files": [
+      "src/display/BabylonDonorWall.tsx",
+      "scripts/test-tv-safe-board-renderer.mjs"
+    ],
+    "tests": "npx tsc --noEmit; npm run test:tv-safe-board-renderer; npm run test:sideways-mounted-display"
+  },
+  {
     "id": "DEV-0467",
     "title": "Restore desktop display preview layout",
     "summary": "Removes the dashboard-only aspect override that distorted desktop cards while retaining the mounted-TV canvas measurement fix.",
