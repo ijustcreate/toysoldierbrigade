@@ -7205,14 +7205,14 @@ function LivePreviewPanel({
         {phoneSettingsOpen && <div className="phone-broadcast-fields">
           <LabeledInput label="Your name" value={state.live.title} onChange={(title) => patchLive({ title })} />
           <LabeledInput label="Message" value={state.live.lowerThird} onChange={(lowerThird) => patchLive({ lowerThird })} />
-          <div className="field phone-display-targets"><span>Broadcast to</span><div className="phone-target-pills" role="group" aria-label="Open display destinations">{openTargetOptions.length ? <>{openTargetOptions.map((target) => <button key={target} type="button" className={selectedLiveTargets.includes(target) ? "selected" : ""} aria-pressed={selectedLiveTargets.includes(target)} onClick={() => {
+          <div className="field phone-display-targets"><span>Open displays <b>{openTargetOptions.length}</b></span><p>Choose where this phone camera should appear.</p><div className="phone-target-pills" role="group" aria-label="Open display destinations">{openTargetOptions.length ? <>{openTargetOptions.map((target) => { const screen = state.screens[target]; const selected = selectedLiveTargets.includes(target); return <button key={target} type="button" className={selected ? "selected" : ""} aria-pressed={selected} onClick={() => {
             const nextTargets = selectedLiveTargets.includes(target) ? selectedLiveTargets.filter((id) => id !== target) : [...selectedLiveTargets, target];
             patchLive({ target: nextTargets[0] ?? target, targets: nextTargets });
-          }}>{openTargetLabels[target]}</button>)}<button type="button" className={openTargetOptions.length > 0 && openTargetOptions.every((target) => selectedLiveTargets.includes(target)) ? "selected" : ""} onClick={() => {
+          }}><Monitor size={18} aria-hidden="true" /><span><strong>{screen?.label ?? openTargetLabels[target]}</strong><small>{screen?.orientation ?? "Display"} · Open now</small></span><i aria-hidden="true">{selected ? "Selected" : "Tap to select"}</i></button>; })}<button type="button" className="phone-target-all" aria-pressed={openTargetOptions.length > 0 && openTargetOptions.every((target) => selectedLiveTargets.includes(target))} onClick={() => {
             const allSelected = openTargetOptions.every((target) => selectedLiveTargets.includes(target));
             const nextTargets = allSelected ? [] : openTargetOptions;
             patchLive({ target: nextTargets[0] ?? state.live.target, targets: nextTargets });
-          }}>All open</button></> : <small>No displays are open</small>}</div></div>
+          }}>Select all open displays</button></> : <small>No displays are open. Open a board on the TV, then return here.</small>}</div></div>
           <label className="switch-row phone-background-removal"><input type="checkbox" checked={backgroundRemoval.enabled} onChange={(event) => setBackgroundRemovalEnabled(event.target.checked)} /><span>Remove background</span></label>
           <label className="switch-row phone-audio-capture"><input type="checkbox" checked={state.live.audioEnabled !== false} onChange={(event) => patchLive({ audioEnabled: event.target.checked })} /><span><strong>Use mic</strong><small>Your phone microphone is sent to the display when its sound is on. Restart the camera after changing this.</small></span></label>
         </div>}

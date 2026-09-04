@@ -11850,10 +11850,19 @@ body.theme-light {
   .phone-broadcast-fields .field { gap: 4px; }
   .phone-broadcast-fields input,
   .phone-broadcast-fields select { min-height: 36px; }
-  .phone-display-targets { min-width: 0; }
-  .phone-target-pills { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
-  .phone-target-pills button { min-width: 0; min-height: 32px; padding: 5px 8px; overflow: hidden; border: 1px solid var(--line); border-radius: 999px; color: var(--ink); background: color-mix(in srgb, var(--panel) 90%, var(--accent) 7%); font: inherit; font-size: 9px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+  .phone-display-targets { grid-column: 1 / -1; min-width: 0; padding: 9px; border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line)); border-radius: 11px; background: color-mix(in srgb, var(--panel) 94%, var(--accent) 6%); }
+  .phone-display-targets > span { display: flex; justify-content: space-between; align-items: center; }
+  .phone-display-targets > span b { display: inline-grid; min-width: 18px; min-height: 18px; place-items: center; border-radius: 999px; color: var(--portal-action-text, #061222); background: var(--portal-action-end, var(--accent)); font-size: 10px; }
+  .phone-display-targets > p { margin: 2px 0 8px; color: var(--muted); font-size: 10px; line-height: 1.3; }
+  .phone-target-pills { display: grid; gap: 6px; min-width: 0; }
+  .phone-target-pills button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; min-width: 0; min-height: 52px; padding: 7px 9px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); background: color-mix(in srgb, var(--panel) 90%, var(--accent) 7%); font: inherit; text-align: left; }
+  .phone-target-pills button > span { display: grid; min-width: 0; gap: 1px; }
+  .phone-target-pills button strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+  .phone-target-pills button small { color: var(--muted); font-size: 9px; }
+  .phone-target-pills button i { font-size: 9px; font-style: normal; font-weight: 800; white-space: nowrap; }
   .phone-target-pills button.selected { color: var(--portal-action-text, #061222); border-color: var(--portal-action-border, var(--accent)); background: var(--portal-action-end, var(--accent)); }
+  .phone-target-pills button.selected small { color: color-mix(in srgb, var(--portal-action-text, #061222) 68%, transparent); }
+  .phone-target-pills .phone-target-all { display: block; min-height: 34px; color: var(--muted); background: transparent; font-size: 10px; font-weight: 800; text-align: center; }
   .phone-background-removal { min-height: 36px; padding: 0 9px; border: 1px solid rgba(124, 141, 192, .28); border-radius: 9px; font-size: 10px; }
   .phone-broadcast-error { margin: -2px 0 0; color: #ff9ca3; font-size: 10px; }
   .phone-delivery-status { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid rgba(112, 208, 221, .35); border-radius: 10px; color: #dff8fb; background: rgba(48, 135, 159, .16); }
