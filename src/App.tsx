@@ -1248,6 +1248,9 @@ function ControlCenter() {
             <button className="header-operation-button" onClick={() => { window.location.hash = "#/tv"; }} title="Set up this browser for a TV and remote control">
                 <Monitor size={16} /><span>TV mode</span>
               </button>
+              <button className="header-operation-button" onClick={() => { const popup = window.open(`${window.location.pathname}#/fire-remote`, "lantern-fire-remote", "popup=yes,width=430,height=760,resizable=yes"); popup?.focus(); }} title="Open Fire TV controller">
+                🎮 Firestick controller
+              </button>
               <button className="command-button secondary help-launch-button" onClick={() => setHelpOpen(true)} title="Open the Project Lantern walkthrough">
                 <BookOpen size={18} />
                 How to use
@@ -10118,7 +10121,6 @@ function RevisionsView({ state }: { state: LanternState }) {
               <p>{revision.summary}</p>
               <div className="change-meta"><span>{revision.author}</span><span>{revision.createdAt}</span><span>Open for details</span></div>
             </button>
-            <button className="header-operation-button" onClick={() => { const popup = window.open(`${window.location.pathname}#/fire-remote`, "lantern-fire-remote", "popup=yes,width=430,height=760,resizable=yes"); popup?.focus(); }} title="Open Fire TV controller">🎮 Firestick controller</button>
             <ChevronRight size={18} className="change-open-icon" />
           </article>
         ))}

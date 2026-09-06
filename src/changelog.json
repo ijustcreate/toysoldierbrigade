@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0518",
+    "title": "Show Firestick controller beside TV mode",
+    "summary": "Placed the Firestick controller launcher in the dashboard quick actions next to TV mode.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 12:31 AM",
+    "areas": [
+      "Dashboard",
+      "Fire TV control"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0517",
     "title": "Move text treatment into typography",
     "summary": "Place text finish and shadow controls directly with typography controls instead of a separate collapsible section.",
