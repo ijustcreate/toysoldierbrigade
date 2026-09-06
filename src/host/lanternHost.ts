@@ -28,6 +28,7 @@ const LANTERN_MEDIA_DB = "project-lantern-media-v1";
 const LANTERN_MEDIA_STORE = "assets";
 const LANTERN_STATE_STORE = "state";
 const LANTERN_STATE_RECORD_KEY = "active";
+const LANTERN_PROTECTED_SNAPSHOT_STORE = "protected-snapshots";
 const configuredWriteEndpoint = (import.meta.env.VITE_LANTERN_SERVICE_ENDPOINT as string | undefined)?.trim()
   || (import.meta.env.VITE_LANTERN_BUG_ENDPOINT as string | undefined)?.trim()
   || "";
@@ -172,13 +173,33 @@ export interface DataProtectionReport {
 }
 
 function saveProtectedSnapshot(state: LanternState, reason: string) {
+  const snapshot = { at: new Date().toISOString(), reason, state: serializableLocalState(state) };
   try {
     const snapshots = JSON.parse(window.localStorage.getItem(LANTERN_PROTECTED_SNAPSHOTS_KEY) ?? "[]") as Array<{ at: string; reason: string; state: LanternState }>;
-    snapshots.push({ at: new Date().toISOString(), reason, state });
+    snapshots.push(snapshot);
     window.localStorage.setItem(LANTERN_PROTECTED_SNAPSHOTS_KEY, JSON.stringify(snapshots.slice(-MAX_PROTECTED_SNAPSHOTS)));
   } catch {
-    // Storage may be full; the active state remains the authoritative copy.
+    // Large authored boards routinely exceed localStorage's quota. IndexedDB
+    // below remains the durable recovery path.
   }
+  void saveIndexedDbProtectedSnapshot(snapshot).catch((error) => console.warn("Project Lantern could not preserve a recovery snapshot in IndexedDB.", error));
+}
+
+async function saveIndexedDbProtectedSnapshot(snapshot: { at: string; reason: string; state: LanternState }) {
+  const database = await openMediaDatabase();
+  await new Promise<void>((resolve, reject) => {
+    const transaction = database.transaction(LANTERN_PROTECTED_SNAPSHOT_STORE, "readwrite");
+    const store = transaction.objectStore(LANTERN_PROTECTED_SNAPSHOT_STORE);
+    store.put(snapshot, snapshot.at);
+    const keys = store.getAllKeys();
+    keys.onsuccess = () => {
+      const excess = keys.result.slice(0, Math.max(0, keys.result.length - MAX_PROTECTED_SNAPSHOTS));
+      excess.forEach((key) => store.delete(key));
+    };
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+  database.close();
 }
 
 function writeDataProtectionReport(report: DataProtectionReport) {
@@ -739,10 +760,11 @@ export async function hydrateLanternMedia(state: LanternState): Promise<LanternS
 
 function openMediaDatabase() {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(LANTERN_MEDIA_DB, 2);
+    const request = indexedDB.open(LANTERN_MEDIA_DB, 3);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(LANTERN_MEDIA_STORE)) request.result.createObjectStore(LANTERN_MEDIA_STORE);
       if (!request.result.objectStoreNames.contains(LANTERN_STATE_STORE)) request.result.createObjectStore(LANTERN_STATE_STORE);
+      if (!request.result.objectStoreNames.contains(LANTERN_PROTECTED_SNAPSHOT_STORE)) request.result.createObjectStore(LANTERN_PROTECTED_SNAPSHOT_STORE);
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);

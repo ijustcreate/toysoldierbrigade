@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0526",
+    "title": "Keep board recovery copies in IndexedDB",
+    "summary": "Protected pre-merge board snapshots now persist in IndexedDB as well as localStorage, so large hand-authored boards remain recoverable when browser storage quota prevents a localStorage backup.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 3:40 AM",
+    "areas": [
+      "Board Editor",
+      "Data protection"
+    ],
+    "files": [
+      "src/host/lanternHost.ts",
+      "scripts/test-concurrent-state-merge.mjs"
+    ],
+    "tests": "node scripts/test-concurrent-state-merge.mjs; npm run build; npm run test:state-preservation"
+  },
+  {
     "id": "DEV-0525",
     "title": "Recover board saves after startup sync failures",
     "summary": "Save now refetches and reconciles the latest museum state when startup could not establish a shared baseline, allowing the protected hand-edited board to reach the server without a destructive reload.",

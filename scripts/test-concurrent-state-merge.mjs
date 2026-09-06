@@ -45,5 +45,7 @@ assert.equal(secondMerge.boardPrograms[0].panels[0].text, "My hand edit", "hand 
 assert.equal(secondMerge.schedules[0].time, "11:00", "the second newer remote change is not mistaken for a local edit");
 
 assert.match(hostSource, /if \(sharedStateUpdatedAt === undefined \|\| !sharedStateBaseline\)[\s\S]*loadSharedLanternStateSnapshot\(\{ updateSyncContext: false \}\)[\s\S]*sharedStateWriteBlocked = true;/, "Save must recover a missing startup baseline by fetching and merging the latest shared copy");
+assert.match(hostSource, /saveProtectedSnapshot[\s\S]*saveIndexedDbProtectedSnapshot\(snapshot\)/, "protected recovery copies must fall back to IndexedDB when localStorage is full");
+assert.match(hostSource, /indexedDB\.open\(LANTERN_MEDIA_DB, 3\)[\s\S]*createObjectStore\(LANTERN_PROTECTED_SNAPSHOT_STORE\)/, "the media database must provision a durable recovery-snapshot store");
 
 console.log("Concurrent state merge checks passed: hand edits win while unrelated shared work survives.");
