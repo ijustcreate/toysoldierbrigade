@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0513",
+    "title": "Add Fire TV remote pop-out",
+    "summary": "Add a full remote controller UI and keep-awake mode, backed by the desktop app's ADB connection to Fire TV on port 5555.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 12:13 AM",
+    "areas": [
+      "Fire TV control",
+      "Desktop app",
+      "Dashboard"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "src-tauri/src/lib.rs"
+    ],
+    "tests": "npm run build; cargo check (blocked at native linker missing msvcrt.lib)"
+  },
+  {
     "id": "DEV-0512",
     "title": "Fit donor lists without scrolling",
     "summary": "Automatically size the full donor list to its panel, update fitting when the panel or fonts change, and show the actual Max fit font size in the editor. Donor panels no longer scroll or omit names beyond a configured row capacity.",

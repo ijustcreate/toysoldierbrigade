@@ -262,6 +262,7 @@ export function App() {
   if (/^#\/tv(?:[/?#]|$)/.test(routeHash)) {
     return <TvModeApp />;
   }
+  if (/^#\/fire-remote(?:[/?#]|$)/.test(routeHash)) return <FireRemoteApp />;
   const announcementDemoMatch = routeHash.match(/^#\/announcement-demo\/([^/?#]+)/);
   if (announcementDemoMatch) {
     return <AnnouncementDemoApp screenId={decodeURIComponent(announcementDemoMatch[1])} />;
@@ -278,6 +279,22 @@ export function App() {
   }
 
   return <ControlCenter />;
+}
+
+function FireRemoteApp() {
+  const [host, setHost] = useState(() => localStorage.getItem("lantern-fire-host") ?? "");
+  const [port, setPort] = useState(5555);
+  const [keepAwake, setKeepAwake] = useState(false);
+  const [status, setStatus] = useState("Enter the Fire Stick IP address");
+  const send = useCallback(async (key: string) => {
+    if (!host.trim()) { setStatus("Enter the Fire Stick IP address first."); return; }
+    localStorage.setItem("lantern-fire-host", host.trim());
+    try { if (!isTauri()) throw new Error("The web controller needs the Lantern desktop app for ADB."); setStatus(await invoke<string>("fire_tv_key", { host, key, port })); }
+    catch (error) { setStatus(error instanceof Error ? error.message : String(error)); }
+  }, [host, port]);
+  useEffect(() => { if (!keepAwake) return; const timer = window.setInterval(() => void send("LEFT"), 240000); return () => window.clearInterval(timer); }, [keepAwake, send]);
+  const button = (label: string, key: string, className = "") => <button className={`fire-remote-key ${className}`} onClick={() => void send(key)}>{label}</button>;
+  return <main className="fire-remote-shell"><header><div><p className="eyebrow">Lantern controller</p><h1>Fire TV remote</h1><span>ADB connection · default port 5555</span></div><button onClick={() => { window.location.hash = "#/dashboard"; }}>Close</button></header><section className="fire-remote-connect"><label>Fire Stick IP address<input value={host} onChange={e => setHost(e.target.value)} placeholder="192.168.1.25" /></label><label>Port<input type="number" value={port} onChange={e => setPort(Number(e.target.value) || 5555)} /></label><button onClick={() => void send("CENTER")}>Test connection</button></section><section className="fire-remote-pad" aria-label="Fire TV remote"><div className="fire-remote-row">{button("Home", "HOME")}{button("Menu", "MENU")}</div>{button("▲", "UP", "up")}{button("◀", "LEFT", "left")}{button("OK", "CENTER", "ok")}{button("▶", "RIGHT", "right")}{button("▼", "DOWN", "down")}<div className="fire-remote-row">{button("Back", "BACK")}{button("Play / Pause", "PLAYPAUSE")}</div><div className="fire-remote-row">{button("⏪", "REWIND")}{button("⏩", "FAST_FORWARD")}</div></section><label className="fire-remote-awake"><input type="checkbox" checked={keepAwake} onChange={e => setKeepAwake(e.target.checked)} /> Keep Fire TV awake (send Left every 4 minutes)</label><p role="status">{status}</p></main>;
 }
 
 type TvMountRotation = "none" | "clockwise" | "counterclockwise";
@@ -1228,7 +1245,7 @@ function ControlCenter() {
               <button className="header-operation-button" onClick={() => setDisplayStatusPanelOpen(true)} title="View current display status and recent delivery events">
                 <Monitor size={16} /><span>Display status</span>
               </button>
-              <button className="header-operation-button" onClick={() => { window.location.hash = "#/tv"; }} title="Set up this browser for a TV and remote control">
+            <button className="header-operation-button" onClick={() => { window.location.hash = "#/tv"; }} title="Set up this browser for a TV and remote control">
                 <Monitor size={16} /><span>TV mode</span>
               </button>
               <button className="command-button secondary help-launch-button" onClick={() => setHelpOpen(true)} title="Open the Project Lantern walkthrough">
@@ -10101,6 +10118,7 @@ function RevisionsView({ state }: { state: LanternState }) {
               <p>{revision.summary}</p>
               <div className="change-meta"><span>{revision.author}</span><span>{revision.createdAt}</span><span>Open for details</span></div>
             </button>
+            <button className="header-operation-button" onClick={() => { const popup = window.open(`${window.location.pathname}#/fire-remote`, "lantern-fire-remote", "popup=yes,width=430,height=760,resizable=yes"); popup?.focus(); }} title="Open Fire TV controller">🎮 Remote</button>
             <ChevronRight size={18} className="change-open-icon" />
           </article>
         ))}

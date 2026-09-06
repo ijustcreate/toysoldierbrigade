@@ -15345,3 +15345,16 @@ body.theme-light {
 .direct-donor-grid .direct-donor-name { font-size: var(--donor-name-size); padding: .07em .14em; gap: .04em; line-height: var(--panel-line-height, 1.2); }
 .direct-donor-grid .direct-donor-name > .editable-board-text { flex-shrink: 0; line-height: inherit; }
 .direct-donor-grid .direct-donor-name small { flex-shrink: 0; }
+.fire-remote-shell { min-height: 100vh; padding: 24px; background: radial-gradient(circle at 50% 0%, #203b68, #080e1d 72%); color: #f7f8ff; font-family: var(--font-ui, sans-serif); }
+.fire-remote-shell > header { display:flex; justify-content:space-between; align-items:center; gap:16px; max-width:430px; margin:0 auto 18px; }
+.fire-remote-shell h1 { margin:2px 0; font-size:28px; }
+.fire-remote-connect { display:grid; grid-template-columns:1fr 100px; gap:10px; max-width:430px; margin:auto; }
+.fire-remote-connect label { display:grid; gap:5px; font-size:12px; color:#b9c7e8; }
+.fire-remote-connect input { width:100%; box-sizing:border-box; padding:10px; border:1px solid #536d9e; border-radius:8px; background:#101c33; color:white; }
+.fire-remote-connect button { grid-column:1/-1; padding:10px; border:0; border-radius:8px; background:#4fc5e8; color:#071321; font-weight:700; }
+.fire-remote-pad { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; max-width:330px; margin:28px auto 20px; justify-items:stretch; }
+.fire-remote-key { min-height:48px; border:1px solid #536d9e; border-radius:14px; background:#172a4c; color:#fff; font-size:16px; font-weight:700; cursor:pointer; }
+.fire-remote-key:hover { background:#284a78; }.fire-remote-key.up { grid-column:3; }.fire-remote-key.left { grid-column:2; }.fire-remote-key.ok { grid-column:3; }.fire-remote-key.right { grid-column:4; }.fire-remote-key.down { grid-column:3; }
+.fire-remote-row { grid-column:1/-1; display:flex; gap:10px; }.fire-remote-row .fire-remote-key { flex:1; }
+.fire-remote-awake { display:flex; align-items:center; justify-content:center; gap:8px; max-width:430px; margin:20px auto; color:#f4d77a; font-size:13px; }
+.fire-remote-shell > p[role=status] { max-width:430px; margin:20px auto; text-align:center; color:#b9c7e8; min-height:20px; }
