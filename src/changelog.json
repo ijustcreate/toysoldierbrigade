@@ -1,5 +1,57 @@
 [
   {
+    "id": "DEV-0521",
+    "title": "Simplify donor list controls",
+    "summary": "Made donor styling list-wide, improved spacing controls, fixed name color application, and made checkbox selection the only roster add/remove mechanism.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 1:34 AM",
+    "areas": [
+      "Board Editor",
+      "Donor Lists",
+      "Typography"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/boardPresentation.ts",
+      "src/components/BoardDonorPresentationEditor.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0520",
+    "title": "Restore donor board font-size control",
+    "summary": "Removed automatic donor-name fitting so the configured panel font size controls donor boards again.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 1:09 AM",
+    "areas": [
+      "Board Editor",
+      "Typography"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "src/fitDonorPanel.ts"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0519",
+    "title": "Restore donor board font-size control",
+    "summary": "Removed automatic donor-name fitting so the configured panel font size controls donor boards again.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 1:09 AM",
+    "areas": [
+      "Board Editor",
+      "Typography"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "src/fitDonorPanel.ts"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0518",
     "title": "Show Firestick controller beside TV mode",
     "summary": "Placed the Firestick controller launcher in the dashboard quick actions next to TV mode.",

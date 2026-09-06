@@ -7855,7 +7855,7 @@ textarea:focus-visible,
 }
 .panel-supporters-heading { flex-direction: column; }
 .panel-supporters-heading .board-section-title { max-width: 100%; overflow: hidden; font-size: min(var(--panel-font-size), 7cqw, 58cqh); white-space: normal; text-wrap: balance; }
-.panel-donors { flex-direction: column; align-items: stretch; min-height: 0; }
+.panel-donors { flex-direction: column; align-items: stretch; min-height: 92px; }
 
 .direct-donor-grid {
   display: grid;
@@ -7866,11 +7866,13 @@ textarea:focus-visible,
   margin-top: clamp(5px, 1vh, 12px);
   align-items: stretch;
   overflow-x: hidden;
-  overflow-y: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .direct-donor-grid { column-gap: 7%; }
-/* Donor size is measured against the available panel space. */
+/* Name size is an authored value. Rows may tighten when content fits, but
+   * constrained lists scroll instead of shrinking or clipping donor names. */
 .direct-donor-name { display: flex; min-width: 0; min-height: 0; align-items: center; justify-content: center; gap: 5px; padding: 2px 4px; overflow: visible; border-bottom: var(--donor-divider-thickness) solid color-mix(in srgb, var(--donor-divider-color) var(--donor-divider-opacity), transparent); font-size: min(var(--donor-name-size), var(--donor-column-cap, 8.6cqw)); line-height: 1.12; letter-spacing: .07em; white-space: nowrap; }
 .direct-donor-name > .editable-board-text { min-width: 0; overflow: visible; font-size: 1em; letter-spacing: .035em; white-space: nowrap; }
 .direct-donor-name small { display: block; color: #9faaaa; font-size: .68em; letter-spacing: 0; }
@@ -14927,7 +14929,7 @@ body.theme-light {
   }
 }
 
-/* Board names share one fitted type size and retain their deliberate lines. */
+/* Board names retain one type size and gain lines instead of shrinking. */
 .direct-donor-name { flex-direction: column; gap: 1px; text-align: center; white-space: normal; }
 .direct-donor-name > .editable-board-text.multiline-donor-name {
   width: 100%;
@@ -15339,22 +15341,3 @@ body.theme-light {
 
 .shared-state-warning span { flex: 1; }
 .shared-state-warning button { border: 0; background: transparent; color: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
-
-/* Donor panels are passive signage: fit the complete roster to the panel. */
-.direct-donor-grid { margin-top: 0; overflow: hidden; }
-.direct-donor-grid .direct-donor-name { font-size: var(--donor-name-size); padding: .07em .14em; gap: .04em; line-height: var(--panel-line-height, 1.2); }
-.direct-donor-grid .direct-donor-name > .editable-board-text { flex-shrink: 0; line-height: inherit; }
-.direct-donor-grid .direct-donor-name small { flex-shrink: 0; }
-.fire-remote-shell { min-height: 100vh; padding: 24px; background: radial-gradient(circle at 50% 0%, #203b68, #080e1d 72%); color: #f7f8ff; font-family: var(--font-ui, sans-serif); }
-.fire-remote-shell > header { display:flex; justify-content:space-between; align-items:center; gap:16px; max-width:430px; margin:0 auto 18px; }
-.fire-remote-shell h1 { margin:2px 0; font-size:28px; }
-.fire-remote-connect { display:grid; grid-template-columns:1fr 100px; gap:10px; max-width:430px; margin:auto; }
-.fire-remote-connect label { display:grid; gap:5px; font-size:12px; color:#b9c7e8; }
-.fire-remote-connect input { width:100%; box-sizing:border-box; padding:10px; border:1px solid #536d9e; border-radius:8px; background:#101c33; color:white; }
-.fire-remote-connect button { grid-column:1/-1; padding:10px; border:0; border-radius:8px; background:#4fc5e8; color:#071321; font-weight:700; }
-.fire-remote-pad { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; max-width:330px; margin:28px auto 20px; justify-items:stretch; }
-.fire-remote-key { min-height:48px; border:1px solid #536d9e; border-radius:14px; background:#172a4c; color:#fff; font-size:16px; font-weight:700; cursor:pointer; }
-.fire-remote-key:hover { background:#284a78; }.fire-remote-key.up { grid-column:3; }.fire-remote-key.left { grid-column:2; }.fire-remote-key.ok { grid-column:3; }.fire-remote-key.right { grid-column:4; }.fire-remote-key.down { grid-column:3; }
-.fire-remote-row { grid-column:1/-1; display:flex; gap:10px; }.fire-remote-row .fire-remote-key { flex:1; }
-.fire-remote-awake { display:flex; align-items:center; justify-content:center; gap:8px; max-width:430px; margin:20px auto; color:#f4d77a; font-size:13px; }
-.fire-remote-shell > p[role=status] { max-width:430px; margin:20px auto; text-align:center; color:#b9c7e8; min-height:20px; }

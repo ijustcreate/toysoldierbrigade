@@ -34,7 +34,8 @@ export function resolveBoardDonorPresentation(
   fallbacks: BoardPresentationFallbacks
 ): ResolvedBoardDonorPresentation {
   const boardStyle = scope.donorPresentation ?? {};
-  const donorStyle = scope.donorStyles?.[donorId] ?? {};
+  // Donor-list presentation is intentionally list-wide; per-donor overrides are ignored.
+  const donorStyle: BoardDonorPresentation = {};
   return {
     fontFamily: donorStyle.fontFamily ?? boardStyle.fontFamily ?? scope.fontFamily ?? fallbacks.fontFamily,
     nameColor: donorStyle.nameColor ?? boardStyle.nameColor ?? fallbacks.nameColor,

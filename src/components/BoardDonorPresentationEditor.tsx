@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import type {
   BoardDonorAnimation,
   BoardDonorHighlight,
@@ -22,9 +22,7 @@ interface BoardDonorPresentationEditorProps {
   iconPlacement: "left" | "right" | "above" | "below";
   onIconPlacementChange: (placement: "left" | "right" | "above" | "below") => void;
   onPatchDefaults: (patch: Partial<BoardDonorPresentation>) => void;
-  onPatchDonor: (donorId: string, patch: Partial<BoardDonorPresentation>) => void;
   onClearDefaults: () => void;
-  onClearDonor: (donorId: string) => void;
 }
 
 const underlineLabels: Record<Exclude<BoardDonorHighlight, "soft-highlight">, string> = {
@@ -75,36 +73,17 @@ export function BoardDonorPresentationEditor({
   iconPlacement,
   onIconPlacementChange,
   onPatchDefaults,
-  onPatchDonor,
-  onClearDefaults,
-  onClearDonor
+  onClearDefaults
 }: BoardDonorPresentationEditorProps) {
-  const [selectedDonorId, setSelectedDonorId] = useState("");
-  useEffect(() => {
-    if (selectedDonorId && !donors.some((donor) => donor.id === selectedDonorId)) setSelectedDonorId("");
-  }, [donors, selectedDonorId]);
-
-  const selectedDonor = donors.find((donor) => donor.id === selectedDonorId);
   const presentation = useMemo(
-    () => resolveBoardDonorPresentation(scope, selectedDonorId, fallbacks),
-    [fallbacks, scope, selectedDonorId]
+    () => resolveBoardDonorPresentation(scope, "", fallbacks),
+    [fallbacks, scope]
   );
-  const explicit = selectedDonorId ? scope.donorStyles?.[selectedDonorId] : scope.donorPresentation;
-  const patch = (value: Partial<BoardDonorPresentation>) => selectedDonorId
-    ? onPatchDonor(selectedDonorId, value)
-    : onPatchDefaults(value);
-  const reset = () => selectedDonorId ? onClearDonor(selectedDonorId) : onClearDefaults();
-  const previewName = selectedDonor?.name ?? "Board donor name";
+  const patch = (value: Partial<BoardDonorPresentation>) => onPatchDefaults(value);
+  const previewName = donors[0]?.name ?? "Board donor name";
 
   return <div className="board-donor-presentation-editor">
-    <label className="field">
-      <span>Style scope</span>
-      <select value={selectedDonorId} onChange={(event) => setSelectedDonorId(event.target.value)}>
-        <option value="">Panel default · all names</option>
-        {donors.map((donor) => <option value={donor.id} key={donor.id}>{donor.name}</option>)}
-      </select>
-      <small>{selectedDonor ? `Overrides only ${selectedDonor.name} in this donor list.` : "Sets the starting presentation for every name in this donor list."}</small>
-    </label>
+    <p className="field-note">These settings apply to every donor in this list.</p>
 
     <div
       className={`board-donor-style-preview board-highlight-${presentation.highlight} icon-${iconPlacement}`}
@@ -157,8 +136,6 @@ export function BoardDonorPresentationEditor({
     <label className="switch-row"><input type="checkbox" checked={iconsVisible} onChange={(event) => onIconsVisibleChange(event.target.checked)} /><span>Show recognition icons in this donor list</span></label>
     {iconsVisible && <label className="field"><span>Icon position</span><select value={iconPlacement} onChange={(event) => onIconPlacementChange(event.target.value as typeof iconPlacement)}><option value="left">Left of name</option><option value="right">Right of name</option><option value="above">Above name</option><option value="below">Below name</option></select></label>}
 
-    <button type="button" className="command-button secondary compact" disabled={!explicit || !Object.values(explicit).some((value) => value != null)} onClick={reset}>
-      {selectedDonor ? "Use panel defaults" : "Use panel font and palette defaults"}
-    </button>
+    <button type="button" className="command-button secondary compact" disabled={!scope.donorPresentation || !Object.values(scope.donorPresentation).some((value) => value != null)} onClick={onClearDefaults}>Use panel font and palette defaults</button>
   </div>;
 }
