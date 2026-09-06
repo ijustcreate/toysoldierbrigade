@@ -4944,7 +4944,11 @@ function directDonorGridStyle(donors: Donor[], columns: number, requestedRows: n
   })), columns, rowCount);
   return {
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-    gridTemplateRows: layout.rowUnits.map((units) => `${units}fr`).join(" "),
+    // Keep each row at its content height before distributing any spare room.
+    // This prevents a larger authored gap from stealing the height needed by
+    // a multi-line donor name. The grid can then scroll when the panel cannot
+    // contain all requested rows and gaps at the authored font size.
+    gridTemplateRows: layout.rowUnits.map((units) => `minmax(max-content, ${units}fr)`).join(" "),
     rowGap: `${panel?.donorRowGap ?? 0}px`,
     columnGap: `${panel?.donorColumnGap ?? 7}%`,
     "--donor-column-cap": columns > 1 ? "5.2cqw" : "8.6cqw"

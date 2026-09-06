@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0504",
+    "title": "Keep donor names readable as row spacing grows",
+    "summary": "Donor-list rows now retain content-based minimum height and expose excess vertical content through scrolling instead of compressing or clipping multi-line names.",
+    "author": "Codex",
+    "createdAt": "Sep 5, 2026, 7:08 PM",
+    "areas": [
+      "Board editor",
+      "Donor list rendering"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; npx --yes tsx scripts/test-donor-name-layout.mjs; local Playwright DOM measurements on portrait and landscape Full Roster at font fixtures 14/18/22px and row gaps 0/16/32px"
+  },
+  {
     "id": "DEV-0503",
     "title": "Protect saved boards from stale state writes",
     "summary": "Shared museum saves now require an atomic server version match, startup no longer republishes cached state, conflicts are preserved locally and shown to operators, and current saved board panels are no longer injected or resized during normalization.",
