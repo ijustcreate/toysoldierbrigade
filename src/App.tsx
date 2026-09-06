@@ -115,6 +115,7 @@ import {
   loadDisplaySessionSnapshot,
   loadSharedLanternStateSnapshot,
   loadLanternState,
+  LANTERN_SHARED_STATE_EVENT,
   openDisplayWindows,
   openedBoardIds,
   publishState,
@@ -124,6 +125,7 @@ import {
   targetIncludes,
   uploadLanternAsset
 } from "./host/lanternHost";
+import type { SharedStatePersistenceDetail } from "./host/lanternHost";
 import { attachDisplayVideoReceiver, DirectorVideoBridge } from "./host/videoBridge";
 import type {
   DisplayProfile,
@@ -382,6 +384,7 @@ function ControlCenter() {
   const [newUserName, setNewUserName] = useState("");
   const [siteSyncStatus, setSiteSyncStatus] = useState("");
   const [siteSyncing, setSiteSyncing] = useState(false);
+  const [sharedStateWarning, setSharedStateWarning] = useState("");
   const [bugLauncherVisible, setBugLauncherVisible] = useState(() => localStorage.getItem("project-lantern-bug-launcher-visible") !== "false");
   const [bugLauncherPosition, setBugLauncherPosition] = useState(() => readBugLauncherPosition(currentBugUser()));
   const bugNavigationButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -413,6 +416,22 @@ function ControlCenter() {
   const portalAppearance = activePreferences?.theme ?? state.recognitionSettings.appearance;
   const activeVisitorMessage = state.visitorMessages.find((message) => message.id === state.visitorMessageRotation.currentId)
     ?? state.visitorMessages.find((message) => message.active);
+
+  useEffect(() => {
+    const handleSharedStatePersistence = (event: Event) => {
+      const detail = (event as CustomEvent<SharedStatePersistenceDetail>).detail;
+      if (!detail) return;
+      if (detail.status === "saved") {
+        setSharedStateWarning("");
+        return;
+      }
+      setSharedStateWarning(detail.status === "conflict"
+        ? `${detail.message} Your changes remain saved on this device.`
+        : `${detail.message} Your changes remain saved on this device and will not replace the site copy.`);
+    };
+    window.addEventListener(LANTERN_SHARED_STATE_EVENT, handleSharedStatePersistence);
+    return () => window.removeEventListener(LANTERN_SHARED_STATE_EVENT, handleSharedStatePersistence);
+  }, []);
 
   useEffect(() => {
     const check = () => {
@@ -525,7 +544,7 @@ function ControlCenter() {
         setSiteSyncStatus("No shared site data is available yet.");
         return;
       }
-      const persistence = await saveLanternStateDurably(snapshot.state);
+      const persistence = await saveLanternStateDurably(snapshot.state, { updatedAt: snapshot.updatedAt });
       if (persistence === "failed") throw new Error("The pulled site data could not be stored on this computer.");
       setState(snapshot.state);
       // Refresh local display windows without writing the pulled copy back to
@@ -548,7 +567,7 @@ function ControlCenter() {
       setState(loaded.state);
       // A local fallback can be older than the shared museum state. Never relay
       // it during bootstrap; later operator edits are published after hydration.
-      if (loaded.source === "shared") publishState(loaded.state);
+      if (loaded.source === "shared") publishState(loaded.state, { shared: false, localUpdatedAt: loaded.sharedUpdatedAt });
       if (canWriteSharedLanternState() && loaded.sharedServiceReachable) enableSharedStatePersistence();
       setStatePersistenceReady(true);
     })();
@@ -560,7 +579,9 @@ function ControlCenter() {
 
   useEffect(() => {
     if (!statePersistenceReady) return;
-    publishState(state);
+    // Initialization is read-only with respect to the shared museum copy.
+    // Only a subsequent user/runtime mutation is allowed to enqueue a write.
+    publishState(state, { persist: false, shared: false });
     videoBridge.current = new DirectorVideoBridge((_status, detail) => {
       setVideoStatus(detail ?? "Ready");
     });
@@ -1208,6 +1229,8 @@ function ControlCenter() {
             return <button type="button" key={item.id} className={`${view === item.id ? "active " : ""}${scheduledLive ? "scheduled-live-nav" : ""}`} onClick={() => setView(item.id)} aria-current={view === item.id ? "page" : undefined}><Icon size={17} /><span>{item.label}</span></button>;
           })}
         </nav>
+
+        {sharedStateWarning && <div className="shared-state-warning" role="alert"><AlertTriangle size={18} /><span>{sharedStateWarning}</span><button type="button" onClick={() => { setSharedStateWarning(""); setView("settings"); }}>Review site sync</button></div>}
 
         {view === "dashboard" && (<>
           <Dashboard
@@ -3871,6 +3894,7 @@ function ThemeStudio({
   const [boardEditorZoom, setBoardEditorZoom] = useState(1);
   const [boardEditorPan, setBoardEditorPan] = useState({ x: 0, y: 0 });
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "local" | "sync-error" | "error">("idle");
+  const waitingForSharedBoardSave = useRef(false);
   const [pendingProgramDeleteId, setPendingProgramDeleteId] = useState<string | null>(null);
   const [pendingPanelDelete, setPendingPanelDelete] = useState<{ programId: string; ids: string[]; removed: Array<{ panel: BoardPanel; index: number }>; x: number; y: number } | null>(null);
   const [lastDeletedPanels, setLastDeletedPanels] = useState<{ programId: string; removed: Array<{ panel: BoardPanel; index: number }> } | null>(null);
@@ -3924,6 +3948,18 @@ function ThemeStudio({
       : { imageUrl, imageFit: "contain" });
     setImagePickerOpen(false);
   };
+  useEffect(() => {
+    const handleSharedBoardSave = (event: Event) => {
+      if (!waitingForSharedBoardSave.current) return;
+      const detail = (event as CustomEvent<SharedStatePersistenceDetail>).detail;
+      if (!detail) return;
+      waitingForSharedBoardSave.current = false;
+      setSaveStatus(detail.status === "saved" ? "saved" : "sync-error");
+      window.setTimeout(() => setSaveStatus("idle"), detail.status === "saved" ? 2600 : 6000);
+    };
+    window.addEventListener(LANTERN_SHARED_STATE_EVENT, handleSharedBoardSave);
+    return () => window.removeEventListener(LANTERN_SHARED_STATE_EVENT, handleSharedBoardSave);
+  }, []);
   useEffect(() => {
     if (incomingSavedSnapshot === observedSavedSnapshot.current) return;
     observedSavedSnapshot.current = incomingSavedSnapshot;
@@ -4246,6 +4282,7 @@ function ThemeStudio({
     });
     setSavedDraftSnapshot(savedBoardSnapshot);
     if (!canWriteSharedLanternState()) {
+      waitingForSharedBoardSave.current = false;
       setSaveStatus("local");
       window.setTimeout(() => setSaveStatus("idle"), 2600);
       return;
@@ -4253,8 +4290,7 @@ function ThemeStudio({
     // updateState publishes the version built from the current app state. Do
     // not issue another whole-state write from boardDraft: it can be older than
     // concurrent changes and would overwrite them after this save.
-    setSaveStatus("saved");
-    window.setTimeout(() => setSaveStatus("idle"), 2600);
+    waitingForSharedBoardSave.current = true;
   };
 
   const groupedBoardPrograms = groupBoardPrograms(state.boardPrograms);

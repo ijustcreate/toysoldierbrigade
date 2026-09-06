@@ -6,7 +6,12 @@ import { normalizeVisitorMessageRotation, normalizeVisitorMessages } from "../vi
 import { normalizeBroadcastComposition } from "../broadcastComposition";
 import { normalizeEffectStudioState, normalizePhase4LiveEffects, PHASE4_CONTENT_VERSION } from "../effectStudio";
 import { compactAuditRecord } from "../auditHistory";
-import { localStateIsNewer } from "../stateAuthority";
+import {
+  MISSING_SHARED_STATE_VERSION,
+  sharedStateVersionHeaderValue,
+  SHARED_STATE_VERSION_HEADER,
+  localStateIsNewer
+} from "../stateAuthority";
 
 export const LANTERN_CHANNEL = "project-lantern-host-v1";
 export const LANTERN_STORAGE_KEY = "project-lantern-state-v1";
@@ -42,6 +47,20 @@ const MAX_BROADCAST_REMINDER_ACKNOWLEDGEMENTS = 250;
 let sharedPersistenceEnabled = false;
 let sharedSaveTimer: number | undefined;
 let stateUsesIndexedDb = false;
+let sharedStateUpdatedAt: string | null | undefined;
+let sharedStateWriteBlocked = false;
+let sharedSaveSequence: Promise<void> = Promise.resolve();
+
+export const LANTERN_SHARED_STATE_EVENT = "lantern:shared-state-persistence";
+export type SharedStatePersistenceDetail = {
+  status: "saved" | "conflict" | "error";
+  message: string;
+  updatedAt?: string | null;
+};
+
+function reportSharedStatePersistence(detail: SharedStatePersistenceDetail) {
+  try { window.dispatchEvent(new CustomEvent(LANTERN_SHARED_STATE_EVENT, { detail })); } catch { /* Non-browser fixture. */ }
+}
 
 /** Stable per-browser/device identity used for shared board ownership. */
 export function getLanternDeviceId() {
@@ -221,15 +240,16 @@ function deleteAllLanternMedia() {
   });
 }
 
-export function saveLanternState(state: LanternState) {
+export function saveLanternState(state: LanternState, options: { updatedAt?: string | null } = {}) {
   const serializable = serializableLocalState(state);
+  const updatedAt = options.updatedAt ?? new Date().toISOString();
   if (stateUsesIndexedDb) {
-    void saveIndexedDbLanternState(serializable).then(clearLocalStateShadow).catch(() => undefined);
+    void saveIndexedDbLanternState(serializable, updatedAt).then(clearLocalStateShadow).catch(() => undefined);
     return true;
   }
   try {
     window.localStorage.setItem(LANTERN_STORAGE_KEY, JSON.stringify(serializable));
-    window.localStorage.setItem(LANTERN_LOCAL_STATE_UPDATED_AT_KEY, new Date().toISOString());
+    window.localStorage.setItem(LANTERN_LOCAL_STATE_UPDATED_AT_KEY, updatedAt);
     void deleteIndexedDbLanternState();
     return true;
   } catch (error) {
@@ -237,7 +257,7 @@ export function saveLanternState(state: LanternState) {
     // durable IndexedDB store so ordinary edits do not keep emitting quota
     // errors, and remove the oversized local copy after the fallback saves.
     stateUsesIndexedDb = true;
-    void saveIndexedDbLanternState(serializable).then(clearLocalStateShadow).catch(() => undefined);
+    void saveIndexedDbLanternState(serializable, updatedAt).then(clearLocalStateShadow).catch(() => undefined);
     return true;
   }
 }
@@ -262,11 +282,12 @@ function serializableLocalState(state: LanternState): LanternState {
 }
 
 /** Save large browser-only boards without relying on the small localStorage quota. */
-export async function saveLanternStateDurably(state: LanternState): Promise<"local-storage" | "indexed-db" | "failed"> {
+export async function saveLanternStateDurably(state: LanternState, options: { updatedAt?: string | null } = {}): Promise<"local-storage" | "indexed-db" | "failed"> {
   const serializable = serializableLocalState(state);
+  const updatedAt = options.updatedAt ?? new Date().toISOString();
   if (stateUsesIndexedDb) {
     try {
-      await saveIndexedDbLanternState(serializable);
+      await saveIndexedDbLanternState(serializable, updatedAt);
       clearLocalStateShadow();
       return "indexed-db";
     } catch (error) {
@@ -276,13 +297,13 @@ export async function saveLanternStateDurably(state: LanternState): Promise<"loc
   }
   try {
     window.localStorage.setItem(LANTERN_STORAGE_KEY, JSON.stringify(serializable));
-    window.localStorage.setItem(LANTERN_LOCAL_STATE_UPDATED_AT_KEY, new Date().toISOString());
+    window.localStorage.setItem(LANTERN_LOCAL_STATE_UPDATED_AT_KEY, updatedAt);
     void deleteIndexedDbLanternState();
     return "local-storage";
   } catch (error) {
     stateUsesIndexedDb = true;
     try {
-      await saveIndexedDbLanternState(serializable);
+      await saveIndexedDbLanternState(serializable, updatedAt);
       clearLocalStateShadow();
       return "indexed-db";
     } catch (fallbackError) {
@@ -312,11 +333,11 @@ export async function loadIndexedDbLanternState(): Promise<LanternState | null> 
   }
 }
 
-async function saveIndexedDbLanternState(state: LanternState) {
+async function saveIndexedDbLanternState(state: LanternState, updatedAt = new Date().toISOString()) {
   const database = await openMediaDatabase();
   await new Promise<void>((resolve, reject) => {
     const transaction = database.transaction(LANTERN_STATE_STORE, "readwrite");
-    transaction.objectStore(LANTERN_STATE_STORE).put({ state, updatedAt: new Date().toISOString() }, LANTERN_STATE_RECORD_KEY);
+    transaction.objectStore(LANTERN_STATE_STORE).put({ state, updatedAt }, LANTERN_STATE_RECORD_KEY);
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
@@ -334,7 +355,7 @@ async function deleteIndexedDbLanternState() {
   database.close();
 }
 
-function serializableSharedState(state: LanternState): LanternState {
+export function serializableSharedState(state: LanternState): LanternState {
   const canonical = canonicalizeRootAssetUrls(state);
   return {
     ...canonical,
@@ -357,6 +378,7 @@ export type AuthoritativeLanternState = {
   state: LanternState;
   source: "shared" | "local";
   sharedServiceReachable: boolean;
+  sharedUpdatedAt: string | null;
 };
 
 /** Load the shared copy together with its write time so startup can avoid replacing newer work. */
@@ -380,9 +402,13 @@ export async function loadSharedLanternStateSnapshot(): Promise<SharedLanternSta
   }
   if (!response.ok) throw new Error(`Shared project service returned ${response.status}`);
   const body = await response.json() as { state?: LanternState | null; updatedAt?: string | null };
+  const responseVersion = response.headers.get(SHARED_STATE_VERSION_HEADER);
+  const updatedAt = body.updatedAt ?? (responseVersion && responseVersion !== MISSING_SHARED_STATE_VERSION ? responseVersion : null);
+  sharedStateUpdatedAt = updatedAt;
+  sharedStateWriteBlocked = false;
   return {
     state: body.state ? normalizeState({ ...initialState, ...body.state, contentVersion: body.state.contentVersion ?? 0 }) : null,
-    updatedAt: body.updatedAt ?? null
+    updatedAt
   };
 }
 
@@ -393,22 +419,30 @@ export async function loadAuthoritativeLanternState(options: { preferShared?: bo
   const localUpdatedAtBeforeNormalization = await loadLanternStateUpdatedAt();
   const local = await loadIndexedDbLanternState() ?? loadLanternState();
   if (!LANTERN_READ_SERVICE_ROOT) {
-    return { state: await hydrateLanternMedia(local), source: "local", sharedServiceReachable: false };
+    return { state: await hydrateLanternMedia(local), source: "local", sharedServiceReachable: false, sharedUpdatedAt: null };
   }
   try {
     const sharedSnapshot = await loadSharedLanternStateSnapshot();
     // Operator surfaces preserve a newer unsynced local edit. A display is a
     // read-only output, though, so it must always show the currently published
     // server snapshot rather than a stale per-browser cache.
-    const useLocal = !options.preferShared && localStateIsNewer(localUpdatedAtBeforeNormalization, sharedSnapshot.updatedAt);
+    const localDiffersFromShared = sharedSnapshot.state
+      ? JSON.stringify(serializableSharedState(local)) !== JSON.stringify(serializableSharedState(sharedSnapshot.state))
+      : false;
+    const useLocal = !options.preferShared
+      && Boolean(sharedSnapshot.state)
+      && localDiffersFromShared
+      && localStateIsNewer(localUpdatedAtBeforeNormalization, sharedSnapshot.updatedAt);
+    if (useLocal) sharedStateWriteBlocked = true;
     const selected = useLocal ? local : (sharedSnapshot.state ?? local);
     return {
       state: await hydrateLanternMedia(selected),
       source: useLocal || !sharedSnapshot.state ? "local" : "shared",
-      sharedServiceReachable: true
+      sharedServiceReachable: true,
+      sharedUpdatedAt: sharedSnapshot.updatedAt
     };
   } catch {
-    return { state: await hydrateLanternMedia(local), source: "local", sharedServiceReachable: false };
+    return { state: await hydrateLanternMedia(local), source: "local", sharedServiceReachable: false, sharedUpdatedAt: null };
   }
 }
 
@@ -453,14 +487,45 @@ function queueSharedStateSave(state: LanternState, immediate = false) {
 }
 
 export async function saveSharedLanternState(state: LanternState) {
+  const pending = sharedSaveSequence.then(() => persistSharedLanternState(state));
+  sharedSaveSequence = pending.catch(() => undefined);
+  return pending;
+}
+
+async function persistSharedLanternState(state: LanternState) {
   if (!LANTERN_WRITE_SERVICE_ROOT) throw new Error("Shared project storage is read-only in local development");
+  if (sharedStateUpdatedAt === undefined || sharedStateWriteBlocked) {
+    const message = "Newer or unsynchronized museum data may exist. Reload the latest site copy before saving.";
+    reportSharedStatePersistence({ status: "conflict", message, updatedAt: sharedStateUpdatedAt ?? null });
+    throw new Error(message);
+  }
   window.clearTimeout(sharedSaveTimer);
   const response = await fetch(`${LANTERN_WRITE_SERVICE_ROOT}/state`, {
     method: "PUT",
-    headers: { "Accept": "application/json", "Content-Type": "application/json" },
+    headers: {
+      "Accept": "application/json",
+      "Content-Type": "application/json",
+      [SHARED_STATE_VERSION_HEADER]: sharedStateVersionHeaderValue(sharedStateUpdatedAt)
+    },
     body: JSON.stringify({ state: serializableSharedState(state) })
   });
-  if (!response.ok) throw new Error(`Shared project service returned ${response.status}`);
+  const body = await response.json().catch(() => ({})) as { updatedAt?: string | null; error?: string };
+  if (!response.ok) {
+    const conflict = response.status === 409 || response.status === 428;
+    if (conflict) sharedStateWriteBlocked = true;
+    const message = body.error ?? `Shared project service returned ${response.status}`;
+    reportSharedStatePersistence({ status: conflict ? "conflict" : "error", message, updatedAt: body.updatedAt });
+    throw new Error(message);
+  }
+  sharedStateUpdatedAt = body.updatedAt ?? response.headers.get(SHARED_STATE_VERSION_HEADER) ?? sharedStateUpdatedAt;
+  const synchronizedAt = sharedStateUpdatedAt;
+  if (synchronizedAt) {
+    if (stateUsesIndexedDb) await saveIndexedDbLanternState(serializableLocalState(state), synchronizedAt);
+    else {
+      try { window.localStorage.setItem(LANTERN_LOCAL_STATE_UPDATED_AT_KEY, synchronizedAt); } catch { /* Local state remains available. */ }
+    }
+  }
+  reportSharedStatePersistence({ status: "saved", message: "Saved for everyone.", updatedAt: synchronizedAt });
 }
 
 export async function uploadLanternAsset(file: File) {
@@ -685,8 +750,8 @@ export function createHostChannel(listener: Listener) {
   };
 }
 
-export function publishState(state: LanternState, options: { persist?: boolean; shared?: boolean; immediateShared?: boolean } = {}) {
-  const savedLocally = options.persist === false || saveLanternState(state);
+export function publishState(state: LanternState, options: { persist?: boolean; shared?: boolean; immediateShared?: boolean; localUpdatedAt?: string | null } = {}) {
+  const savedLocally = options.persist === false || saveLanternState(state, { updatedAt: options.localUpdatedAt });
   if (options.shared !== false) queueSharedStateSave(state, options.immediateShared);
   const message = { type: "state-update", state } satisfies HostMessage;
   const wireMessage = wireHostMessage(message);
@@ -1811,35 +1876,13 @@ export function normalizeState(state: LanternState): LanternState {
         ...state.board?.footerVisibility
       }
     },
-    boardPrograms: boardPrograms.map((program) => {
-      const accentPanels = program.palette?.startsWith("brigade-") && !(program.panels ?? []).some((panel) => panel.id === "brigade-accent-top" || panel.id === "brigade-accent-bottom")
-        ? [
-            { id: "brigade-accent-top", type: "image" as const, title: "Brass top accent", size: "compact" as const, x: 0, y: 0, width: 100, height: 5, imageUrl: "/assets/board-accents/brass-arch.png", imageFit: "cover" as const },
-            { id: "brigade-accent-bottom", type: "image" as const, title: "Brass bottom accent", size: "compact" as const, x: 0, y: 95, width: 100, height: 5, imageUrl: "/assets/board-accents/brass-arch.png", imageFit: "cover" as const }
-          ]
-        : [];
-      const panels = [...(program.panels ?? []), ...accentPanels].map((panel) => {
-        // The original brass arch PNG has a generous transparent canvas. Treat it
-        // as a compact decorative line so its selection bounds match the visible art.
-        if (panel.type !== "image" || !panel.imageUrl?.endsWith("/assets/board-accents/brass-arch.png")) return panel;
-        const currentHeight = panel.height ?? 7;
-        const compactHeight = currentHeight > 7 ? 7 : currentHeight;
-        return {
-          ...panel,
-          imageFit: "cover" as const,
-          height: compactHeight,
-          y: currentHeight > compactHeight ? (panel.y ?? 0) + (currentHeight - compactHeight) / 2 : panel.y
-        };
-      });
-      return {
+    boardPrograms: boardPrograms.map((program) => ({
       ...program,
-      panels,
       orientation: program.orientation
         ?? Object.values(screens).find((screen) => screen.boardProgramId === program.id)?.orientation
         ?? initialState.boardPrograms.find((candidate) => candidate.id === program.id)?.orientation
         ?? "Portrait"
-      };
-    }),
+    })),
     schedules,
     savedAnnouncements: savedAnnouncements.map((announcement) => ({ ...announcement, target: normalizeTarget(announcement.target) })),
     savedBlips: savedBlips.map((blip) => ({

@@ -15302,3 +15302,18 @@ body.theme-light {
     aspect-ratio: 1 / 1;
   }
 }
+.shared-state-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 18px 0;
+  padding: 11px 14px;
+  border: 1px solid #d9892b;
+  border-radius: 10px;
+  background: #fff4df;
+  color: #6d3d08;
+  font-size: 13px;
+}
+
+.shared-state-warning span { flex: 1; }
+.shared-state-warning button { border: 0; background: transparent; color: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }

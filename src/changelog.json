@@ -1,5 +1,31 @@
 [
   {
+    "id": "DEV-0503",
+    "title": "Protect saved boards from stale state writes",
+    "summary": "Shared museum saves now require an atomic server version match, startup no longer republishes cached state, conflicts are preserved locally and shown to operators, and current saved board panels are no longer injected or resized during normalization.",
+    "author": "Codex",
+    "createdAt": "Sep 5, 2026, 7:02 PM",
+    "areas": [
+      "State sync",
+      "Board Editor",
+      "Data protection",
+      "Worker API"
+    ],
+    "files": [
+      "AGENTS.md",
+      "src/stateAuthority.ts",
+      "src/host/lanternHost.ts",
+      "worker/bugs.ts",
+      "src/App.tsx",
+      "src/styles.css",
+      "scripts/test-state-authority.mjs",
+      "scripts/test-state-preservation.mjs",
+      "scripts/test-shared-state-worker.mjs",
+      "package.json"
+    ],
+    "tests": "npm run build; npm run build:worker; npm run test:state-authority; npm run test:state-preservation (synthetic plus read-only production backup); npm run test:shared-state-worker; headless isolated Board Editor save/reload"
+  },
+  {
     "id": "DEV-0502",
     "title": "Keep dashboard and live boards awake",
     "summary": "Dashboard and all live board pages now request a best-effort screen wake lock, retry after browser release or rejection, and recover on visibility and focus. Shared app ownership keeps coverage across navigation; browser and TV power policies can still prevent indefinite operation.",

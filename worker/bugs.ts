@@ -4,6 +4,12 @@ interface Env {
   LIVE_ROOM: DurableObjectNamespace;
 }
 
+import {
+  MISSING_SHARED_STATE_VERSION,
+  nextSharedStateUpdatedAt,
+  SHARED_STATE_VERSION_HEADER
+} from "../src/stateAuthority";
+
 type BugEvidence = { name: string; dataUrl?: string; path?: string; mimeType?: string };
 type BugRecord = {
   bugId: string;
@@ -44,7 +50,8 @@ function corsHeaders(request: Request) {
   return {
     "access-control-allow-origin": allowedOrigins.has(origin) ? origin : "https://ijustcreate.github.io",
     "access-control-allow-methods": "GET, PUT, POST, DELETE, OPTIONS",
-    "access-control-allow-headers": "accept, content-type",
+    "access-control-allow-headers": `accept, content-type, ${SHARED_STATE_VERSION_HEADER.toLowerCase()}`,
+    "access-control-expose-headers": SHARED_STATE_VERSION_HEADER,
     "access-control-max-age": "86400",
     "vary": "Origin"
   };
@@ -53,17 +60,25 @@ function corsHeaders(request: Request) {
 async function readSharedState(request: Request, env: Env) {
   const row = await env.BUGS_DB.prepare("SELECT state_json, updated_at FROM shared_state WHERE state_id = 'museum'")
     .first<{ state_json: string; updated_at: string }>();
-  if (!row) return json(request, { state: null });
+  if (!row) return json(request, { state: null }, 200, { [SHARED_STATE_VERSION_HEADER]: MISSING_SHARED_STATE_VERSION });
 
   // The museum state can approach the worker CPU limit once boards contain
   // many panels and embedded settings. It is already stored as valid JSON, so
   // do not parse and stringify the entire document again just to wrap it.
-  return rawJson(request, `{"state":${row.state_json},"updatedAt":${JSON.stringify(row.updated_at)}}`);
+  return rawJson(request, `{"state":${row.state_json},"updatedAt":${JSON.stringify(row.updated_at)}}`, 200, {
+    [SHARED_STATE_VERSION_HEADER]: row.updated_at
+  });
 }
 
-async function saveSharedState(request: Request, env: Env) {
+export async function saveSharedState(request: Request, env: Env) {
   const length = Number(request.headers.get("content-length") ?? "0");
   if (length > maxStateBytes) return json(request, { error: "Project data is too large to save" }, 413);
+  const expectedUpdatedAt = request.headers.get(SHARED_STATE_VERSION_HEADER);
+  if (!expectedUpdatedAt) {
+    return json(request, {
+      error: "Reload the latest museum data before saving. This older page was prevented from replacing newer board edits."
+    }, 428);
+  }
   const body = await request.text();
   // The app sends one compact JSON envelope: {"state":{...}}. Extract its
   // already-serialized state instead of parsing and serializing a megabyte of
@@ -73,13 +88,27 @@ async function saveSharedState(request: Request, env: Env) {
   const stateJson = body.slice(prefix.length, -1);
   if (!stateJson.startsWith("{") || !stateJson.endsWith("}")) return json(request, { error: "Project state is required" }, 400);
   if (stateJson.length > maxStateBytes) return json(request, { error: "Project data is too large to save" }, 413);
-  const updatedAt = new Date().toISOString();
-  await env.BUGS_DB.prepare(`
-    INSERT INTO shared_state (state_id, updated_at, state_json)
-    VALUES ('museum', ?, ?)
-    ON CONFLICT(state_id) DO UPDATE SET updated_at = excluded.updated_at, state_json = excluded.state_json
-  `).bind(updatedAt, stateJson).run();
-  return json(request, { saved: true, updatedAt });
+  const updatedAt = nextSharedStateUpdatedAt(expectedUpdatedAt === MISSING_SHARED_STATE_VERSION ? null : expectedUpdatedAt);
+  const result = expectedUpdatedAt === MISSING_SHARED_STATE_VERSION
+    ? await env.BUGS_DB.prepare(`
+        INSERT INTO shared_state (state_id, updated_at, state_json)
+        VALUES ('museum', ?, ?)
+        ON CONFLICT(state_id) DO NOTHING
+      `).bind(updatedAt, stateJson).run()
+    : await env.BUGS_DB.prepare(`
+        UPDATE shared_state
+        SET updated_at = ?, state_json = ?
+        WHERE state_id = 'museum' AND updated_at = ?
+      `).bind(updatedAt, stateJson, expectedUpdatedAt).run();
+  if (result.meta.changes !== 1) {
+    const current = await env.BUGS_DB.prepare("SELECT updated_at FROM shared_state WHERE state_id = 'museum'")
+      .first<{ updated_at: string }>();
+    return json(request, {
+      error: "Newer museum changes already exist. Reload them before saving so they are not overwritten.",
+      updatedAt: current?.updated_at ?? null
+    }, 409, { [SHARED_STATE_VERSION_HEADER]: current?.updated_at ?? MISSING_SHARED_STATE_VERSION });
+  }
+  return json(request, { saved: true, updatedAt }, 200, { [SHARED_STATE_VERSION_HEADER]: updatedAt });
 }
 
 function safeAssetKey(value: string) {
@@ -109,21 +138,23 @@ async function readAsset(request: Request, env: Env, pathname: string) {
   return new Response(object.value, { headers });
 }
 
-function json(request: Request, value: unknown, status = 200) {
+function json(request: Request, value: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
   return Response.json(value, {
     status,
     headers: {
       ...corsHeaders(request),
+      ...extraHeaders,
       "cache-control": "no-store"
     }
   });
 }
 
-function rawJson(request: Request, value: string, status = 200) {
+function rawJson(request: Request, value: string, status = 200, extraHeaders: Record<string, string> = {}) {
   return new Response(value, {
     status,
     headers: {
       ...corsHeaders(request),
+      ...extraHeaders,
       "cache-control": "no-store",
       "content-type": "application/json; charset=UTF-8"
     }

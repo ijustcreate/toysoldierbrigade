@@ -14,5 +14,8 @@ assert.equal(authority.localStateIsNewer("2026-08-22T02:05:10.000Z", "2026-08-22
 assert.equal(authority.localStateIsNewer(null, "2026-08-22T02:05:11.000Z"), false);
 assert.equal(authority.localStateIsNewer("2026-08-22T02:05:12.000Z", null), true);
 assert.equal(authority.localStateIsNewer("not-a-date", "2026-08-22T02:05:11.000Z"), false);
+assert.equal(authority.sharedStateVersionHeaderValue(null), "missing");
+assert.equal(authority.sharedStateVersionHeaderValue("2026-08-22T02:05:11.000Z"), "2026-08-22T02:05:11.000Z");
+assert.equal(authority.nextSharedStateUpdatedAt("2026-08-22T02:05:11.000Z", Date.parse("2026-08-22T02:05:11.000Z")), "2026-08-22T02:05:11.001Z");
 
 console.log("State authority timestamp checks passed.");
