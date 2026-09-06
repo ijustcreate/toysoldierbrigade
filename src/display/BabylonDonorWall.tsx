@@ -1926,7 +1926,7 @@ function drawBoardDonorHighlight(
   }
   context.strokeStyle = accent;
   context.globalAlpha = (opacity ?? (highlight === "soft-underline" ? 48 : 78)) / 100;
-  context.lineWidth = Math.max(1, thickness ?? height * (highlight === "soft-underline" ? 0.085 : 0.035));
+  context.lineWidth = Math.max(1, thickness ?? height * (highlight === "bold-underline" ? 0.12 : highlight === "soft-underline" ? 0.085 : 0.035));
   context.lineCap = "round";
   if (highlight === "soft-underline") {
     context.shadowColor = accent;

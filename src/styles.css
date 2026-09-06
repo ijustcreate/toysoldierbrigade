@@ -7924,6 +7924,7 @@ textarea:focus-visible,
   content: "";
 }
 .direct-donor-name.board-highlight-fine-underline,
+.direct-donor-name.board-highlight-bold-underline,
 .direct-donor-name.board-highlight-soft-underline { border-bottom-width: var(--board-donor-underline-thickness, 1px); border-bottom-color: color-mix(in srgb, var(--board-donor-accent) var(--board-donor-underline-opacity, 78%), transparent); }
 .direct-donor-name .board-donor-name-text { color: var(--board-donor-name); }
 .direct-donor-name .board-donor-preview-icon { color: var(--board-donor-accent); }
@@ -12668,6 +12669,10 @@ body.theme-light {
 .board-donor-picker.full-roster-picker label { grid-template-columns: auto minmax(0, 1fr) auto; min-height: 47px; padding: 7px 10px; cursor: pointer; }
 .board-donor-picker.full-roster-picker label:hover { background: color-mix(in srgb, var(--accent) 9%, transparent); }
 .board-donor-picker.full-roster-picker label.selected { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.board-donor-picker.full-roster-picker label.cut-off { color: #8b93a1; background: rgba(120, 128, 142, .1); }
+.board-donor-picker.full-roster-picker label.cut-off strong,
+.board-donor-picker.full-roster-picker label.cut-off small,
+.board-donor-picker.full-roster-picker label.cut-off b { color: #8b93a1; }
 .board-donor-picker.full-roster-picker label > span { display: grid; gap: 3px; white-space: normal; }
 .board-donor-picker.full-roster-picker strong { overflow: hidden; color: var(--text); font-size: 11px; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
 .board-donor-picker.full-roster-picker small { color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .015em; text-transform: none; }

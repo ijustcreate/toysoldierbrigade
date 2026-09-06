@@ -1,5 +1,41 @@
 [
   {
+    "id": "DEV-0523",
+    "title": "Clarify donor list capacity",
+    "summary": "Show blank capacity, report names beyond rows × columns as cut off, and grey out those retained selections in the donor picker.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 1:51 AM",
+    "areas": [
+      "Board Editor",
+      "Donor Lists",
+      "Capacity"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0522",
+    "title": "Polish donor presentation controls",
+    "summary": "Removed unwanted donor presentation controls and preview, added visual font/icon options, and added bold underline styling.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 1:46 AM",
+    "areas": [
+      "Board Editor",
+      "Donor Presentation",
+      "Typography"
+    ],
+    "files": [
+      "src/components/BoardDonorPresentationEditor.tsx",
+      "src/types.ts",
+      "src/display/BabylonDonorWall.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0521",
     "title": "Simplify donor list controls",
     "summary": "Made donor styling list-wide, improved spacing controls, fixed name color application, and made checkbox selection the only roster add/remove mechanism.",

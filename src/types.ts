@@ -238,7 +238,7 @@ export interface BoardContent {
 
 export type RecognitionIcon = "none" | "star" | "heart" | "leaf" | "sparkle" | "diamond" | "crown" | "laurel" | "sun";
 
-export type BoardDonorHighlight = "none" | "fine-underline" | "soft-underline" | "soft-highlight";
+export type BoardDonorHighlight = "none" | "fine-underline" | "bold-underline" | "soft-underline" | "soft-highlight";
 
 export type BoardDonorAnimation = "none" | "grow-shrink" | "slow-shimmer" | "letter-wave";
 

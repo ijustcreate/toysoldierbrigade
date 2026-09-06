@@ -3951,6 +3951,8 @@ function ThemeStudio({
   const donorListColumns = selectedPanel?.type === "donors" ? selectedPanel.columns ?? selectedProgram?.columns ?? 1 : 1;
   const donorListRows = selectedPanel?.type === "donors" ? selectedPanel.rows ?? Math.max(1, Math.ceil(donorListRoster.length / donorListColumns)) : 1;
   const donorListCapacity = donorListRows * donorListColumns;
+  const cutOffDonorIds = donorListRoster.slice(donorListCapacity).map((donor) => donor.id);
+  const cutOffDonorCount = cutOffDonorIds.length;
   const boardImageLibrary = useMemo(() => {
     const entries = [
       { name: "Brass board accent", imageUrl: "/assets/board-accents/brass-arch.png" },
@@ -4441,7 +4443,7 @@ function ThemeStudio({
                     <label><span>Donation / gift type</span><select value={rosterPledgeFilter} onChange={(event) => setRosterPledgeFilter(event.target.value)}><option value="all">All types</option>{rosterPledgeTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
                     <label><span>Sort</span><select value={rosterSort} onChange={(event) => setRosterSort(event.target.value as typeof rosterSort)}><option value="name-asc">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="level">Level, then name</option></select></label>
                   </div>
-                  <div className="board-donor-picker full-roster-picker">{filteredBoardDonors.map((donor) => { const selected = selectedDonorListIds.includes(donor.id); const facets = donorRosterFacets(donor, state.givingPrograms); return <label key={donor.id} className={selected ? "selected" : ""}><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedDonorListMember(donor.id, event.target.checked)} /><span><strong>{donor.name}</strong><small>{facets.slice(0, 3).join(" · ") || "No giving level or tags"}{donor.donationType ? ` · ${donor.donationType}` : ""}{!donor.active ? " · Inactive" : ""}</small></span><b>{selected ? "Included" : "Excluded"}</b></label>; })}{!filteredBoardDonors.length && <p className="board-roster-empty">No donors match these filters. Existing selections remain unchanged.</p>}</div>
+                  <div className="board-donor-picker full-roster-picker">{filteredBoardDonors.map((donor) => { const selected = selectedDonorListIds.includes(donor.id); const cutOff = cutOffDonorIds.includes(donor.id); const facets = donorRosterFacets(donor, state.givingPrograms); return <label key={donor.id} className={`${selected ? "selected" : ""}${cutOff ? " cut-off" : ""}`}><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedDonorListMember(donor.id, event.target.checked)} /><span><strong>{donor.name}</strong><small>{facets.slice(0, 3).join(" · ") || "No giving level or tags"}{donor.donationType ? ` · ${donor.donationType}` : ""}{!donor.active ? " · Inactive" : ""}</small></span><b>{cutOff ? "Cut off" : selected ? "Included" : "Excluded"}</b></label>; })}{!filteredBoardDonors.length && <p className="board-roster-empty">No donors match these filters. Existing selections remain unchanged.</p>}</div>
                   <p className="field-note">Search and filters only change which rows are shown. Hidden donor selections stay in this list until you explicitly remove them.</p>
                 </div>}
               </section>
@@ -4459,7 +4461,6 @@ function ThemeStudio({
                 <details className="inspector-details" open><summary>Donor presentation</summary><div className="inspector-block">
                   <BoardDonorPresentationEditor
                     scope={selectedPanel}
-                    donors={selectedDonorListIds.map((donorId) => state.donors.find((donor) => donor.id === donorId)).filter((donor): donor is Donor => Boolean(donor))}
                     fallbacks={{ fontFamily: selectedPanel.fontFamily ?? "Montserrat", nameColor: selectedPanel.textColor ?? boardPreviewPalette(selectedProgram.palette).text, accentColor: boardPreviewPalette(selectedProgram.palette).accent }}
                     fontOptions={boardFontOptions}
                     fontLabels={boardFontLabels}
@@ -4468,7 +4469,6 @@ function ThemeStudio({
                     iconPlacement={selectedPanel.recognitionIconPlacement ?? "left"}
                     onIconPlacementChange={(recognitionIconPlacement) => patchPanel(selectedPanel.id, { recognitionIconPlacement })}
                     onPatchDefaults={(patch) => patchPanelPresentation(selectedPanel, patch)}
-                    onClearDefaults={() => patchPanel(selectedPanel.id, { donorPresentation: undefined })}
                   />
                   <p className="field-note">These settings affect only this donor-list panel. Donor profile data remains unchanged.</p>
                 </div></details>
@@ -4476,7 +4476,7 @@ function ThemeStudio({
                   <summary>Lines & capacity</summary>
                   <div className="inspector-block">
                     <Slider label="Rows" info="Sets how many donor rows fit inside this element." value={donorListRows} min={1} max={12} onChange={(rows) => patchPanel(selectedPanel.id, { rows })} />
-                    <div className="donor-capacity-summary"><strong>{donorListRoster.length} name{donorListRoster.length === 1 ? "" : "s"} · {donorListCapacity} line capacity</strong><span>{donorListRoster.length > donorListCapacity ? `${donorListRoster.length - donorListCapacity} name${donorListRoster.length - donorListCapacity === 1 ? "" : "s"} will not fit` : `${donorListCapacity - donorListRoster.length} open line${donorListCapacity - donorListRoster.length === 1 ? "" : "s"}`}</span></div>
+                    <div className="donor-capacity-summary"><strong>{donorListRoster.length} name{donorListRoster.length === 1 ? "" : "s"} · {donorListCapacity} line capacity</strong><span>{cutOffDonorCount ? `${cutOffDonorCount} name${cutOffDonorCount === 1 ? "" : "s"} cut off` : `${donorListCapacity - donorListRoster.length} open line${donorListCapacity - donorListRoster.length === 1 ? "" : "s"}`}</span></div>
                     <div className="donor-capacity-rows">{Array.from({ length: donorListRows }, (_, rowIndex) => { const lineNames = donorListRoster.slice(rowIndex * donorListColumns, (rowIndex + 1) * donorListColumns); return <div className="donor-capacity-row" key={rowIndex}><strong>Line {rowIndex + 1}</strong><span>{lineNames.length ? lineNames.map((donor) => donor.name).join(" · ") : "Available"}</span></div>; })}</div>
                     <div className="donor-divider-controls"><div className="two-col"><Slider label="Line thickness" info="Choose 0 to hide divider lines." value={selectedPanel.donorDividerThickness ?? 1} min={0} max={6} onChange={(donorDividerThickness) => patchPanel(selectedPanel.id, { donorDividerThickness })} /><Slider label="Line visibility" info="Sets how faint or strong divider lines appear." value={selectedPanel.donorDividerOpacity ?? 18} min={0} max={100} onChange={(donorDividerOpacity) => patchPanel(selectedPanel.id, { donorDividerOpacity })} /></div><ColorOverrideField label="Line color" value={selectedPanel.donorDividerColor} fallback="#D9A657" onChange={(donorDividerColor) => patchPanel(selectedPanel.id, { donorDividerColor })} /></div>
                   </div>
