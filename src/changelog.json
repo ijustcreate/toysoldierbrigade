@@ -1,5 +1,26 @@
 [
   {
+    "id": "DEV-0511",
+    "title": "Stop TV schedule rollback after Dashboard updates",
+    "summary": "Send remote display updates only after the shared save succeeds; retry transient saves and retain current TV state through failed refreshes. Preserve version conflict protections and existing local edits.",
+    "author": "Codex",
+    "createdAt": "Sep 5, 2026, 11:45 PM",
+    "areas": [
+      "TV displays",
+      "Scheduling",
+      "Shared saves"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/host/lanternHost.ts",
+      "src/displayStateRefresh.ts",
+      "src/sharedSaveQueue.ts",
+      "scripts/test-display-state-refresh.mjs",
+      "scripts/test-shared-save-queue.mjs"
+    ],
+    "tests": "Save queue, display refresh, state preservation, worker concurrency, production build"
+  },
+  {
     "id": "DEV-0510",
     "title": "Open the portrait site when leaving a Vega display",
     "summary": "Fire remote Back now closes an active display into the normal phone-style Recognition Boards interface, kept upright for the saved portrait mount, without clearing the selected display or looping through setup.",

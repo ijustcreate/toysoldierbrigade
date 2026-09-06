@@ -1,0 +1,47 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import ts from "typescript";
+const code = ts.transpileModule(await readFile(new URL("../src/sharedSaveQueue.ts", import.meta.url), "utf8"), { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
+const { createSharedSaveQueue } = await import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}`);
+const timers = new Map();
+let id = 0;
+globalThis.setTimeout = (fn) => { timers.set(++id, fn); return id; };
+globalThis.clearTimeout = (key) => timers.delete(key);
+const tick = async () => {
+  const batch = [...timers.values()]; timers.clear();
+  batch.forEach(fn => fn());
+  await Promise.resolve(); await Promise.resolve();
+};
+const writes = [], statuses = [];
+let rejectSave;
+const queue = createSharedSaveQueue(state => {
+  writes.push(state);
+  if (writes.length === 1) return new Promise((_, reject) => { rejectSave = reject; });
+  return Promise.resolve();
+}, message => statuses.push(message));
+queue("old"); queue("first"); await tick();
+assert.deepEqual(writes, ["first"], "Coalesce pending edits");
+queue("latest"); await tick();
+assert.deepEqual(writes, ["first"], "Never overlap writes");
+rejectSave(new Error("offline")); await Promise.resolve(); await Promise.resolve();
+assert.match(statuses.at(-1), /have not reached/);
+await tick();
+assert.deepEqual(writes, ["first", "latest"], "Retry latest edit instead of restoring failed stale edit");
+assert.equal(statuses.at(-1), "");
+let attempts = 0;
+const retry = createSharedSaveQueue(async () => { if (++attempts === 1) throw new Error("offline"); }, () => {});
+retry("retained"); await tick(); await tick();
+assert.equal(attempts, 2, "Retry without requiring another edit");
+const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+assert.match(app, /if \(canWriteSharedLanternState\(\)\) enableSharedStatePersistence\(\)/);
+assert.match(app, /publishState\(state, \{ persist: false, shared: false \}\)/);
+console.log("Shared save queue regression checks passed.");
+
+let conflictAttempts = 0;
+const conflict = createSharedSaveQueue(async () => { conflictAttempts++; throw new Error("conflict"); }, () => {}, () => false);
+conflict("unsynced"); await tick(); await tick();
+assert.equal(conflictAttempts, 1, "Version conflicts must not retry or bypass the version check");
+const host = await readFile(new URL("../src/host/lanternHost.ts", import.meta.url), "utf8");
+const publish = host.slice(host.indexOf("export function publishState("), host.indexOf("export function targetIncludes("));
+assert.doesNotMatch(publish, /postRealtime/, "Dashboard must not relay unacknowledged state to remote TVs");
+assert.match(host, /postRealtime\(wireHostMessage\(\{ type: "state-update", state \}\)\)/);

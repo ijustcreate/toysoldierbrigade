@@ -1,3 +1,4 @@
+import { createDisplayStateRefreshGuard } from "./displayStateRefresh";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -593,7 +594,7 @@ function ControlCenter() {
       // A local fallback can be older than the shared museum state. Never relay
       // it during bootstrap; later operator edits are published after hydration.
       if (loaded.source === "shared") publishState(loaded.state, { shared: false, localUpdatedAt: loaded.sharedUpdatedAt });
-      if (canWriteSharedLanternState() && loaded.sharedServiceReachable) enableSharedStatePersistence();
+      if (canWriteSharedLanternState()) enableSharedStatePersistence();
       setStatePersistenceReady(true);
     })();
     return () => {
@@ -10172,6 +10173,7 @@ function AnnouncementDemoApp({ screenId }: { screenId: ScreenId }) {
 }
 
 function DisplayWallApp({ screenIds }: { screenIds: ScreenId[] }) {
+  const refreshGuard = useRef(createDisplayStateRefreshGuard());
   const [state, setState] = useState<LanternState>(() => loadLanternState());
   // Render the local snapshot immediately. The shared copy replaces it once
   // available, but an embedded display should never begin as a blank screen.
@@ -10182,10 +10184,11 @@ function DisplayWallApp({ screenIds }: { screenIds: ScreenId[] }) {
     const refreshLiveState = async () => {
       if (loading) return;
       loading = true;
+      const requestRevision = refreshGuard.current.begin();
       try {
         const loaded = await loadAuthoritativeLanternState({ preferShared: true });
         if (mounted) {
-          setState(loaded.state);
+          if (refreshGuard.current.accept(requestRevision, loaded.source)) setState(loaded.state);
           setStateReady(true);
         }
       } catch {
@@ -10200,7 +10203,10 @@ function DisplayWallApp({ screenIds }: { screenIds: ScreenId[] }) {
     void refreshLiveState();
     const interval = window.setInterval(() => void refreshLiveState(), 5_000);
     const channel = createHostChannel((message) => {
-      if (message.type === "state-update") setState(message.state);
+      if (message.type === "state-update") {
+        refreshGuard.current.receivedLiveUpdate();
+        setState(message.state);
+      }
     });
     const refreshWhenVisible = () => {
       if (document.visibilityState === "visible") void refreshLiveState();
@@ -10233,6 +10239,7 @@ function DisplayWallApp({ screenIds }: { screenIds: ScreenId[] }) {
 }
 
 function DisplayApp({ screenId }: { screenId: ScreenId }) {
+  const refreshGuard = useRef(createDisplayStateRefreshGuard());
   const [state, setState] = useState<LanternState>(() => loadLanternState());
   // Render immediately, then refresh from the published state in the
   // background. This avoids a blank screen while a TV browser wakes its Wi-Fi.
@@ -10269,12 +10276,13 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
     const refreshLiveState = async () => {
       if (loading) return;
       loading = true;
+      const requestRevision = refreshGuard.current.begin();
       try {
         // Displays are read-only outputs. The server is their source of truth,
         // even if this browser has an older local cache from a prior session.
         const loaded = await loadAuthoritativeLanternState({ preferShared: true });
         if (mounted) {
-          setState(loaded.state);
+          if (refreshGuard.current.accept(requestRevision, loaded.source)) setState(loaded.state);
           setStateReady(true);
         }
       } catch {
@@ -10320,6 +10328,7 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
   useEffect(() => {
     const channel = createHostChannel((message) => {
       if (message.type === "state-update") {
+        refreshGuard.current.receivedLiveUpdate();
         setState(message.state);
       }
       if (message.type === "identify-screen" && message.screenId === screenId) {

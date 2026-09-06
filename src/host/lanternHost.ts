@@ -1,3 +1,4 @@
+import { createSharedSaveQueue } from "../sharedSaveQueue";
 import { ANNOUNCEMENT_LAYOUT_CONTENT_VERSION, BOARD_LIBRARY_CLEANUP_CONTENT_VERSION, BRIGADE_DONOR_STATUS_CORRECTION_CONTENT_VERSION, brigadeAnnouncements, brigadeBlips, brigadeBoardPrograms, CONFIRMED_DONOR_ROSTER_CONTENT_VERSION, confirmedGeneralDonors, DONOR_ROSTER_BOARDS_CONTENT_VERSION, generousDonorBoardPrograms, initialState, legacyBoardPrograms, legacyDonors, LEGACY_DONOR_STARS_CONTENT_VERSION, LEGACY_DONOR_TAGS_CONTENT_VERSION, LEGACY_STAR_LAYER_CONTENT_VERSION, LEGACY_STAR_RECOVERY_CONTENT_VERSION, LANTERN_CONTENT_VERSION, QUESTIONING_TOY_SOLDIER_CONTENT_VERSION } from "../sampleData";
 import { withBrigadeOpeningPayment } from "../donorDomain";
 import { appendMissingPhase3Content, migratePhase3Schedules, phase3Announcements, PHASE3_CONTENT_VERSION, replacePhase3Announcements } from "../phase3Schedule";
@@ -45,7 +46,9 @@ const LEGACY_CONTENT_MIGRATION_VERSION = 3;
 const MAX_AUDIT_HISTORY = 350;
 const MAX_BROADCAST_REMINDER_ACKNOWLEDGEMENTS = 250;
 let sharedPersistenceEnabled = false;
-let sharedSaveTimer: number | undefined;
+const sharedSaveQueue = createSharedSaveQueue<LanternState>(saveSharedLanternState, (message) => {
+  if (message.includes("have not reached")) reportSharedStatePersistence({ status: "error", message });
+}, () => !sharedStateWriteBlocked && sharedStateUpdatedAt !== undefined);
 let stateUsesIndexedDb = false;
 let sharedStateUpdatedAt: string | null | undefined;
 let sharedStateWriteBlocked = false;
@@ -476,14 +479,7 @@ export function enableSharedStatePersistence() {
 
 function queueSharedStateSave(state: LanternState, immediate = false) {
   if (!sharedPersistenceEnabled || !LANTERN_WRITE_SERVICE_ROOT) return;
-  window.clearTimeout(sharedSaveTimer);
-  if (immediate) {
-    void saveSharedLanternState(state).catch(() => undefined);
-    return;
-  }
-  sharedSaveTimer = window.setTimeout(() => {
-    void saveSharedLanternState(state).catch(() => undefined);
-  }, 450);
+  sharedSaveQueue(state, immediate);
 }
 
 export async function saveSharedLanternState(state: LanternState) {
@@ -499,7 +495,6 @@ async function persistSharedLanternState(state: LanternState) {
     reportSharedStatePersistence({ status: "conflict", message, updatedAt: sharedStateUpdatedAt ?? null });
     throw new Error(message);
   }
-  window.clearTimeout(sharedSaveTimer);
   const response = await fetch(`${LANTERN_WRITE_SERVICE_ROOT}/state`, {
     method: "PUT",
     headers: {
@@ -526,6 +521,9 @@ async function persistSharedLanternState(state: LanternState) {
     }
   }
   reportSharedStatePersistence({ status: "saved", message: "Saved for everyone.", updatedAt: synchronizedAt });
+  // Remote displays receive only an acknowledged snapshot, so their next poll
+  // cannot undo an optimistic, unsaved schedule relayed by Dashboard.
+  try { postRealtime(wireHostMessage({ type: "state-update", state })); } catch { /* Polling retrieves the saved copy. */ }
 }
 
 export async function uploadLanternAsset(file: File) {
@@ -763,13 +761,6 @@ export function publishState(state: LanternState, options: { persist?: boolean; 
     // Browser privacy settings can block cross-window messaging. The local save
     // remains valid, and the next open display will read that persisted state.
     console.warn("Project Lantern could not notify another window of the update.", error);
-  }
-  try {
-    postRealtime(wireMessage);
-  } catch (error) {
-    // Realtime relay is optional; a local save must never be reported as failed
-    // just because a display-sync connection is temporarily unavailable.
-    console.warn("Project Lantern could not relay the update in realtime.", error);
   }
   return savedLocally;
 }
