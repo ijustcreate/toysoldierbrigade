@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0507",
+    "title": "Preserve untouched donor-list membership",
+    "summary": "When a legacy board first customizes one donor panel, every other inherited donor panel now snapshots its prior effective membership before the board-level superset expands, preventing cross-panel additions.",
+    "author": "Codex",
+    "createdAt": "Sep 5, 2026, 7:11 PM",
+    "areas": [
+      "Board Editor",
+      "Donor lists",
+      "Data protection"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/donorRoster.ts",
+      "scripts/test-donor-roster-membership.mjs"
+    ],
+    "tests": "npm run test:donor-roster-membership; npm run build; isolated headless save/reload and cross-panel membership check"
+  },
+  {
     "id": "DEV-0506",
     "title": "Manage donor-list membership from Content",
     "summary": "Placed per-list donor checkboxes directly in the selected donor-list Content inspector, with donor-name search and filters backed by giving levels, tags, and donation types. Filtering never mutates hidden selections, and Save Board persists only explicit membership edits.",

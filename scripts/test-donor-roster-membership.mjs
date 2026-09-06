@@ -26,4 +26,19 @@ assert.deepEqual(selected, ["ada", "grace"], "filtering must not mutate membersh
 assert.deepEqual(roster.updateDonorRosterMembership(selected, shown, "add"), ["ada", "grace", "katherine"]);
 assert.deepEqual(roster.updateDonorRosterMembership(["ada", "grace", "katherine"], shown, "remove"), ["ada", "grace"], "removing shown donors must preserve hidden selections");
 
+const inheritedPanels = [
+  { id: "explore-list", type: "donors", title: "Explore" },
+  { id: "play-list", type: "donors", title: "Play" },
+  { id: "heading", type: "heading", title: "Supporters" }
+];
+assert.deepEqual(
+  roster.materializeDonorPanelMembership(inheritedPanels, "play-list", ["ada", "grace"], ["ada", "grace", "katherine"]),
+  [
+    { id: "explore-list", type: "donors", title: "Explore", donorIds: ["ada", "grace"] },
+    { id: "play-list", type: "donors", title: "Play", donorIds: ["ada", "grace", "katherine"] },
+    { id: "heading", type: "heading", title: "Supporters" }
+  ],
+  "editing one inherited donor panel must preserve every untouched panel's prior membership"
+);
+
 console.log("Donor roster membership fixture passed.");

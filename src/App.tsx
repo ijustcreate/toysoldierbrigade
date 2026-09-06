@@ -92,7 +92,7 @@ import { VisitorMessageManager } from "./components/VisitorMessageManager";
 import { LanternConfirmDialog, LanternNotice, LanternTextPromptDialog } from "./components/LanternDialog";
 import { parseCurrencyAmount } from "./donorDomain";
 import { buildDonorNameGridLayout, splitDonorNameLines } from "./donorNameLayout";
-import { donorRosterFacetOptions, donorRosterFacets, filterDonorRoster, updateDonorRosterMembership } from "./donorRoster";
+import { donorRosterFacetOptions, donorRosterFacets, filterDonorRoster, materializeDonorPanelMembership, updateDonorRosterMembership } from "./donorRoster";
 import { AnimatedDonorName, BoardDonorPresentationEditor, recognitionIconGlyph } from "./components/BoardDonorPresentationEditor";
 import { clearBoardDonorStyle, patchBoardDonorStyle, resolveBoardDonorPresentation } from "./boardPresentation";
 import { formatMediaDeviceError, mediaDeviceManager, type MediaDeviceLease } from "./host/mediaDeviceManager";
@@ -4225,7 +4225,11 @@ function ThemeStudio({
         // Program membership remains a superset because the renderer first
         // applies the board roster, then the selected donor-list membership.
         donorIds: [...new Set([...program.donorIds, ...normalizedDonorIds])],
-        panels: program.panels?.map((panel) => panel.id === selectedPanelId ? { ...panel, donorIds: normalizedDonorIds } : panel)
+        // Older boards let every donor panel inherit program membership. Once
+        // one list diverges, materialize the other panels' previous effective
+        // membership so expanding the program-level superset cannot change
+        // those untouched lists.
+        panels: materializeDonorPanelMembership(program.panels, selectedPanelId, program.donorIds, normalizedDonorIds)
       } : program)
     }));
   };

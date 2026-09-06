@@ -49,3 +49,13 @@ export function updateDonorRosterMembership(currentIds: string[], donorIds: stri
     ? [...new Set([...currentIds, ...donorIds])]
     : currentIds.filter((id) => !targets.has(id));
 }
+
+export function materializeDonorPanelMembership<
+  TPanel extends { id: string; type: string; donorIds?: string[] }
+>(panels: TPanel[] | undefined, selectedPanelId: string, previousProgramDonorIds: string[], selectedDonorIds: string[]) {
+  return panels?.map((panel) => {
+    if (panel.type !== "donors") return panel;
+    if (panel.id === selectedPanelId) return { ...panel, donorIds: [...selectedDonorIds] };
+    return panel.donorIds === undefined ? { ...panel, donorIds: [...previousProgramDonorIds] } : panel;
+  });
+}
