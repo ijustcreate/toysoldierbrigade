@@ -1,5 +1,22 @@
 [
   {
+    "id": "DEV-0509",
+    "title": "Make portrait TV setup readable and recoverable",
+    "summary": "TV setup now names counterclockwise and clockwise explicitly, rotates the final selector to match the mounted portrait screen, remembers choices immediately, and offers prominent flip-direction and landscape corrections for remote users.",
+    "author": "Codex",
+    "createdAt": "Sep 5, 2026, 11:22 PM",
+    "areas": [
+      "TV mode",
+      "Vega display setup"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "scripts/test-tv-mode-setup.mjs"
+    ],
+    "tests": "npm run build; npm run test:sideways-mounted-display; npm run test:tv-safe-board-renderer; node scripts/test-tv-mode-setup.mjs; node vega-display/test.mjs; headless Playwright 1920x1080 rotation/flip/landscape/persistence check; git diff --check"
+  },
+  {
     "id": "DEV-0508",
     "title": "Prepare native Vega recognition display player",
     "summary": "Added a Mac-buildable Vega WebView source kit for existing live portrait boards with local display selection, recovery and display-only transport guards; production content remains untouched. Native compilation and unattended device acceptance are still pending.",
