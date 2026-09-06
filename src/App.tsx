@@ -10118,7 +10118,7 @@ function RevisionsView({ state }: { state: LanternState }) {
               <p>{revision.summary}</p>
               <div className="change-meta"><span>{revision.author}</span><span>{revision.createdAt}</span><span>Open for details</span></div>
             </button>
-            <button className="header-operation-button" onClick={() => { const popup = window.open(`${window.location.pathname}#/fire-remote`, "lantern-fire-remote", "popup=yes,width=430,height=760,resizable=yes"); popup?.focus(); }} title="Open Fire TV controller">🎮 Remote</button>
+            <button className="header-operation-button" onClick={() => { const popup = window.open(`${window.location.pathname}#/fire-remote`, "lantern-fire-remote", "popup=yes,width=430,height=760,resizable=yes"); popup?.focus(); }} title="Open Fire TV controller">🎮 Firestick controller</button>
             <ChevronRight size={18} className="change-open-icon" />
           </article>
         ))}
