@@ -1,5 +1,105 @@
 [
   {
+    "id": "DEV-0529",
+    "title": "Clarify shared site sync recovery",
+    "summary": "Replaced the vague yellow sync warning and native pull confirmation with explicit local-versus-site messaging and a themed in-app confirmation dialog that protects unsaved device edits.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 3:00 AM",
+    "areas": [
+      "Shared state sync",
+      "Settings UI",
+      "Conflict recovery"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/host/lanternHost.ts",
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0528",
+    "title": "Clarify shared site sync recovery",
+    "summary": "Replaced the vague yellow sync warning and native pull confirmation with explicit local-versus-site messaging and a themed in-app confirmation dialog that protects unsaved device edits.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 2:59 AM",
+    "areas": [
+      "Shared state sync",
+      "Settings UI",
+      "Conflict recovery"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/host/lanternHost.ts",
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0527",
+    "title": "Use donor-list membership checklist",
+    "summary": "Replaced donor-list dropdown membership controls with an independent checklist and green included-state checkmarks.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 2:53 AM",
+    "areas": [
+      "Donor Profiles",
+      "Donor Lists"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0526",
+    "title": "Preserve board edits during sync",
+    "summary": "Rebase board saves onto the latest shared snapshot so current user board edits win without replacing unrelated newer site changes.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 2:51 AM",
+    "areas": [
+      "Board Editor",
+      "Shared State",
+      "Persistence"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0525",
+    "title": "Name donor-list panels",
+    "summary": "Added donor-list naming and showed board plus list names for boards with multiple donor-list panels.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 2:40 AM",
+    "areas": [
+      "Board Editor",
+      "Donor Profiles",
+      "Donor Lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0524",
+    "title": "Show donor list panels in donor profile",
+    "summary": "Expose every donor-list panel in the donor profile selector and highlight the selected panel in the board preview.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 2:27 AM",
+    "areas": [
+      "Donor Profiles",
+      "Board Preview",
+      "Donor Lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0523",
     "title": "Clarify donor list capacity",
     "summary": "Show blank capacity, report names beyond rows × columns as cut off, and grey out those retained selections in the donor picker.",

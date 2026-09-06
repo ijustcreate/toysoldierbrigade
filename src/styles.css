@@ -9153,6 +9153,14 @@ textarea:focus-visible,
 .donor-list-board-canvas .direct-board-stage-meta, .donor-list-board-canvas .board-editor-view-controls, .donor-list-board-canvas .panel-actions, .donor-list-board-canvas .panel-resize-handle { display: none; }
 .donor-list-board-canvas .direct-board-panel.selected { outline: 3px solid #ffe181; outline-offset: -3px; box-shadow: 0 0 0 5px rgba(255, 216, 106, .3), inset 0 0 0 999px rgba(255, 216, 106, .08); }
 .board-list-preview footer { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; color: var(--muted); font-size: 9px; }.board-list-preview footer strong { color: var(--ink); text-align: right; }
+.donor-list-checklist { display: grid; gap: 7px; }
+.donor-list-checklist label { display: grid; grid-template-columns: 20px 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.donor-list-checklist label.assigned { border-color: color-mix(in srgb, #38b86d 55%, var(--line)); background: color-mix(in srgb, #38b86d 10%, transparent); }
+.donor-list-checklist input { position: absolute; opacity: 0; pointer-events: none; }
+.donor-list-checklist label > span { color: var(--muted); font-size: 18px; line-height: 1; }
+.donor-list-checklist label.assigned > span { color: #159447; font-weight: 900; }
+.donor-list-checklist strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.donor-list-checklist small { color: var(--muted); font-size: 9px; }
 .theme-light .donor-editor-modal { color: #26334a; background: #fff; }
 .theme-light .donor-editor-modal .editor-tabs button { color: #26334a; background: #f0f4f8; }
 .theme-light .donor-editor-modal .editor-tabs button.selected { color: #fff; background: #087fa0; }
@@ -15345,4 +15353,5 @@ body.theme-light {
 }
 
 .shared-state-warning span { flex: 1; }
+.shared-state-warning strong { display: block; margin-bottom: 2px; }
 .shared-state-warning button { border: 0; background: transparent; color: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }

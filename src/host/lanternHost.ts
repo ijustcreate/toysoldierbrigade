@@ -491,7 +491,7 @@ export async function saveSharedLanternState(state: LanternState) {
 async function persistSharedLanternState(state: LanternState) {
   if (!LANTERN_WRITE_SERVICE_ROOT) throw new Error("Shared project storage is read-only in local development");
   if (sharedStateUpdatedAt === undefined || sharedStateWriteBlocked) {
-    const message = "Newer or unsynchronized museum data may exist. Reload the latest site copy before saving.";
+    const message = "The shared site changed before this save completed. Pull the latest site copy before saving again.";
     reportSharedStatePersistence({ status: "conflict", message, updatedAt: sharedStateUpdatedAt ?? null });
     throw new Error(message);
   }

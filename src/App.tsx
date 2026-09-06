@@ -410,6 +410,7 @@ function ControlCenter() {
   const [newUserName, setNewUserName] = useState("");
   const [siteSyncStatus, setSiteSyncStatus] = useState("");
   const [siteSyncing, setSiteSyncing] = useState(false);
+  const [pullSiteConfirmOpen, setPullSiteConfirmOpen] = useState(false);
   const [sharedStateWarning, setSharedStateWarning] = useState("");
   const [bugLauncherVisible, setBugLauncherVisible] = useState(() => localStorage.getItem("project-lantern-bug-launcher-visible") !== "false");
   const [bugLauncherPosition, setBugLauncherPosition] = useState(() => readBugLauncherPosition(currentBugUser()));
@@ -452,8 +453,8 @@ function ControlCenter() {
         return;
       }
       setSharedStateWarning(detail.status === "conflict"
-        ? `${detail.message} Your changes remain saved on this device.`
-        : `${detail.message} Your changes remain saved on this device and will not replace the site copy.`);
+        ? `The shared site changed before this save completed. Your edits are still on this device; pull the latest site copy before continuing.`
+        : `${detail.message} Your edits are still on this device and were not sent to the shared site.`);
     };
     window.addEventListener(LANTERN_SHARED_STATE_EVENT, handleSharedStatePersistence);
     return () => window.removeEventListener(LANTERN_SHARED_STATE_EVENT, handleSharedStatePersistence);
@@ -556,12 +557,16 @@ function ControlCenter() {
     setCreateUserOpen(true);
   };
 
-  const pullLatestSiteChanges = async () => {
+  const pullLatestSiteChanges = () => {
     if (!canReadSharedLanternState()) {
       setSiteSyncStatus("Site sync is not configured for this local build.");
       return;
     }
-    if (!window.confirm("Pull the latest shared site data? This replaces this computer's local working copy. Your current local changes will remain on the site only if they were already saved there.")) return;
+    setPullSiteConfirmOpen(true);
+  };
+
+  const confirmPullLatestSiteChanges = async () => {
+    setPullSiteConfirmOpen(false);
     setSiteSyncing(true);
     setSiteSyncStatus("Checking the site copy…");
     try {
@@ -1256,7 +1261,7 @@ function ControlCenter() {
           })}
         </nav>
 
-        {sharedStateWarning && <div className="shared-state-warning" role="alert"><AlertTriangle size={18} /><span>{sharedStateWarning}</span><button type="button" onClick={() => { setSharedStateWarning(""); setView("settings"); }}>Review site sync</button></div>}
+        {sharedStateWarning && <div className="shared-state-warning" role="alert"><AlertTriangle size={18} /><span><strong>Site sync needs your attention.</strong> {sharedStateWarning}</span><button type="button" onClick={() => { setSharedStateWarning(""); setView("settings"); }}>Open sync controls</button></div>}
 
         {view === "dashboard" && (<>
           <Dashboard
@@ -1448,6 +1453,7 @@ function ControlCenter() {
           if (visible) window.requestAnimationFrame(resetBugLauncherPosition);
         }} />}
         {view === "settings" && <RecognitionSettingsView state={state} updateState={updateState} appearance={portalAppearance} onAppearanceChange={changePortalAppearance} onAddDisplay={addDisplay} onPullSiteChanges={pullLatestSiteChanges} siteSyncAvailable={canReadSharedLanternState()} siteSyncing={siteSyncing} siteSyncStatus={siteSyncStatus} />}
+        {pullSiteConfirmOpen && <LanternConfirmDialog eyebrow="Shared project data" title="Replace this device’s working copy?" description={<><p>The shared site copy will be downloaded and replace the data currently open on this device.</p><p><strong>Anything not already saved to the site will be removed from this device.</strong> The live site itself will not be changed.</p></>} cancelLabel="Keep my local copy" confirmLabel="Pull site copy" tone="primary" onCancel={() => setPullSiteConfirmOpen(false)} onConfirm={() => void confirmPullLatestSiteChanges()} />}
         {showIdeas && <IdeasDrawer page={view} open={ideasOpen} onToggle={() => setIdeasOpen((current) => !current)} />}
       </main>
       {helpOpen && <HelpCenterModal onClose={() => setHelpOpen(false)} />}
@@ -2844,34 +2850,11 @@ function DonorsView({
     return levelFilters.length === 0 || levelFilters.some((filter) => filter.localeCompare(levelName, undefined, { sensitivity: "base" }) === 0);
   };
 
-  const toggleSelectedDonorList = () => {
-    if (!draft) return;
-    const selected = availableDonorLists.find((option) => option.id === selectedDonorListId);
-    if (!selected) return;
-    const assigned = draftDonorListIds.includes(selected.id);
-    const boardListIds = availableDonorLists.filter((option) => option.boardId === selected.boardId).map((option) => option.id);
-    const nextListIds = assigned
-      ? draftDonorListIds.filter((id) => !boardListIds.includes(id))
-      : [...new Set([...draftDonorListIds, ...boardListIds])];
-    const nextBoardIds = assigned
-      ? (draft.boardIds ?? []).filter((id) => id !== selected.boardId)
-      : [...new Set([...(draft.boardIds ?? []), selected.boardId])];
-    const nextDraft = { ...draft, boardIds: nextBoardIds };
-    updateState((current) => ({
-      ...current,
-      donors: current.donors.map((donor) => donor.id === draft.id ? { ...donor, boardIds: nextBoardIds } : donor),
-      boardPrograms: current.boardPrograms.map((board) => board.id !== selected.boardId ? board : {
-        ...board,
-        donorIds: assigned ? board.donorIds.filter((id) => id !== draft.id) : [...new Set([...board.donorIds, draft.id])],
-        panels: board.panels?.map((panel) => panel.type !== "donors" ? panel : {
-          ...panel,
-          donorIds: assigned ? (panel.donorIds ?? board.donorIds).filter((id) => id !== draft.id) : [...new Set([...(panel.donorIds ?? board.donorIds), draft.id])]
-        })
-      })
-    }));
-    setDraft(nextDraft);
+  const toggleSelectedDonorList = (listId: string, checked: boolean) => {
+    const nextListIds = checked
+      ? [...new Set([...draftDonorListIds, listId])]
+      : draftDonorListIds.filter((id) => id !== listId);
     setDraftDonorListIds(nextListIds);
-    setOriginalDonorListIds(nextListIds);
   };
 
   const addDonorImage = async (file: File | undefined) => {
@@ -3195,22 +3178,7 @@ function DonorsView({
               }, current));
             }} /></>}
             {editTab === "history" && <DonationHistoryEditor donor={draft} users={state.users} activeUserId={activeUserId} onChange={(donations) => setDraft({ ...draft, donations })} />}
-            {editTab === "displays" && <div className="donor-list-manager">{(() => {
-              const boardOptions = state.boardPrograms.filter((board) => availableDonorLists.some((option) => option.boardId === board.id));
-              const listsOnBoard = availableDonorLists.filter((option) => option.boardId === selectedDonorBoardId);
-              const selected = listsOnBoard.find((option) => option.id === selectedDonorListId) ?? listsOnBoard[0];
-              const assigned = Boolean(selected && draftDonorListIds.includes(selected.id));
-              return <>
-                <div className="donor-list-selector-stack">
-                  <label className="field"><span>Board</span><select value={selectedDonorBoardId} onChange={(event) => { const boardId = event.target.value; const firstList = availableDonorLists.find((option) => option.boardId === boardId); setSelectedDonorBoardId(boardId); setSelectedDonorListId(firstList?.id ?? ""); }}>{boardOptions.map((board) => <option key={board.id} value={board.id}>{board.name} · {board.orientation}</option>)}</select></label>
-                  <label className="field"><span>Donor list</span><select value={selected?.id ?? ""} onChange={(event) => setSelectedDonorListId(event.target.value)}>{listsOnBoard.map((option, index) => <option key={option.id} value={option.id}>{draftDonorListIds.includes(option.id) ? "✓ " : ""}{option.panel.title || `Donor list ${index + 1}`}</option>)}</select></label>
-                  {selected && <div className={assigned ? "donor-list-assignment-status assigned" : "donor-list-assignment-status"}><strong>{assigned ? "Included in this donor list" : "Not in this donor list"}</strong><small>{assigned ? "Removing will update and save this board's roster." : "Adding will update and save this board's roster."}</small></div>}
-                  {selected && <button type="button" className={assigned ? "command-button danger" : "command-button primary"} onClick={toggleSelectedDonorList}>{assigned ? <><X size={16} /> Remove donor from this donor list</> : <><Plus size={16} /> Add donor to this donor list</>}</button>}
-                </div>
-                {selected && <section className="donor-list-preview board-list-preview"><header><div><p className="eyebrow">Selected board preview</p><strong>{selected.board.name}</strong><small>{selected.board.orientation} · highlighted: {selected.panel.title || "donor list"}</small></div><button type="button" className="command-button secondary compact" onClick={() => onOpenBoard(selected.boardId, selected.panel.id)}><ExternalLink size={14} /> Open board</button></header><div className="donor-list-board-canvas"><AuthoredBoardPresentation state={state} display={{ ...Object.values(state.screens)[0], orientation: selected.board.orientation }} program={selected.board} highlightedPanelId={selected.panel.id} /></div><footer><span>The highlighted area is the selected donor list.</span><strong>{assigned ? `${draft.name} is on this list` : `${draft.name} is not on this list`}</strong></footer></section>}
-                {!availableDonorLists.length && <div className="empty-inspector"><Users size={24} /><strong>No donor lists available</strong><span>Add a donor-list panel to a board to assign donors here.</span></div>}
-              </>;
-            })()}</div>}
+            {editTab === "displays" && <div className="donor-list-manager"><div className="donor-list-checklist">{availableDonorLists.map((option, index) => { const assigned = draftDonorListIds.includes(option.id); const listCount = availableDonorLists.filter((item) => item.boardId === option.boardId).length; return <label key={option.id} className={assigned ? "assigned" : ""}><input type="checkbox" checked={assigned} onChange={(event) => toggleSelectedDonorList(option.id, event.target.checked)} /><span>{assigned ? "✓" : "□"}</span><strong>{option.board.name}{listCount > 1 ? ` · ${option.panel.title || `Donor list ${index + 1}`}` : ""}</strong><small>{option.board.orientation}</small></label>; })}{!availableDonorLists.length && <div className="empty-inspector"><Users size={24} /><strong>No donor lists available</strong><span>Add a donor-list panel to a board to assign donors here.</span></div>}</div></div>}
           </div>
           <div className="editor-modal-actions"><button className="command-button secondary" onClick={closeEditor}>Cancel</button><button className="command-button primary" onClick={saveDonor}><Save size={17} /> Save changes</button></div>
         </section>
@@ -4280,8 +4248,21 @@ function ThemeStudio({
     setSaveStatus("saving");
     const savedBoardSnapshot = currentDraftSnapshot;
     pendingSavedBoardSnapshot.current = savedBoardSnapshot;
+    // Rebase this board edit onto the latest shared snapshot immediately
+    // before publishing. This keeps unrelated newer site changes while giving
+    // the operator's current board edit the winning value.
+    let publishBase = savedState;
+    if (canReadSharedLanternState()) {
+      try {
+        const latest = await loadSharedLanternStateSnapshot();
+        if (latest.state) publishBase = latest.state;
+      } catch {
+        // The durable local save below still protects the edit if the service
+        // is temporarily unavailable.
+      }
+    }
     const boardDraft = {
-      ...savedState,
+      ...publishBase,
       board: currentDraft.board,
       boardPrograms: currentDraft.boardPrograms,
       donors: currentDraft.donors,
@@ -4426,7 +4407,7 @@ function ThemeStudio({
           <div className="board-inspector-scroll">
             {selectedPanel ? <div className="inspector-block">
               <section className="inspector-primary-section">
-                <header><strong>Content</strong></header>
+                <header><strong>{selectedPanel.type === "donors" ? "List name" : "Content"}</strong></header>
                 {selectedPanel.type === "text" && <label className="field"><span>Text <InfoDot text="Use line breaks to arrange all copy inside this one text panel." /></span><textarea rows={7} value={selectedPanel.title} onChange={(event) => patchPanel(selectedPanel.id, { title: event.target.value })} /></label>}
                 {["heading", "supporters-heading", "footer"].includes(selectedPanel.type) && <label className="field"><span>Text <InfoDot text="Edit the exact copy shown in this selected element. Changes stay synchronized with the canvas." /></span><textarea rows={4} value={selectedPanel.title} onChange={(event) => patchPanel(selectedPanel.id, { title: event.target.value })} /></label>}
                 {["message", "story"].includes(selectedPanel.type) && <>
@@ -4435,6 +4416,7 @@ function ThemeStudio({
                   <label className="field"><span>Body <InfoDot text="Supporting copy shown in this selected element." /></span><textarea rows={5} value={selectedPanel.body ?? ""} onChange={(event) => patchPanel(selectedPanel.id, { body: event.target.value })} /></label>
                 </>}
                 {selectedPanel.type === "image" && <><div className="field"><span>Stored images <InfoDot text="Browse images already uploaded to this site. The brass accent is automatically tightened to a compact line panel." /></span><button type="button" className="image-library-picker-trigger" onClick={() => setImagePickerOpen(true)}><ImageIcon size={16} /><span>{boardImageLibrary.find((image) => image.imageUrl === selectedPanel.imageUrl)?.name ?? "Choose from image library"}</span><ChevronRight size={16} /></button></div><label className="command-button secondary compact image-upload-button"><Upload size={15} /> {selectedPanel.imageUrl ? "Replace image" : "Choose PNG or image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void readSharedImageFile(file, (imageUrl) => patchPanel(selectedPanel.id, { imageUrl, imageFit: "contain" })); }} /></label><LabeledSelect label="Image fit" info="Contain keeps the whole image visible; cover fills the element." value={selectedPanel.imageFit ?? "contain"} options={["contain", "cover"]} optionLabels={{ contain: "Contain", cover: "Cover" }} onChange={(imageFit) => patchPanel(selectedPanel.id, { imageFit: imageFit as BoardPanel["imageFit"] })} /><Slider label="Rotate image" info="Turns this image within its panel." value={selectedPanel.imageRotation ?? 0} min={0} max={360} onChange={(imageRotation) => patchPanel(selectedPanel.id, { imageRotation })} /><label className="switch-row"><input type="checkbox" checked={selectedPanel.imageMirrored ?? false} onChange={(event) => patchPanel(selectedPanel.id, { imageMirrored: event.target.checked })} /><span>Mirror image horizontally</span></label></>}
+                {selectedPanel.type === "donors" && <label className="field"><span>List name</span><input value={selectedPanel.title} onChange={(event) => patchPanel(selectedPanel.id, { title: event.target.value })} placeholder="Donor list name" maxLength={80} /></label>}
                 {selectedPanel.type === "donors" && <div className="inspector-block board-roster-browser">
                   <div className="board-roster-browser-head"><div><strong>Donors in this list</strong><small>{selectedDonorListIds.length} selected · {filteredBoardDonors.length} shown</small></div><span>Check a donor to include them</span></div>
                   <label className="board-roster-search"><Search size={15} /><span className="sr-only">Find a donor</span><input value={donorSearch} onChange={(event) => setDonorSearch(event.target.value)} placeholder="Search directly by donor name" /></label>
