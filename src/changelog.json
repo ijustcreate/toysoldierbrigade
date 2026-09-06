@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0510",
+    "title": "Open the portrait site when leaving a Vega display",
+    "summary": "Fire remote Back now closes an active display into the normal phone-style Recognition Boards interface, kept upright for the saved portrait mount, without clearing the selected display or looping through setup.",
+    "author": "Codex",
+    "createdAt": "Sep 5, 2026, 11:33 PM",
+    "areas": [
+      "Vega display",
+      "TV mode"
+    ],
+    "files": [
+      "vega-display/bridge.js",
+      "vega-display/test.mjs"
+    ],
+    "tests": "node vega-display/test.mjs; node scripts/test-tv-mode-setup.mjs; npm run test:sideways-mounted-display; npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0509",
     "title": "Make portrait TV setup readable and recoverable",
     "summary": "TV setup now names counterclockwise and clockwise explicitly, rotates the final selector to match the mounted portrait screen, remembers choices immediately, and offers prominent flip-direction and landscape corrections for remote users.",
