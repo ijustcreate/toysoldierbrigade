@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import ts from "typescript";
 
 const source = await readFile(new URL("../src/concurrentStateMerge.ts", import.meta.url), "utf8");
+const hostSource = await readFile(new URL("../src/host/lanternHost.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText;
 const { mergeConcurrentState } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
 
@@ -42,5 +43,7 @@ racingShared.schedules[0].time = "11:00";
 const secondMerge = mergeConcurrentState(shared, merged, racingShared);
 assert.equal(secondMerge.boardPrograms[0].panels[0].text, "My hand edit", "hand edit survives a second server race");
 assert.equal(secondMerge.schedules[0].time, "11:00", "the second newer remote change is not mistaken for a local edit");
+
+assert.match(hostSource, /if \(sharedStateUpdatedAt === undefined \|\| !sharedStateBaseline\)[\s\S]*loadSharedLanternStateSnapshot\(\{ updateSyncContext: false \}\)[\s\S]*sharedStateWriteBlocked = true;/, "Save must recover a missing startup baseline by fetching and merging the latest shared copy");
 
 console.log("Concurrent state merge checks passed: hand edits win while unrelated shared work survives.");

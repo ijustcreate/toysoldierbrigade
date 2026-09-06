@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0525",
+    "title": "Recover board saves after startup sync failures",
+    "summary": "Save now refetches and reconciles the latest museum state when startup could not establish a shared baseline, allowing the protected hand-edited board to reach the server without a destructive reload.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 3:26 AM",
+    "areas": [
+      "Board Editor",
+      "Shared state sync"
+    ],
+    "files": [
+      "src/host/lanternHost.ts",
+      "scripts/test-concurrent-state-merge.mjs"
+    ],
+    "tests": "node scripts/test-concurrent-state-merge.mjs; node scripts/test-shared-save-queue.mjs; npm run build; npm run test:state-preservation"
+  },
+  {
     "id": "DEV-0524",
     "title": "Preserve hand-edited boards through sync conflicts",
     "summary": "Saving now merges an operator's active local edits over the newest shared baseline while retaining unrelated museum changes, retries with version preconditions, and rebases additional typing made during an in-flight save.",

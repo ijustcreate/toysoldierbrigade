@@ -500,9 +500,18 @@ export async function saveSharedLanternState(state: LanternState) {
 async function persistSharedLanternState(state: LanternState) {
   if (!LANTERN_WRITE_SERVICE_ROOT) throw new Error("Shared project storage is read-only in local development");
   if (sharedStateUpdatedAt === undefined || !sharedStateBaseline) {
-    const message = "Newer or unsynchronized museum data may exist. Reload the latest site copy before saving.";
-    reportSharedStatePersistence({ status: "conflict", message, updatedAt: sharedStateUpdatedAt ?? null });
-    throw new Error(message);
+    // Startup may have fallen back to the device copy after a temporary read
+    // failure. Retry the authoritative read as part of Save instead of making
+    // the operator reload and risk abandoning the open edit. With no prior
+    // server baseline, the shipped state is the only safe common ancestor we
+    // have: record arrays still merge by id and direct collisions favor the
+    // active device edit.
+    const latest = await loadSharedLanternStateSnapshot({ updateSyncContext: false });
+    if (!latest.state) throw new Error("The newest museum copy could not be loaded safely. Your current edit is still protected on this device.");
+    saveProtectedSnapshot(state, "before-missing-baseline-merge");
+    sharedStateBaseline = structuredClone(initialState);
+    sharedStateUpdatedAt = latest.updatedAt;
+    sharedStateWriteBlocked = true;
   }
   const submittedState = state;
   let stateToSave = state;
