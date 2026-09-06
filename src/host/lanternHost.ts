@@ -521,8 +521,13 @@ async function persistSharedLanternState(state: LanternState) {
     }
   }
   reportSharedStatePersistence({ status: "saved", message: "Saved for everyone.", updatedAt: synchronizedAt });
-  // Remote displays receive only an acknowledged snapshot, so their next poll
-  // cannot undo an optimistic, unsaved schedule relayed by Dashboard.
+  // Broadcast to local display windows only after the server acknowledges the
+  // write, so an optimistic edit cannot be immediately rolled back by polling.
+  try {
+    const channel = new BroadcastChannel(LANTERN_CHANNEL);
+    channel.postMessage(wireHostMessage({ type: "state-update", state }));
+    channel.close();
+  } catch { /* Polling retrieves the saved copy. */ }
   try { postRealtime(wireHostMessage({ type: "state-update", state })); } catch { /* Polling retrieves the saved copy. */ }
 }
 
@@ -753,15 +758,11 @@ export function publishState(state: LanternState, options: { persist?: boolean; 
   if (options.shared !== false) queueSharedStateSave(state, options.immediateShared);
   const message = { type: "state-update", state } satisfies HostMessage;
   const wireMessage = wireHostMessage(message);
-  try {
+  if (options.shared === false) try {
     const channel = new BroadcastChannel(LANTERN_CHANNEL);
     channel.postMessage(wireMessage);
     channel.close();
-  } catch (error) {
-    // Browser privacy settings can block cross-window messaging. The local save
-    // remains valid, and the next open display will read that persisted state.
-    console.warn("Project Lantern could not notify another window of the update.", error);
-  }
+  } catch (error) { console.warn("Project Lantern could not notify another window of the update.", error); }
   return savedLocally;
 }
 
