@@ -1,5 +1,26 @@
 [
   {
+    "id": "DEV-0524",
+    "title": "Preserve hand-edited boards through sync conflicts",
+    "summary": "Saving now merges an operator's active local edits over the newest shared baseline while retaining unrelated museum changes, retries with version preconditions, and rebases additional typing made during an in-flight save.",
+    "author": "Codex",
+    "createdAt": "Sep 6, 2026, 3:20 AM",
+    "areas": [
+      "Board Editor",
+      "Shared state",
+      "Data protection"
+    ],
+    "files": [
+      "src/concurrentStateMerge.ts",
+      "src/host/lanternHost.ts",
+      "src/sharedSaveQueue.ts",
+      "src/App.tsx",
+      "scripts/test-concurrent-state-merge.mjs",
+      "scripts/test-shared-save-queue.mjs"
+    ],
+    "tests": "Production build; worker dry-run; concurrent merge, in-flight save, state authority, preservation, optimistic concurrency, display refresh, donor membership, and TV fixtures; pre-deploy live state read-only fingerprint"
+  },
+  {
     "id": "DEV-0523",
     "title": "Clarify donor list capacity",
     "summary": "Show blank capacity, report names beyond rows × columns as cut off, and grey out those retained selections in the donor picker.",

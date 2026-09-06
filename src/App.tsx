@@ -128,6 +128,7 @@ import {
   uploadLanternAsset
 } from "./host/lanternHost";
 import type { SharedStatePersistenceDetail } from "./host/lanternHost";
+import { mergeConcurrentState } from "./concurrentStateMerge";
 import { attachDisplayVideoReceiver, DirectorVideoBridge } from "./host/videoBridge";
 import type {
   DisplayProfile,
@@ -449,6 +450,9 @@ function ControlCenter() {
       if (!detail) return;
       if (detail.status === "saved") {
         setSharedStateWarning("");
+        if (detail.reconciled && detail.state && detail.submittedState) {
+          setState((current) => mergeConcurrentState(detail.submittedState!, current, detail.state!));
+        }
         return;
       }
       setSharedStateWarning(detail.status === "conflict"
@@ -3980,6 +3984,13 @@ function ThemeStudio({
       const detail = (event as CustomEvent<SharedStatePersistenceDetail>).detail;
       if (!detail) return;
       waitingForSharedBoardSave.current = false;
+      if (detail.status === "saved" && detail.reconciled && detail.state && detail.submittedState) {
+        const nextDraft = mergeConcurrentState(detail.submittedState, draftStateRef.current, detail.state);
+        pendingSavedBoardSnapshot.current = null;
+        draftStateRef.current = nextDraft;
+        setDraftState(nextDraft);
+        setSavedDraftSnapshot(boardEditorDraftSnapshot(detail.state));
+      }
       setSaveStatus(detail.status === "saved" ? "saved" : "sync-error");
       window.setTimeout(() => setSaveStatus("idle"), detail.status === "saved" ? 2600 : 6000);
     };

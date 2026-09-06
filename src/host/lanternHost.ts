@@ -13,6 +13,7 @@ import {
   SHARED_STATE_VERSION_HEADER,
   localStateIsNewer
 } from "../stateAuthority";
+import { mergeConcurrentState } from "../concurrentStateMerge";
 
 export const LANTERN_CHANNEL = "project-lantern-host-v1";
 export const LANTERN_STORAGE_KEY = "project-lantern-state-v1";
@@ -48,17 +49,21 @@ const MAX_BROADCAST_REMINDER_ACKNOWLEDGEMENTS = 250;
 let sharedPersistenceEnabled = false;
 const sharedSaveQueue = createSharedSaveQueue<LanternState>(saveSharedLanternState, (message) => {
   if (message.includes("have not reached")) reportSharedStatePersistence({ status: "error", message });
-}, () => !sharedStateWriteBlocked && sharedStateUpdatedAt !== undefined);
+}, () => sharedStateUpdatedAt !== undefined, (savedRequest, pending, committed) => mergeConcurrentState(savedRequest, pending, committed));
 let stateUsesIndexedDb = false;
 let sharedStateUpdatedAt: string | null | undefined;
+let sharedStateBaseline: LanternState | null = null;
 let sharedStateWriteBlocked = false;
-let sharedSaveSequence: Promise<void> = Promise.resolve();
+let sharedSaveSequence: Promise<unknown> = Promise.resolve();
 
 export const LANTERN_SHARED_STATE_EVENT = "lantern:shared-state-persistence";
 export type SharedStatePersistenceDetail = {
   status: "saved" | "conflict" | "error";
   message: string;
   updatedAt?: string | null;
+  reconciled?: boolean;
+  state?: LanternState;
+  submittedState?: LanternState;
 };
 
 function reportSharedStatePersistence(detail: SharedStatePersistenceDetail) {
@@ -385,7 +390,7 @@ export type AuthoritativeLanternState = {
 };
 
 /** Load the shared copy together with its write time so startup can avoid replacing newer work. */
-export async function loadSharedLanternStateSnapshot(): Promise<SharedLanternStateSnapshot> {
+export async function loadSharedLanternStateSnapshot(options: { updateSyncContext?: boolean } = {}): Promise<SharedLanternStateSnapshot> {
   if (!LANTERN_READ_SERVICE_ROOT) return { state: null, updatedAt: null };
   // A display can remain open for days. Never allow its browser HTTP cache to
   // turn a server check into an older board or schedule snapshot.
@@ -407,10 +412,14 @@ export async function loadSharedLanternStateSnapshot(): Promise<SharedLanternSta
   const body = await response.json() as { state?: LanternState | null; updatedAt?: string | null };
   const responseVersion = response.headers.get(SHARED_STATE_VERSION_HEADER);
   const updatedAt = body.updatedAt ?? (responseVersion && responseVersion !== MISSING_SHARED_STATE_VERSION ? responseVersion : null);
-  sharedStateUpdatedAt = updatedAt;
-  sharedStateWriteBlocked = false;
+  const state = body.state ? normalizeState({ ...initialState, ...body.state, contentVersion: body.state.contentVersion ?? 0 }) : null;
+  if (options.updateSyncContext !== false) {
+    sharedStateUpdatedAt = updatedAt;
+    sharedStateBaseline = state ? structuredClone(state) : null;
+    sharedStateWriteBlocked = false;
+  }
   return {
-    state: body.state ? normalizeState({ ...initialState, ...body.state, contentVersion: body.state.contentVersion ?? 0 }) : null,
+    state,
     updatedAt
   };
 }
@@ -490,45 +499,71 @@ export async function saveSharedLanternState(state: LanternState) {
 
 async function persistSharedLanternState(state: LanternState) {
   if (!LANTERN_WRITE_SERVICE_ROOT) throw new Error("Shared project storage is read-only in local development");
-  if (sharedStateUpdatedAt === undefined || sharedStateWriteBlocked) {
+  if (sharedStateUpdatedAt === undefined || !sharedStateBaseline) {
     const message = "Newer or unsynchronized museum data may exist. Reload the latest site copy before saving.";
     reportSharedStatePersistence({ status: "conflict", message, updatedAt: sharedStateUpdatedAt ?? null });
     throw new Error(message);
   }
-  const response = await fetch(`${LANTERN_WRITE_SERVICE_ROOT}/state`, {
-    method: "PUT",
-    headers: {
-      "Accept": "application/json",
-      "Content-Type": "application/json",
-      [SHARED_STATE_VERSION_HEADER]: sharedStateVersionHeaderValue(sharedStateUpdatedAt)
-    },
-    body: JSON.stringify({ state: serializableSharedState(state) })
-  });
-  const body = await response.json().catch(() => ({})) as { updatedAt?: string | null; error?: string };
-  if (!response.ok) {
+  const submittedState = state;
+  let stateToSave = state;
+  let reconciled = false;
+  let response!: Response;
+  let body: { updatedAt?: string | null; error?: string } = {};
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (sharedStateWriteBlocked) {
+      const latest = await loadSharedLanternStateSnapshot({ updateSyncContext: false });
+      if (!latest.state) throw new Error("The newest museum copy could not be loaded safely.");
+      saveProtectedSnapshot(stateToSave, "before-concurrent-merge");
+      stateToSave = mergeConcurrentState(sharedStateBaseline, stateToSave, latest.state);
+      // A second collision must compare against the snapshot used for this
+      // merge, otherwise remote fields adopted above can be mistaken for local
+      // edits and incorrectly win the next collision.
+      sharedStateBaseline = structuredClone(latest.state);
+      sharedStateUpdatedAt = latest.updatedAt;
+      sharedStateWriteBlocked = false;
+      reconciled = true;
+    }
+    response = await fetch(`${LANTERN_WRITE_SERVICE_ROOT}/state`, {
+      method: "PUT",
+      headers: {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        [SHARED_STATE_VERSION_HEADER]: sharedStateVersionHeaderValue(sharedStateUpdatedAt)
+      },
+      body: JSON.stringify({ state: serializableSharedState(stateToSave) })
+    });
+    body = await response.json().catch(() => ({})) as { updatedAt?: string | null; error?: string };
+    if (response.ok) break;
     const conflict = response.status === 409 || response.status === 428;
-    if (conflict) sharedStateWriteBlocked = true;
-    const message = body.error ?? `Shared project service returned ${response.status}`;
-    reportSharedStatePersistence({ status: conflict ? "conflict" : "error", message, updatedAt: body.updatedAt });
+    if (!conflict) {
+      const message = body.error ?? `Shared project service returned ${response.status}`;
+      reportSharedStatePersistence({ status: "error", message, updatedAt: body.updatedAt });
+      throw new Error(message);
+    }
+    sharedStateWriteBlocked = true;
+  }
+  if (!response.ok) {
+    const message = "The museum copy changed repeatedly while saving. Your current edit is still protected on this device.";
+    reportSharedStatePersistence({ status: "conflict", message, updatedAt: body.updatedAt });
     throw new Error(message);
   }
   sharedStateUpdatedAt = body.updatedAt ?? response.headers.get(SHARED_STATE_VERSION_HEADER) ?? sharedStateUpdatedAt;
+  sharedStateBaseline = structuredClone(stateToSave);
+  sharedStateWriteBlocked = false;
   const synchronizedAt = sharedStateUpdatedAt;
   if (synchronizedAt) {
-    if (stateUsesIndexedDb) await saveIndexedDbLanternState(serializableLocalState(state), synchronizedAt);
-    else {
-      try { window.localStorage.setItem(LANTERN_LOCAL_STATE_UPDATED_AT_KEY, synchronizedAt); } catch { /* Local state remains available. */ }
-    }
+    await saveLanternStateDurably(stateToSave, { updatedAt: synchronizedAt });
   }
-  reportSharedStatePersistence({ status: "saved", message: "Saved for everyone.", updatedAt: synchronizedAt });
+  reportSharedStatePersistence({ status: "saved", message: reconciled ? "Your edit was merged with newer museum changes and saved for everyone." : "Saved for everyone.", updatedAt: synchronizedAt, reconciled, state: reconciled ? stateToSave : undefined, submittedState: reconciled ? submittedState : undefined });
   // Broadcast to local display windows only after the server acknowledges the
   // write, so an optimistic edit cannot be immediately rolled back by polling.
   try {
     const channel = new BroadcastChannel(LANTERN_CHANNEL);
-    channel.postMessage(wireHostMessage({ type: "state-update", state }));
+    channel.postMessage(wireHostMessage({ type: "state-update", state: stateToSave }));
     channel.close();
   } catch { /* Polling retrieves the saved copy. */ }
-  try { postRealtime(wireHostMessage({ type: "state-update", state })); } catch { /* Polling retrieves the saved copy. */ }
+  try { postRealtime(wireHostMessage({ type: "state-update", state: stateToSave })); } catch { /* Polling retrieves the saved copy. */ }
+  return stateToSave;
 }
 
 export async function uploadLanternAsset(file: File) {

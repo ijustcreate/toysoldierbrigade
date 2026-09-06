@@ -1,8 +1,14 @@
 /** Serialize saves and retain the latest edit until the service acknowledges it. */
-export function createSharedSaveQueue<T>(save: (state: T) => Promise<void>, status: (message: string) => void, shouldRetry: (error: unknown) => boolean = () => true) {
+export function createSharedSaveQueue<T>(
+  save: (state: T) => Promise<T | void>,
+  status: (message: string) => void,
+  shouldRetry: (error: unknown) => boolean = () => true,
+  rebasePending?: (savedRequest: T, pending: T, committed: T) => T
+) {
   let pending: { state: T } | undefined;
   let saving = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const waiting = () => pending;
   const schedule = (delay: number) => {
     clearTimeout(timer);
     timer = setTimeout(() => void flush(), delay);
@@ -14,7 +20,11 @@ export function createSharedSaveQueue<T>(save: (state: T) => Promise<void>, stat
     saving = true;
     let failed = false;
     try {
-      await save(next.state);
+      const committed = await save(next.state);
+      const queued = waiting();
+      if (queued && committed !== undefined && rebasePending) {
+        queued.state = rebasePending(next.state, queued.state, committed);
+      }
       status(pending ? "Saving changes to the TV service…" : "");
     } catch (error) {
       if (!shouldRetry(error)) { pending = undefined; return; }

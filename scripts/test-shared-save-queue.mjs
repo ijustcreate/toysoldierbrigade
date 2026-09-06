@@ -32,6 +32,18 @@ let attempts = 0;
 const retry = createSharedSaveQueue(async () => { if (++attempts === 1) throw new Error("offline"); }, () => {});
 retry("retained"); await tick(); await tick();
 assert.equal(attempts, 2, "Retry without requiring another edit");
+const rebasedWrites = [];
+let finishFirst;
+const rebaseQueue = createSharedSaveQueue(state => {
+  rebasedWrites.push(structuredClone(state));
+  if (rebasedWrites.length === 1) return new Promise(resolve => { finishFirst = () => resolve({ ...state, remote: "preserved" }); });
+  return Promise.resolve(state);
+}, () => {}, () => true, (savedRequest, pending, committed) => ({ ...committed, ...pending, local: pending.local, basedOn: savedRequest.local }));
+rebaseQueue({ local: "first" }); await tick();
+rebaseQueue({ local: "typed while saving" });
+finishFirst(); await Promise.resolve(); await Promise.resolve(); await tick();
+assert.equal(rebasedWrites[1].local, "typed while saving", "retain an edit made while a merge save is in flight");
+assert.equal(rebasedWrites[1].remote, "preserved", "carry the acknowledged remote merge into the pending save");
 const app = await readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
 assert.match(app, /if \(canWriteSharedLanternState\(\)\) enableSharedStatePersistence\(\)/);
 assert.match(app, /publishState\(state, \{ persist: false, shared: false \}\)/);
@@ -44,4 +56,4 @@ assert.equal(conflictAttempts, 1, "Version conflicts must not retry or bypass th
 const host = await readFile(new URL("../src/host/lanternHost.ts", import.meta.url), "utf8");
 const publish = host.slice(host.indexOf("export function publishState("), host.indexOf("export function targetIncludes("));
 assert.doesNotMatch(publish, /postRealtime/, "Dashboard must not relay unacknowledged state to remote TVs");
-assert.match(host, /postRealtime\(wireHostMessage\(\{ type: "state-update", state \}\)\)/);
+assert.match(host, /postRealtime\(wireHostMessage\(\{ type: "state-update", state: stateToSave \}\)\)/);
