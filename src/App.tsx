@@ -10653,7 +10653,7 @@ function LabeledSelect({
       </span>
       <select value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
-          <option key={option} value={option}>
+          <option key={option} value={option} style={boardFontOptions.includes(option as BoardFontFamily) ? { fontFamily: option } : undefined}>
             {optionLabels?.[option] ?? labelForTarget(option)}
           </option>
         ))}
