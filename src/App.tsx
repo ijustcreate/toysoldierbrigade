@@ -1,3 +1,4 @@
+import { fitDonorPanel } from "./fitDonorPanel";
 import { createDisplayStateRefreshGuard } from "./displayStateRefresh";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -3908,6 +3909,10 @@ function ThemeStudio({
     onRequestedBoardHandled();
   }, [onRequestedBoardHandled, requestedBoardId, requestedPanelId, state.boardPrograms]);
   const [selectedPanelId, setSelectedPanelId] = useState("");
+  const [donorFitSizes, setDonorFitSizes] = useState<Record<string, number>>({});
+  const reportDonorFit = useCallback((id: string, size: number) => {
+    setDonorFitSizes(current => current[id] === size ? current : { ...current, [id]: size });
+  }, []);
   const [selectedPanelIds, setSelectedPanelIds] = useState<string[]>([]);
   const [panelClipboard, setPanelClipboard] = useState<BoardPanel | null>(null);
   const [newPanelType, setNewPanelType] = useState<BoardPanelType>("message");
@@ -4383,6 +4388,7 @@ function ThemeStudio({
             selectedPanelId={selectedPanel?.id ?? ""}
             selectedPanelIds={selectedPanelIds}
             onSelect={(id, additive) => { setSelectedPanelId(id); setSelectedPanelIds((current) => additive ? (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]) : [id]); }}
+            onDonorFit={reportDonorFit}
             onPatch={patchPanel}
             onRemove={requestRemovePanel}
             onUngroup={(panelId) => { const panel = panels.find((item) => item.id === panelId); if (panel) ungroupPanel(panel); }}
@@ -4485,7 +4491,7 @@ function ThemeStudio({
                   </div>
                 </details>
               </>}
-              {selectedPanel.type !== "image" && <details className="inspector-details" open><summary>Typography</summary><div className="inspector-block"><LabeledSelect label="Element font" info="Typeface used only by this element." value={selectedPanel.fontFamily ?? "Montserrat"} options={boardFontOptions} optionLabels={boardFontLabels} onChange={(fontFamily) => patchPanel(selectedPanel.id, { fontFamily: fontFamily as BoardPanel["fontFamily"] })} /><div className="panel-type-row"><TypographyNumberField label="Font size" info="Type a point size or use the arrows. It applies directly to this element." value={selectedPanel.fontSize ?? (selectedPanel.type === "donors" ? display.nameSize ?? 28 : 24)} min={4} max={240} suffix="px" onChange={(fontSize) => patchPanel(selectedPanel.id, { fontSize })} /><ColorOverrideField label="Font color" value={selectedPanel.textColor} fallback="#F5F2EB" onChange={(textColor) => patchPanel(selectedPanel.id, { textColor })} /></div><div className="typography-number-row"><TypographyNumberField label="Letter spacing" info="Extra space between letters." value={selectedPanel.letterSpacing ?? 0} min={-8} max={40} step={0.1} suffix="px" onChange={(letterSpacing) => patchPanel(selectedPanel.id, { letterSpacing })} /><TypographyNumberField label="Line spacing" info="Space from one line of text to the next." value={selectedPanel.lineHeight ?? 1.2} min={0.6} max={4} step={0.1} suffix="×" onChange={(lineHeight) => patchPanel(selectedPanel.id, { lineHeight })} /></div><div className="typography-toolbar" aria-label="Text formatting"><button type="button" className={selectedPanel.fontWeight === "bold" ? "active" : ""} aria-pressed={selectedPanel.fontWeight === "bold"} title="Bold" onClick={() => patchPanel(selectedPanel.id, { fontWeight: selectedPanel.fontWeight === "bold" ? "normal" : "bold" })}><strong>B</strong></button><button type="button" className={selectedPanel.fontStyle === "italic" ? "active" : ""} aria-pressed={selectedPanel.fontStyle === "italic"} title="Italic" onClick={() => patchPanel(selectedPanel.id, { fontStyle: selectedPanel.fontStyle === "italic" ? "normal" : "italic" })}><em>I</em></button><button type="button" className={selectedPanel.underline ? "active" : ""} aria-pressed={Boolean(selectedPanel.underline)} title="Underline" onClick={() => patchPanel(selectedPanel.id, { underline: !selectedPanel.underline })}><u>U</u></button><button type="button" className={selectedPanel.strikethrough ? "active" : ""} aria-pressed={Boolean(selectedPanel.strikethrough)} title="Strikethrough" onClick={() => patchPanel(selectedPanel.id, { strikethrough: !selectedPanel.strikethrough })}><s>S</s></button></div><div className="typography-choice-row">{selectedPanel.type === "text" && <div className="field"><span>Text flow <InfoDot text="Wrap is the default. Fit one line keeps a heading on one line and reduces its size only when needed." /></span><SegmentedControl value={selectedPanel.textFlow ?? "wrap"} options={[["wrap", "Wrap"], ["fit-one-line", "Fit one line"]]} onChange={(textFlow) => patchPanel(selectedPanel.id, { textFlow: textFlow as BoardPanel["textFlow"] })} /></div>}<div className="field"><span>Text alignment</span><SegmentedControl value={selectedPanel.textAlign ?? "center"} options={[["left", "Left"], ["center", "Center"], ["right", "Right"]]} onChange={(textAlign) => patchPanel(selectedPanel.id, { textAlign: textAlign as BoardPanel["textAlign"] })} /></div><div className="field"><span>Text direction</span><SegmentedControl value={selectedPanel.textDirection ?? "horizontal"} options={[["horizontal", "Horizontal"], ["vertical", "Vertical"]]} onChange={(textDirection) => patchPanel(selectedPanel.id, { textDirection: textDirection as BoardPanel["textDirection"] })} /></div><div className="field"><span>Text arc</span><SegmentedControl value={selectedPanel.textArc ?? "none"} options={[["none", "Straight"], ["up", "Arc up"], ["down", "Arc down"]]} onChange={(textArc) => patchPanel(selectedPanel.id, { textArc: textArc as BoardPanel["textArc"] })} /></div></div></div></details>}
+              {selectedPanel.type !== "image" && <details className="inspector-details" open><summary>Typography</summary><div className="inspector-block"><LabeledSelect label="Element font" info="Typeface used only by this element." value={selectedPanel.fontFamily ?? "Montserrat"} options={boardFontOptions} optionLabels={boardFontLabels} onChange={(fontFamily) => patchPanel(selectedPanel.id, { fontFamily: fontFamily as BoardPanel["fontFamily"] })} /><div className="panel-type-row">{selectedPanel.type === "donors" ? <label className="field"><span>Font size · Max fit</span><input aria-label="Font size · Max fit" type="number" readOnly value={donorFitSizes[selectedPanel.id] ?? ""} /><small>px · Fits every donor. Enlarge the panel for larger text.</small></label> : <TypographyNumberField label="Font size" info="Type a point size or use the arrows. It applies directly to this element." value={selectedPanel.fontSize ?? 24} min={4} max={240} suffix="px" onChange={(fontSize) => patchPanel(selectedPanel.id, { fontSize })} />}<ColorOverrideField label="Font color" value={selectedPanel.textColor} fallback="#F5F2EB" onChange={(textColor) => patchPanel(selectedPanel.id, { textColor })} /></div><div className="typography-number-row"><TypographyNumberField label="Letter spacing" info="Extra space between letters." value={selectedPanel.letterSpacing ?? 0} min={-8} max={40} step={0.1} suffix="px" onChange={(letterSpacing) => patchPanel(selectedPanel.id, { letterSpacing })} /><TypographyNumberField label="Line spacing" info="Space from one line of text to the next." value={selectedPanel.lineHeight ?? 1.2} min={0.6} max={4} step={0.1} suffix="×" onChange={(lineHeight) => patchPanel(selectedPanel.id, { lineHeight })} /></div><div className="typography-toolbar" aria-label="Text formatting"><button type="button" className={selectedPanel.fontWeight === "bold" ? "active" : ""} aria-pressed={selectedPanel.fontWeight === "bold"} title="Bold" onClick={() => patchPanel(selectedPanel.id, { fontWeight: selectedPanel.fontWeight === "bold" ? "normal" : "bold" })}><strong>B</strong></button><button type="button" className={selectedPanel.fontStyle === "italic" ? "active" : ""} aria-pressed={selectedPanel.fontStyle === "italic"} title="Italic" onClick={() => patchPanel(selectedPanel.id, { fontStyle: selectedPanel.fontStyle === "italic" ? "normal" : "italic" })}><em>I</em></button><button type="button" className={selectedPanel.underline ? "active" : ""} aria-pressed={Boolean(selectedPanel.underline)} title="Underline" onClick={() => patchPanel(selectedPanel.id, { underline: !selectedPanel.underline })}><u>U</u></button><button type="button" className={selectedPanel.strikethrough ? "active" : ""} aria-pressed={Boolean(selectedPanel.strikethrough)} title="Strikethrough" onClick={() => patchPanel(selectedPanel.id, { strikethrough: !selectedPanel.strikethrough })}><s>S</s></button></div><div className="typography-choice-row">{selectedPanel.type === "text" && <div className="field"><span>Text flow <InfoDot text="Wrap is the default. Fit one line keeps a heading on one line and reduces its size only when needed." /></span><SegmentedControl value={selectedPanel.textFlow ?? "wrap"} options={[["wrap", "Wrap"], ["fit-one-line", "Fit one line"]]} onChange={(textFlow) => patchPanel(selectedPanel.id, { textFlow: textFlow as BoardPanel["textFlow"] })} /></div>}<div className="field"><span>Text alignment</span><SegmentedControl value={selectedPanel.textAlign ?? "center"} options={[["left", "Left"], ["center", "Center"], ["right", "Right"]]} onChange={(textAlign) => patchPanel(selectedPanel.id, { textAlign: textAlign as BoardPanel["textAlign"] })} /></div><div className="field"><span>Text direction</span><SegmentedControl value={selectedPanel.textDirection ?? "horizontal"} options={[["horizontal", "Horizontal"], ["vertical", "Vertical"]]} onChange={(textDirection) => patchPanel(selectedPanel.id, { textDirection: textDirection as BoardPanel["textDirection"] })} /></div><div className="field"><span>Text arc</span><SegmentedControl value={selectedPanel.textArc ?? "none"} options={[["none", "Straight"], ["up", "Arc up"], ["down", "Arc down"]]} onChange={(textArc) => patchPanel(selectedPanel.id, { textArc: textArc as BoardPanel["textArc"] })} /></div></div></div></details>}
               {selectedPanel.type !== "image" && <details className="inspector-details"><summary>Text treatment</summary><div className="inspector-block">
                 <LabeledSelect label="Text finish" info="Applies only to this selected element." value={selectedPanel.textFinish ?? "flat"} options={["flat", "outline", "gradient", "glow"]} optionLabels={{ flat: "Flat color", outline: "Outline", gradient: "Bottom-up gradient", glow: "Glow" }} onChange={(textFinish) => patchPanel(selectedPanel.id, { textFinish: textFinish as BoardPanel["textFinish"] })} />
                 <label className="switch-row"><input type="checkbox" checked={selectedPanel.textShadowEnabled ?? false} onChange={(event) => patchPanel(selectedPanel.id, { textShadowEnabled: event.target.checked })} /><span>Shadow under text</span></label>
@@ -4629,8 +4635,10 @@ function DirectBoardCanvas({
   onZoom,
   onPan,
   selectedPanelIds = [], widgets = [], onAddWidget, onSaveWidget,
-  presentation = false
+  presentation = false,
+  onDonorFit
 }: {
+  onDonorFit?: (id: string, size: number) => void;
   state: LanternState;
   display: DisplayProfile;
   program: LanternState["boardPrograms"][number];
@@ -4905,7 +4913,7 @@ function DirectBoardCanvas({
         {panel.type === "text" && <AutoFitBoardContent className="direct-single-text-content" fitOneLine={panel.textFlow === "fit-one-line"} fontSize={panel.fontSize} fontFamily={panel.fontFamily ?? "Montserrat"}><EditableBoardText className="board-text" value={panel.title} multiline onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
         {panel.type === "heading" && <AutoFitBoardContent className="direct-single-text-content"><EditableBoardText className="board-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
         {panel.type === "supporters-heading" && <AutoFitBoardContent className="direct-single-text-content"><EditableBoardText className="board-section-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
-        {panel.type === "donors" && <div className="direct-donor-grid" style={directDonorGridStyle(panelDonors(panel), panel.columns ?? program.columns, panel.rows, display, panel)}>{panelDonors(panel).slice(0, (panel.rows ?? Math.max(1, Math.ceil(panelDonors(panel).length / (panel.columns ?? program.columns)))) * (panel.columns ?? program.columns)).map((donor) => <DirectBoardDonorName donor={donor} display={display} panel={panel} palette={palette} onRename={onRenameDonor} key={donor.id} />)}{!panelDonors(panel).length && <button className="empty-board-action" type="button">Select donors or recognition levels in the inspector</button>}</div>}
+        {panel.type === "donors" && <AutoFitDonorGrid panel={panel} onFit={onDonorFit} style={directDonorGridStyle(panelDonors(panel), panel.columns ?? program.columns, panel.rows, display, panel)}>{panelDonors(panel).map((donor) => <DirectBoardDonorName donor={donor} display={display} panel={panel} palette={palette} onRename={onRenameDonor} key={donor.id} />)}{!panelDonors(panel).length && <button className="empty-board-action" type="button">Select donors or recognition levels in the inspector</button>}</AutoFitDonorGrid>}
         {panel.type === "message" && <AutoFitBoardContent className="direct-message-content"><EditableBoardText className="board-eyebrow" value={panel.eyebrow ?? ""} onCommit={(value) => commitText(panel, "eyebrow", value)} /><EditableBoardText className="board-message-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /><EditableBoardText className="board-copy" value={panel.body ?? ""} onCommit={(value) => commitText(panel, "body", value)} /></AutoFitBoardContent>}
         {panel.type === "story" && <><div className="direct-story-image" style={state.board.storyImageUrl ? { backgroundImage: `url(${state.board.storyImageUrl})` } : undefined}><ImageIcon size={22} /></div><AutoFitBoardContent className="direct-story-copy"><EditableBoardText className="board-eyebrow" value={panel.eyebrow ?? ""} onCommit={(value) => commitText(panel, "eyebrow", value)} /><EditableBoardText className="board-message-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /><EditableBoardText className="board-copy" value={panel.body ?? ""} onCommit={(value) => commitText(panel, "body", value)} /></AutoFitBoardContent></>}
         {panel.type === "image" && <div className={`direct-image-panel fit-${panel.imageFit ?? "contain"}`}>{panel.imageUrl ? <img src={resolveProjectAssetUrl(panel.imageUrl)} alt="" style={{ transform: `rotate(${panel.imageRotation ?? 0}deg) scaleX(${panel.imageMirrored ? -1 : 1})` }} /> : <><ImagePlus size={28} /><span>Choose an image in the right menu</span></>}</div>}
@@ -4966,20 +4974,37 @@ function AuthoredBoardPresentation({ state, display, program, highlightedPanelId
   </div>;
 }
 
+function AutoFitDonorGrid({ panel, style, children, onFit }: { panel: BoardPanel; style: React.CSSProperties; children: React.ReactNode; onFit?: (id: string, size: number) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const grid = ref.current;
+    if (!grid) return;
+    let active = true;
+    const fit = () => {
+      if (!active) return;
+      const size = fitDonorPanel(grid);
+      if (size > 0) onFit?.(panel.id, size);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(grid);
+    void document.fonts.ready.then(fit);
+    document.fonts.addEventListener("loadingdone", fit);
+    return () => { active = false; observer.disconnect(); document.fonts.removeEventListener("loadingdone", fit); };
+  }, [children, panel, onFit]);
+  return <div ref={ref} className="direct-donor-grid" style={style}>{children}</div>;
+}
+
 function directDonorGridStyle(donors: Donor[], columns: number, requestedRows: number | undefined, display: DisplayProfile, panel?: BoardPanel): React.CSSProperties {
-  const rowCount = requestedRows ?? Math.max(1, Math.ceil(donors.length / columns));
+  const rowCount = Math.max(requestedRows ?? 1, Math.ceil(donors.length / columns));
   const layout = buildDonorNameGridLayout(donors.map((donor) => ({
     name: donor.name,
     hasSubtext: donorSubtextVisibleForDisplay(display, donor.id) && Boolean(donor.subtext)
   })), columns, rowCount);
   return {
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-    // Keep each row at its content height before distributing any spare room.
-    // This prevents a larger authored gap from stealing the height needed by
-    // a multi-line donor name. The grid can then scroll when the panel cannot
-    // contain all requested rows and gaps at the authored font size.
-    gridTemplateRows: layout.rowUnits.map((units) => `minmax(max-content, ${units}fr)`).join(" "),
-    rowGap: `${panel?.donorRowGap ?? 0}px`,
+    gridTemplateRows: layout.rowUnits.map((units) => `minmax(0, ${units}fr)`).join(" "),
+    rowGap: `min(${panel?.donorRowGap ?? 0}px, ${10 / Math.max(1, rowCount)}%)`,
     columnGap: `${panel?.donorColumnGap ?? 7}%`,
     "--donor-column-cap": columns > 1 ? "5.2cqw" : "8.6cqw"
   } as React.CSSProperties;

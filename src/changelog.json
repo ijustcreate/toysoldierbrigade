@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0512",
+    "title": "Fit donor lists without scrolling",
+    "summary": "Automatically size the full donor list to its panel, update fitting when the panel or fonts change, and show the actual Max fit font size in the editor. Donor panels no longer scroll or omit names beyond a configured row capacity.",
+    "author": "Codex",
+    "createdAt": "Sep 5, 2026, 11:54 PM",
+    "areas": [
+      "Board editor",
+      "TV displays",
+      "Donor panels"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "src/fitDonorPanel.ts"
+    ],
+    "tests": "Playwright full roster and overflow checks, font readout and resize checks, production screenshot, state preservation, production build"
+  },
+  {
     "id": "DEV-0511",
     "title": "Stop TV schedule rollback after Dashboard updates",
     "summary": "Send remote display updates only after the shared save succeeds; retry transient saves and retain current TV state through failed refreshes. Preserve version conflict protections and existing local edits.",
