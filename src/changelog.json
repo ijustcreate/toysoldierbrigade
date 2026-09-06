@@ -1,5 +1,24 @@
 [
   {
+    "id": "DEV-0508",
+    "title": "Prepare native Vega recognition display player",
+    "summary": "Added a Mac-buildable Vega WebView source kit for existing live portrait boards with local display selection, recovery and display-only transport guards; production content remains untouched. Native compilation and unattended device acceptance are still pending.",
+    "author": "Codex",
+    "createdAt": "Sep 5, 2026, 7:28 PM",
+    "areas": [
+      "TV display",
+      "Vega"
+    ],
+    "files": [
+      "vega-display/App.tsx",
+      "vega-display/bridge.js",
+      "vega-display/prepare.mjs",
+      "vega-display/test.mjs",
+      "vega-display/README.md"
+    ],
+    "tests": "node vega-display/test.mjs passed; node --check for bridge and prepare passed; git diff --check passed; native SDK/device checks pending"
+  },
+  {
     "id": "DEV-0507",
     "title": "Preserve untouched donor-list membership",
     "summary": "When a legacy board first customizes one donor panel, every other inherited donor panel now snapshots its prior effective membership before the board-level superset expands, preventing cross-panel additions.",
