@@ -77,6 +77,7 @@ import {
   ZoomOut
 } from "lucide-react";
 import { BabylonDonorWall } from "./display/BabylonDonorWall";
+import { startDisplayWakeLock } from "./displayWakeLock";
 import { ChromaVideo } from "./components/ChromaVideo";
 import { EffectStudio } from "./components/EffectStudio";
 import { ChromaKeySampler } from "./components/ChromaKeySampler";
@@ -242,6 +243,8 @@ const announcementSfxSources = {
 } as const;
 
 export function App() {
+  // Keep dashboard and every live display awake across route changes.
+  useEffect(() => startDisplayWakeLock(), []);
   // The outer app owns special full-screen routes. Unlike the inner dashboard
   // navigation, these must react to hash changes so the TV mode button can
   // actually open its orientation setup without a manual browser refresh.
@@ -10154,7 +10157,7 @@ function DisplayWallApp({ screenIds }: { screenIds: ScreenId[] }) {
     <div className="display-wall-grid">
       {screens.map((screen) => <section className={`display-wall-tile ${orientationClass(screen)}`} key={screen.id}>
         <span>{screen.label} · {screen.orientation}</span>
-        <iframe src={`${appUrl}#/display/${encodeURIComponent(screen.id)}`} title={`${screen.label} display output`} allow="autoplay; fullscreen" />
+        <iframe src={`${appUrl}#/display/${encodeURIComponent(screen.id)}`} title={`${screen.label} display output`} allow="autoplay; fullscreen; screen-wake-lock" />
       </section>)}
     </div>
   </main>;

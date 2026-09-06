@@ -1,5 +1,25 @@
 [
   {
+    "id": "DEV-0502",
+    "title": "Keep dashboard and live boards awake",
+    "summary": "Dashboard and all live board pages now request a best-effort screen wake lock, retry after browser release or rejection, and recover on visibility and focus. Shared app ownership keeps coverage across navigation; browser and TV power policies can still prevent indefinite operation.",
+    "author": "Codex",
+    "createdAt": "Sep 5, 2026, 6:38 PM",
+    "areas": [
+      "Dashboard",
+      "Live boards",
+      "TV displays"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/displayWakeLock.ts",
+      "scripts/test-display-wake-lock.mjs",
+      "package.json",
+      "README.md"
+    ],
+    "tests": "Production build; behavioral wake-lock lifecycle suite; TV-safe renderer and sideways-mounted display fixtures"
+  },
+  {
     "id": "DEV-0501",
     "title": "Improve donor roster and profile workflow",
     "summary": "Board editors can find and manage donors in a full roster, while donor profiles now support board-first list assignment and image management.",

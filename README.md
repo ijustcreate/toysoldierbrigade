@@ -34,6 +34,15 @@ desktop application that can open dedicated display windows and persist
 operational data on the museum computer.
 
 > [!IMPORTANT]
+> The dashboard and all live board pages request a screen wake lock while visible,
+> including full-screen use on Fire TV Stick 4K Select with Amazon Silk when supported.
+> They retry on focus, visibility changes, and every minute when no lock is held.
+> Browser or TV operating-system power policies can reject or release the lock;
+> this cannot guarantee indefinite wakefulness or simulate remote-control input.
+> Test on the actual TV beyond its usual sleep interval and adjust available
+> device sleep, screensaver, or eco settings if necessary.
+
+> [!IMPORTANT]
 > Use fictional or non-sensitive donor information in the public prototype.
 > Do not enter passwords, payment information, private donor records, or other
 > confidential museum data.

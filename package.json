@@ -1,5 +1,6 @@
 {
   "name": "project-lantern",
+  "description": "Museum recognition-board control center with Fire TV Stick 4K Select display support in Amazon Silk.",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,6 +11,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "bugs": "node scripts/lantern-bugs.mjs",
     "test:bug-workflow": "node scripts/test-bug-workflow.mjs",
+    "test:display-wake-lock": "node scripts/test-display-wake-lock.mjs",
     "test:sideways-mounted-display": "node scripts/test-sideways-mounted-display.mjs",
     "test:tv-safe-board-renderer": "node scripts/test-tv-safe-board-renderer.mjs",
     "changelog": "node scripts/lantern-changelog.mjs",
