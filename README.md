@@ -6,7 +6,8 @@
   **Museum Donor Board Control Center**
 
   Manage donor records, design recognition boards, schedule display content,
-  compose announcements and broadcasts, and review feedback from one workspace.
+  compose announcements and broadcasts, and run unattended recognition displays
+  on Fire TV Stick 4K Select devices using Amazon Silk.
 
   [**Open the live Control Center →**](https://ijustcreate.github.io/toysoldierbrigade/)
   &nbsp;&nbsp;·&nbsp;&nbsp;
@@ -32,6 +33,29 @@ The hosted site is for interface testing, workflow review, and feedback. The
 planned museum installation uses the same React interface inside a Tauri
 desktop application that can open dedicated display windows and persist
 operational data on the museum computer.
+
+### Fire TV display target
+
+The web display target is **Fire TV Stick 4K Select** using the built-in
+**Amazon Silk** browser. Open TV mode, choose the mounted orientation and
+display, then leave the resulting full-screen display route visible.
+
+Display routes request the browser's
+[Screen Wake Lock API](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API)
+and retry the request when the page becomes visible or focused and once per
+minute if no lock is held. The existing five-second content poll keeps boards
+current; it does not simulate remote-control input and cannot override Fire OS
+power policy.
+
+Silk or Fire OS may reject or later release a web wake lock. For an unattended
+installation, also disable the Fire TV **Are you still watching?** behavior in
+device Settings when that option is available, and disable the television's
+own sleep/eco timer. Amazon notes that signage deployments can request an idle
+exemption through Developer Support in its
+[Fire TV wake-lock requirements](https://developer.amazon.com/docs/fire-tv/multimedia-app-requirements.html#requirements-wake-locks).
+A future native Vega OS wrapper can use the platform's real keep-screen-on
+capability and is the preferred option when the browser fallback is not
+reliable enough for the installation.
 
 > [!IMPORTANT]
 > The dashboard and all live board pages request a screen wake lock while visible,

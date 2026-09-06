@@ -42,12 +42,14 @@ export class DirectorVideoBridge {
   private activeTarget: TargetScreen = "display-2";
   private activeTargets: ScreenId[] | undefined;
   private sourceSession = 0;
+  private mobilePresenter = false;
 
   constructor(private onStatus: StatusListener) {
   }
 
   async start(target: TargetScreen, source: LiveSource = "demo", videoDeviceId?: string, audioDeviceId?: string, targets?: ScreenId[]) {
     this.clearMedia();
+    this.mobilePresenter = false;
     this.activeTarget = target;
     this.activeTargets = targets?.length ? targets : undefined;
     this.onStatus("connecting", "Preparing local video.");
@@ -63,6 +65,7 @@ export class DirectorVideoBridge {
 
   async startMediaStream(target: TargetScreen, stream: MediaStream, detail = "Using recorded video.", targets?: ScreenId[]) {
     this.clearMedia();
+    this.mobilePresenter = isMobilePresenter();
     this.activeTarget = target;
     this.activeTargets = targets?.length ? targets : undefined;
     // Desktop webcams can expose a hardware-native track that a smart TV
@@ -96,7 +99,7 @@ export class DirectorVideoBridge {
       if (this.stream) {
         const sender = peer.addTrack(track, this.stream);
         if (track.kind === "video") {
-          preferTvSafeVideoCodec(peer, sender);
+          if (!this.mobilePresenter) preferTvSafeVideoCodec(peer, sender);
           // Keep desktop webcams within the range of embedded TV hardware
           // decoders. Phone cameras normally choose this kind of tier on their
           // own; a C310/desktop browser can otherwise offer a much heavier
@@ -159,6 +162,17 @@ export class DirectorVideoBridge {
         source: "control",
         sdp: peer.localDescription?.toJSON() ?? offer
       } satisfies HostMessage);
+      // A lost offer/answer can otherwise leave this peer in "connecting"
+      // forever. Display presence heartbeats continue, so retry negotiation
+      // after a short grace period while preserving healthy connections.
+      const negotiationTimer = window.setTimeout(() => {
+        if (this.peers.get(screenId) !== peer || peer.connectionState === "connected") return;
+        peer.close();
+        this.peers.delete(screenId);
+        this.pendingRemoteCandidates.delete(screenId);
+        void this.connect(screenId);
+      }, 6_000);
+      this.reconnectTimers.set(screenId, negotiationTimer);
     } catch {
       if (this.peers.get(screenId) === peer) this.peers.delete(screenId);
       this.pendingRemoteCandidates.delete(screenId);
