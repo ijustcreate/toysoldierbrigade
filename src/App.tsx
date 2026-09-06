@@ -92,6 +92,7 @@ import { VisitorMessageManager } from "./components/VisitorMessageManager";
 import { LanternConfirmDialog, LanternNotice, LanternTextPromptDialog } from "./components/LanternDialog";
 import { parseCurrencyAmount } from "./donorDomain";
 import { buildDonorNameGridLayout, splitDonorNameLines } from "./donorNameLayout";
+import { donorRosterFacetOptions, donorRosterFacets, filterDonorRoster, updateDonorRosterMembership } from "./donorRoster";
 import { AnimatedDonorName, BoardDonorPresentationEditor, recognitionIconGlyph } from "./components/BoardDonorPresentationEditor";
 import { clearBoardDonorStyle, patchBoardDonorStyle, resolveBoardDonorPresentation } from "./boardPresentation";
 import { formatMediaDeviceError, mediaDeviceManager, type MediaDeviceLease } from "./host/mediaDeviceManager";
@@ -3909,18 +3910,16 @@ function ThemeStudio({
   const panels = selectedProgram?.panels ?? [];
   const selectedPanel = panels.find((panel) => panel.id === selectedPanelId);
   const selectedDonorTierFilters = selectedPanel?.type === "donors" ? selectedPanel.donorTierFilter ?? [] : [];
-  const rosterPledgeTypes = [...new Set(state.donors.filter((donor) => donor.active).map((donor) => donor.donationType).filter((type): type is NonNullable<Donor["donationType"]> => Boolean(type)))].sort();
-  const filteredBoardDonors = state.donors
-    .filter((donor) => donor.active
-      && donor.name.toLocaleLowerCase().includes(donorSearch.trim().toLocaleLowerCase())
-      && (rosterLevelFilter === "all" || donor.tier === rosterLevelFilter)
-      && (rosterPledgeFilter === "all" || donor.donationType === rosterPledgeFilter))
+  const selectedDonorListIds = selectedPanel?.type === "donors" ? selectedPanel.donorIds ?? selectedProgram?.donorIds ?? [] : [];
+  const rosterPledgeTypes = [...new Set(state.donors.map((donor) => donor.donationType).filter((type): type is NonNullable<Donor["donationType"]> => Boolean(type)))].sort();
+  const rosterFacetOptions = donorRosterFacetOptions(state.donors, state.givingPrograms);
+  const filteredBoardDonors = filterDonorRoster(state.donors, state.givingPrograms, { query: donorSearch, facet: rosterLevelFilter, donationType: rosterPledgeFilter })
     .sort((a, b) => rosterSort === "name-desc"
       ? b.name.localeCompare(a.name)
       : rosterSort === "level"
         ? a.tier.localeCompare(b.tier) || a.name.localeCompare(b.name)
         : a.name.localeCompare(b.name));
-  const donorListRoster = selectedProgram?.donorIds
+  const donorListRoster = selectedDonorListIds
     .map((donorId) => state.donors.find((donor) => donor.id === donorId))
     .filter((donor): donor is Donor => donor !== undefined)
     .filter((donor) => donor.active && (!selectedDonorTierFilters.length || selectedDonorTierFilters.includes(donor.tier))) ?? [];
@@ -4205,30 +4204,28 @@ function ThemeStudio({
     });
   };
 
-  const toggleProgramDonor = (donorId: string, checked: boolean) => {
-    if (!selectedProgram) return;
-    const donorIds = checked ? [...new Set([...selectedProgram.donorIds, donorId])] : selectedProgram.donorIds.filter((id) => id !== donorId);
-    setProgramDonorIds(donorIds);
+  const toggleSelectedDonorListMember = (donorId: string, checked: boolean) => {
+    setSelectedDonorListIds(updateDonorRosterMembership(selectedDonorListIds, [donorId], checked ? "add" : "remove"));
   };
 
-  const setProgramDonorIds = (donorIds: string[]) => {
-    if (!selectedProgram) return;
+  const setSelectedDonorListIds = (donorIds: string[]) => {
+    if (!selectedProgram || selectedPanel?.type !== "donors") return;
     const normalizedDonorIds = [...new Set(donorIds)];
-    const roster = new Set(normalizedDonorIds);
+    const selectedPanelId = selectedPanel.id;
     updateDraftState((current) => ({
       ...current,
       donors: current.donors.map((donor) => ({
         ...donor,
-        boardIds: roster.has(donor.id)
+        boardIds: normalizedDonorIds.includes(donor.id)
           ? [...new Set([...(donor.boardIds ?? []), selectedProgram.id])]
-          : (donor.boardIds ?? []).filter((id) => id !== selectedProgram.id)
+          : donor.boardIds
       })),
       boardPrograms: current.boardPrograms.map((program) => program.id === selectedProgram.id ? {
         ...program,
-        donorIds: normalizedDonorIds,
-        // The roster picker is board-wide. Keep every donor-list panel aligned
-        // so an older panel-specific roster cannot hide a newly added donor.
-        panels: program.panels?.map((panel) => panel.type === "donors" ? { ...panel, donorIds: normalizedDonorIds } : panel)
+        // Program membership remains a superset because the renderer first
+        // applies the board roster, then the selected donor-list membership.
+        donorIds: [...new Set([...program.donorIds, ...normalizedDonorIds])],
+        panels: program.panels?.map((panel) => panel.id === selectedPanelId ? { ...panel, donorIds: normalizedDonorIds } : panel)
       } : program)
     }));
   };
@@ -4407,24 +4404,22 @@ function ThemeStudio({
                   <label className="field"><span>Body <InfoDot text="Supporting copy shown in this selected element." /></span><textarea rows={5} value={selectedPanel.body ?? ""} onChange={(event) => patchPanel(selectedPanel.id, { body: event.target.value })} /></label>
                 </>}
                 {selectedPanel.type === "image" && <><div className="field"><span>Stored images <InfoDot text="Browse images already uploaded to this site. The brass accent is automatically tightened to a compact line panel." /></span><button type="button" className="image-library-picker-trigger" onClick={() => setImagePickerOpen(true)}><ImageIcon size={16} /><span>{boardImageLibrary.find((image) => image.imageUrl === selectedPanel.imageUrl)?.name ?? "Choose from image library"}</span><ChevronRight size={16} /></button></div><label className="command-button secondary compact image-upload-button"><Upload size={15} /> {selectedPanel.imageUrl ? "Replace image" : "Choose PNG or image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; void readSharedImageFile(file, (imageUrl) => patchPanel(selectedPanel.id, { imageUrl, imageFit: "contain" })); }} /></label><LabeledSelect label="Image fit" info="Contain keeps the whole image visible; cover fills the element." value={selectedPanel.imageFit ?? "contain"} options={["contain", "cover"]} optionLabels={{ contain: "Contain", cover: "Cover" }} onChange={(imageFit) => patchPanel(selectedPanel.id, { imageFit: imageFit as BoardPanel["imageFit"] })} /><Slider label="Rotate image" info="Turns this image within its panel." value={selectedPanel.imageRotation ?? 0} min={0} max={360} onChange={(imageRotation) => patchPanel(selectedPanel.id, { imageRotation })} /><label className="switch-row"><input type="checkbox" checked={selectedPanel.imageMirrored ?? false} onChange={(event) => patchPanel(selectedPanel.id, { imageMirrored: event.target.checked })} /><span>Mirror image horizontally</span></label></>}
+                {selectedPanel.type === "donors" && <div className="inspector-block board-roster-browser">
+                  <div className="board-roster-browser-head"><div><strong>Donors in this list</strong><small>{selectedDonorListIds.length} selected · {filteredBoardDonors.length} shown</small></div><span>Check a donor to include them</span></div>
+                  <label className="board-roster-search"><Search size={15} /><span className="sr-only">Find a donor</span><input value={donorSearch} onChange={(event) => setDonorSearch(event.target.value)} placeholder="Search directly by donor name" /></label>
+                  <div className="board-roster-filters" aria-label="Filter donor-list membership">
+                    <label><span>Giving level or tag</span><select value={rosterLevelFilter} onChange={(event) => setRosterLevelFilter(event.target.value)}><option value="all">All levels and tags</option>{rosterFacetOptions.map((facet) => <option key={facet} value={facet}>{facet}</option>)}</select></label>
+                    <label><span>Donation / gift type</span><select value={rosterPledgeFilter} onChange={(event) => setRosterPledgeFilter(event.target.value)}><option value="all">All types</option>{rosterPledgeTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+                    <label><span>Sort</span><select value={rosterSort} onChange={(event) => setRosterSort(event.target.value as typeof rosterSort)}><option value="name-asc">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="level">Level, then name</option></select></label>
+                  </div>
+                  <div className="board-roster-actions"><button type="button" onClick={() => setSelectedDonorListIds(updateDonorRosterMembership(selectedDonorListIds, filteredBoardDonors.map((donor) => donor.id), "add"))}>Add shown</button><button type="button" onClick={() => setSelectedDonorListIds(updateDonorRosterMembership(selectedDonorListIds, filteredBoardDonors.map((donor) => donor.id), "remove"))}>Remove shown</button><button type="button" className="danger" onClick={() => setSelectedDonorListIds([])}>Clear this list</button></div>
+                  <div className="board-donor-picker full-roster-picker">{filteredBoardDonors.map((donor) => { const selected = selectedDonorListIds.includes(donor.id); const facets = donorRosterFacets(donor, state.givingPrograms); return <label key={donor.id} className={selected ? "selected" : ""}><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedDonorListMember(donor.id, event.target.checked)} /><span><strong>{donor.name}</strong><small>{facets.slice(0, 3).join(" · ") || "No giving level or tags"}{donor.donationType ? ` · ${donor.donationType}` : ""}{!donor.active ? " · Inactive" : ""}</small></span><b>{selected ? "Included" : "Excluded"}</b></label>; })}{!filteredBoardDonors.length && <p className="board-roster-empty">No donors match these filters. Existing selections remain unchanged.</p>}</div>
+                  <p className="field-note">Search and filters only change which rows are shown. Hidden donor selections stay in this list until you explicitly remove them.</p>
+                </div>}
               </section>
               {selectedPanel.type === "donors" && <>
                 <div className="field"><span>Names in each row</span><SegmentedControl value={String(selectedPanel.columns ?? selectedProgram.columns)} options={[["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"]]} onChange={(value) => patchPanel(selectedPanel.id, { columns: Number(value) as BoardPanel["columns"] })} /></div>
                 <div className="two-col"><Slider label="Row spacing" info="Space between donor names. Lower this to pack rows closer without shrinking the text." value={selectedPanel.donorRowGap ?? 0} min={0} max={32} onChange={(donorRowGap) => patchPanel(selectedPanel.id, { donorRowGap })} /><Slider label="Column spacing" info="Space between donor-name columns. Lower this to make the list tighter." value={selectedPanel.donorColumnGap ?? 7} min={0} max={30} onChange={(donorColumnGap) => patchPanel(selectedPanel.id, { donorColumnGap })} /></div>
-                <details className="inspector-details roster-details">
-                  <summary>Choose board roster <span>{donorListRoster.length} selected for this list</span></summary>
-                  <div className="inspector-block board-roster-browser">
-                    <div className="board-roster-browser-head"><div><strong>All supporters</strong><small>{donorListRoster.length} on this board · {filteredBoardDonors.length} shown</small></div><span>Click a name to add or remove it</span></div>
-                    <label className="board-roster-search"><Search size={15} /><span className="sr-only">Find a supporter</span><input value={donorSearch} onChange={(event) => setDonorSearch(event.target.value)} placeholder="Find a supporter by name" /></label>
-                    <div className="board-roster-filters" aria-label="Filter board roster">
-                      <label><span>Recognition level</span><select value={rosterLevelFilter} onChange={(event) => setRosterLevelFilter(event.target.value)}><option value="all">All levels</option>{state.recognitionSettings.tiers.map((tier) => <option key={tier} value={tier}>{tier}</option>)}</select></label>
-                      <label><span>Pledge / gift type</span><select value={rosterPledgeFilter} onChange={(event) => setRosterPledgeFilter(event.target.value)}><option value="all">All types</option>{rosterPledgeTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
-                      <label><span>Sort</span><select value={rosterSort} onChange={(event) => setRosterSort(event.target.value as typeof rosterSort)}><option value="name-asc">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="level">Level, then name</option></select></label>
-                    </div>
-                    <div className="board-roster-actions"><button type="button" onClick={() => setProgramDonorIds([...new Set([...selectedProgram.donorIds, ...filteredBoardDonors.map((donor) => donor.id)])])}>Add shown</button><button type="button" onClick={() => setProgramDonorIds(selectedProgram.donorIds.filter((id) => !filteredBoardDonors.some((donor) => donor.id === id)))}>Remove shown</button><button type="button" className="danger" onClick={() => setProgramDonorIds([])}>Clear roster</button></div>
-                    <div className="board-donor-picker full-roster-picker">{filteredBoardDonors.map((donor) => <label key={donor.id} className={selectedProgram.donorIds.includes(donor.id) ? "selected" : ""}><input type="checkbox" checked={selectedProgram.donorIds.includes(donor.id)} onChange={(event) => toggleProgramDonor(donor.id, event.target.checked)} /><span><strong>{donor.name}</strong><small>{donor.tier || "No recognition level"}{donor.donationType ? ` · ${donor.donationType}` : ""}</small></span><b>{selectedProgram.donorIds.includes(donor.id) ? "Added" : "Add"}</b></label>)}{!filteredBoardDonors.length && <p className="board-roster-empty">No supporters match these filters. Try a different name, level, or pledge type.</p>}</div>
-                  </div>
-                </details>
                 <details className="inspector-details" open>
                   <summary>Scrolling credits</summary>
                   <div className="inspector-block">
@@ -4436,7 +4431,7 @@ function ThemeStudio({
                 <details className="inspector-details" open><summary>Donor presentation</summary><div className="inspector-block">
                   <BoardDonorPresentationEditor
                     scope={selectedPanel}
-                    donors={selectedProgram.donorIds.map((donorId) => state.donors.find((donor) => donor.id === donorId)).filter((donor): donor is Donor => Boolean(donor))}
+                    donors={selectedDonorListIds.map((donorId) => state.donors.find((donor) => donor.id === donorId)).filter((donor): donor is Donor => Boolean(donor))}
                     fallbacks={{ fontFamily: selectedPanel.fontFamily ?? "Montserrat", nameColor: selectedPanel.textColor ?? boardPreviewPalette(selectedProgram.palette).text, accentColor: boardPreviewPalette(selectedProgram.palette).accent }}
                     fontOptions={boardFontOptions}
                     fontLabels={boardFontLabels}
