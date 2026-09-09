@@ -1,5 +1,7 @@
 # L09 — Correct schedule units and unify what each display should show
 
+**Confirmed policy:** no active scheduled content means physical TV off; active newly published/scheduled content should wake it. Recompute activity after interruptions. L23 owns the hardware power transport and must not substitute a black browser canvas for confirmed standby. Read `../RELEASE_DECISIONS.md`.
+
 **Priority:** P1
 
 **Type:** Code / scheduling

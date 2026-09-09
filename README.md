@@ -7,7 +7,7 @@
 
   Manage donor records, design recognition boards, schedule display content,
   compose announcements and broadcasts, and run unattended recognition displays
-  on Fire TV Stick 4K Select devices using Amazon Silk.
+  on dedicated mini PCs connected to landscape and portrait TVs.
 
   [**Open the live Control Center →**](https://ijustcreate.github.io/toysoldierbrigade/)
   &nbsp;&nbsp;·&nbsp;&nbsp;
@@ -29,37 +29,40 @@ Project Lantern is an active prototype for the Children’s Museum of Stockton.
 It is designed to become a durable, staff-friendly control center for portrait
 and landscape donor-recognition displays.
 
-The hosted site is for interface testing, workflow review, and feedback. The
-planned museum installation uses the same React interface inside a Tauri
-desktop application that can open dedicated display windows and persist
-operational data on the museum computer.
+The hosted control center supports web editing from the museum or remotely.
+Each museum TV has its own mini PC that runs the display player. Version 2 is
+being prepared on a separate branch; see the
+[release decisions](docs/release-readiness/RELEASE_DECISIONS.md) and
+[rollback baselines](docs/release-readiness/BRANCH_BASELINE.md).
 
-### Fire TV display target
+### Mini-PC display target
 
-The web display target is **Fire TV Stick 4K Select** using the built-in
-**Amazon Silk** browser. Open TV mode, choose the mounted orientation and
-display, then leave the resulting full-screen display route visible.
+The museum installation uses two onn 75-inch 4K TVs, each with a dedicated
+Glorlin Ryzen 5 6600H mini PC (16 GB memory, 512 GB SSD, as selected in the
+hardware discussion). Verify the installed OS and actual output modes on site.
+
+| Location | Orientation | Intended 4K output |
+| --- | --- | --- |
+| Main hall | Landscape | 3840 × 2160 |
+| Entrance | Portrait | 2160 × 3840 |
+
+Generic browser TV setup and mount-orientation controls remain available.
+Use only one rotation mechanism: OS portrait orientation should not also be
+rotated in the player. The old Amazon-specific wrapper and remote-control
+integration are retired; their source remains in the Version 1 backup branches.
 
 Display routes request the browser's
 [Screen Wake Lock API](https://developer.mozilla.org/en-US/docs/Web/API/Screen_Wake_Lock_API)
 and retry the request when the page becomes visible or focused and once per
 minute if no lock is held. The existing five-second content poll keeps boards
-current; it does not simulate remote-control input and cannot override Fire OS
-power policy.
-
-Silk or Fire OS may reject or later release a web wake lock. For an unattended
-installation, also disable the Fire TV **Are you still watching?** behavior in
-device Settings when that option is available, and disable the television's
-own sleep/eco timer. Amazon notes that signage deployments can request an idle
-exemption through Developer Support in its
-[Fire TV wake-lock requirements](https://developer.amazon.com/docs/fire-tv/multimedia-app-requirements.html#requirements-wake-locks).
-A future native Vega OS wrapper can use the platform's real keep-screen-on
-capability and is the preferred option when the browser fallback is not
-reliable enough for the installation.
+current; it does not simulate remote-control input or physically switch TV
+power. Physical off/wake based on the schedule requires a verified TV-control
+transport and an awake, connected PC agent. That hardware integration is a
+separate Version 2 acceptance requirement, not a completed browser feature.
 
 > [!IMPORTANT]
 > The dashboard and all live board pages request a screen wake lock while visible,
-> including full-screen use on Fire TV Stick 4K Select with Amazon Silk when supported.
+> when the browser supports it.
 > They retry on focus, visibility changes, and every minute when no lock is held.
 > Browser or TV operating-system power policies can reject or release the lock;
 > this cannot guarantee indefinite wakefulness or simulate remote-control input.

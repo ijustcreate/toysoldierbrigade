@@ -1,5 +1,7 @@
 # L15 — Prepare and verify one supported mini-PC player installation
 
+Hardware selection recovered: Glorlin Ryzen 5 6600H, 16 GB RAM, 512 GB SSD, Amazon ASIN B0GXTWKFHL. Verify the delivered Windows edition. The PC must stay awake/connected while its TV is off; coordinate with L23 for real standby/wake rather than using Fire-specific code. See `../RELEASE_DECISIONS.md`.
+
 **Priority:** P1
 
 **Type:** Code / installation; human-assisted

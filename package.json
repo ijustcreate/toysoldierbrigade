@@ -1,6 +1,6 @@
 {
   "name": "project-lantern",
-  "description": "Museum recognition-board control center with Fire TV Stick 4K Select display support in Amazon Silk.",
+  "description": "Museum recognition-board control center with dedicated mini-PC players for landscape and portrait TVs.",
   "private": true,
   "version": "0.1.0",
   "type": "module",

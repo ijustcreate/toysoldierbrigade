@@ -81,6 +81,7 @@ import { BabylonDonorWall } from "./display/BabylonDonorWall";
 import { startDisplayWakeLock } from "./displayWakeLock";
 import { ChromaVideo } from "./components/ChromaVideo";
 import { EffectStudio } from "./components/EffectStudio";
+import { TrackingNotice } from "./components/TrackingNotice";
 import { ChromaKeySampler } from "./components/ChromaKeySampler";
 import { AuditHistoryPanel } from "./components/AuditHistoryPanel";
 import { AudioLevelMeter } from "./components/AudioLevelMeter";
@@ -7592,7 +7593,8 @@ function LivePreviewPanel({
         </section>}
 
         <section className="effect-settings-card face-settings-card">
-          <div className="effect-card-heading"><div><strong>Face effects</strong><span>Choose a friendly style, then turn on the camera preview.</span></div><b>{trackingStatus?.phase === "tracking" || trackingStatus?.phase === "degraded" ? `${Math.round(trackingStatus.renderedFps)} FPS` : trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "DETECTING" : "LOCAL"}</b></div>
+          <div className="effect-card-heading"><div><strong>Face effects & tracking</strong><span>Experimental camera tracking and wearables.</span></div><b>{trackingStatus?.phase === "tracking" || trackingStatus?.phase === "degraded" ? `${Math.round(trackingStatus.renderedFps)} FPS` : trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "DETECTING" : "LOCAL"}</b></div>
+          <TrackingNotice />
           <label className="switch-row face-effect-toggle"><input type="checkbox" checked={state.live.effects.faceTracking} onChange={(event) => {
             const enabled = event.target.checked;
             patchLive({ effects: {
@@ -7618,6 +7620,8 @@ function LivePreviewPanel({
           {state.live.effects.handProp && state.live.effects.handProp !== "none" && <div className="accessory-options hand-prop-hand"><span>Holding hand</span>{(["left", "right"] as const).map((hand) => <button type="button" key={hand} className={(state.live.effects.handPropHand ?? "right") === hand ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, handPropHand: hand } })}>{hand === "left" ? "Left" : "Right"}</button>)}</div>}
           {state.live.effects.hatEnabled && state.live.effects.hatStyle === "wizard" && <div className="two-col wizard-rig-controls"><Slider label="Wizard springiness" info="How eagerly the three linked hat segments follow head movement." value={Math.round((state.live.effects.wizardSpringiness ?? .56) * 100)} min={0} max={100} onChange={(value) => patchLive({ effects: { ...state.live.effects, wizardSpringiness: value / 100 } })} /><Slider label="Wizard damping" info="How quickly the floppy tip settles after movement." value={Math.round((state.live.effects.wizardDamping ?? .7) * 100)} min={0} max={100} onChange={(value) => patchLive({ effects: { ...state.live.effects, wizardDamping: value / 100 } })} /></div>}
         </section>
+        <details className="experimental-tracking-tools">
+        <summary>Tracking calibration & advanced tools<span>Under construction · full puppets deferred</span></summary>
         <EffectStudio
           studio={state.effectStudio}
           effects={state.live.effects}
@@ -7627,6 +7631,7 @@ function LivePreviewPanel({
           onStudioChange={(effectStudio) => updateState((current) => ({ ...current, effectStudio }))}
           onEffectsChange={(effects) => patchLive({ effects })}
         />
+        </details>
       </div>}
       </aside>
       </div>
@@ -8635,7 +8640,7 @@ function ScreensView({
           <div><span className={roomStream ? "live-indicator active" : "live-indicator"} /><strong>{roomScreen.label}</strong><small>{roomStream ? "Camera Active" : "Camera inactive"} · {roomPopoutRoot ? "separate movable window" : "drag within app"}</small></div>
           <div>
             {!roomPopoutRoot && <button type="button" className="icon-button" onClick={() => popOutRoomView(roomScreen)} title="Pop out to a movable window"><ExternalLink size={18} /></button>}
-            <button type="button" className={roomScreen.roomFaceTrackingEnabled ? "icon-button active" : "icon-button"} onClick={() => patchDisplay(roomScreen.id, { roomFaceTrackingEnabled: !(roomScreen.roomFaceTrackingEnabled ?? false) })} title={roomScreen.roomFaceTrackingEnabled ? "Turn off room tracking" : "Turn on room tracking"}><ScanFace size={18} /></button>
+            <button type="button" className={roomScreen.roomFaceTrackingEnabled ? "icon-button active" : "icon-button"} onClick={() => patchDisplay(roomScreen.id, { roomFaceTrackingEnabled: !(roomScreen.roomFaceTrackingEnabled ?? false) })} title={roomScreen.roomFaceTrackingEnabled ? "Turn off room tracking (under construction)" : "Turn on room tracking (under construction)"}><ScanFace size={18} /></button>
             <button type="button" className={roomMuted ? "icon-button active" : "icon-button"} onClick={() => setRoomMuted((current) => !current)} title={roomMuted ? "Unmute room audio" : "Mute room audio"}>{roomMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>
             <button type="button" className={roomMirrored ? "icon-button active" : "icon-button"} onClick={() => toggleRoomMirror(roomScreen.id)} title={roomMirrored ? "Show room camera normally" : "Mirror room camera for monitoring"}><Rotate3d size={18} /></button>
             <button type="button" className="icon-button" onClick={closeRoomView} title="Close room view"><X size={18} /></button>
@@ -8704,7 +8709,7 @@ function ScreensView({
           <LabeledSelect label="Room webcam" info="Camera physically facing visitors at this monitor." value={editingScreen.roomVideoDeviceId ?? ""} options={roomCameraOptions.options} optionLabels={roomCameraOptions.labels} onChange={(value) => patchDisplay(editingScreen.id, { roomVideoDeviceId: value || undefined })} />
           <LabeledSelect label="Room microphone" info="Microphone used to hear people near this monitor." value={editingScreen.roomAudioDeviceId ?? ""} options={roomMicOptions.options} optionLabels={roomMicOptions.labels} onChange={(value) => patchDisplay(editingScreen.id, { roomAudioDeviceId: value || undefined })} />
           <label className="switch-row"><input type="checkbox" checked={editingScreen.roomAudioEnabled ?? true} onChange={(event) => patchDisplay(editingScreen.id, { roomAudioEnabled: event.target.checked })} /><Volume2 size={16} /><span>Capture room audio</span></label>
-          <label className="switch-row"><input type="checkbox" checked={editingScreen.roomFaceTrackingEnabled ?? false} onChange={(event) => patchDisplay(editingScreen.id, { roomFaceTrackingEnabled: event.target.checked })} /><ScanFace size={16} /><span><strong>Track room guests</strong><small>Lightweight face boxes and a guest count. Runs locally at a low refresh rate.</small></span></label>
+          <label className="switch-row"><input type="checkbox" checked={editingScreen.roomFaceTrackingEnabled ?? false} onChange={(event) => patchDisplay(editingScreen.id, { roomFaceTrackingEnabled: event.target.checked })} /><ScanFace size={16} /><span><strong>Track room guests — Under construction</strong><small>Experimental face boxes and guest count. Tracking remains available for testing.</small></span></label>
           {deviceError && <div className="device-error"><AlertTriangle size={16} /><span>{deviceError}</span></div>}
           <button type="button" className="command-button primary" onClick={() => void openRoomView(editingScreen)}><PictureInPicture2 size={17} /> Pop out room camera</button>
         </div>}

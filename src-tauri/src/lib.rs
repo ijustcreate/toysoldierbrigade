@@ -102,19 +102,6 @@ fn available_displays(app: AppHandle) -> Result<Vec<DisplayInfo>, String> {
 }
 
 #[tauri::command]
-fn fire_tv_key(host: String, key: String, port: u16) -> Result<String, String> {
-    let allowed = ["LEFT", "RIGHT", "UP", "DOWN", "CENTER", "BACK", "HOME", "MENU", "PLAYPAUSE", "REWIND", "FAST_FORWARD"];
-    if !allowed.contains(&key.as_str()) { return Err("Unsupported Fire TV button".into()); }
-    let address = format!("{}:{}", host.trim(), port);
-    let output = Command::new("adb").args(["connect", &address]).output().map_err(|e| format!("ADB is not installed or not on PATH: {e}"))?;
-    if !output.status.success() && !String::from_utf8_lossy(&output.stdout).contains("already connected") { return Err(String::from_utf8_lossy(&output.stderr).trim().to_string()); }
-    let code = match key.as_str() { "LEFT" => "21", "RIGHT" => "22", "UP" => "19", "DOWN" => "20", "CENTER" => "23", "BACK" => "4", "HOME" => "3", "MENU" => "82", "PLAYPAUSE" => "85", "REWIND" => "89", _ => "90" };
-    let press = Command::new("adb").args(["-s", &address, "shell", "input", "keyevent", code]).output().map_err(|e| e.to_string())?;
-    if !press.status.success() { return Err(String::from_utf8_lossy(&press.stderr).trim().to_string()); }
-    Ok(format!("Sent {key}"))
-}
-
-#[tauri::command]
 fn open_test_displays(app: AppHandle, displays: Vec<OpenDisplayInput>) -> Result<(), String> {
     let control_window = app.get_webview_window("control");
     let control_position = control_window.as_ref().and_then(|window| window.outer_position().ok());
@@ -468,7 +455,7 @@ pub fn run() {
                 let _ = window.set_focus();
             }
         }))
-        .invoke_handler(tauri::generate_handler![available_displays, fire_tv_key, open_test_displays, capture_bug_windows, capture_bug_snip, save_bug_report, list_bug_reports, update_bug_report, delete_bug_report, export_bug_reports])
+        .invoke_handler(tauri::generate_handler![available_displays, open_test_displays, capture_bug_windows, capture_bug_snip, save_bug_report, list_bug_reports, update_bug_report, delete_bug_report, export_bug_reports])
         .run(tauri::generate_context!())
         .expect("error while running Project Lantern");
 }

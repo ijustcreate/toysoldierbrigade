@@ -1,10 +1,10 @@
 # Project Lantern — launch plan and Codex task backlog
 
-**Prepared September 9, 2026. Status: planning only; no implementation tasks started.**
+**Prepared September 9, 2026. Status: Version 2 implementation started; the user authorized an intermediate live release to test current progress. Final handoff gates remain open.**
 
-**Version 2 preparation:** [branch baselines and rollback safeguards](BRANCH_BASELINE.md) now preserve both the reviewed local code and the deployed site. Version 2 starts from the deployed commit `ed53ce7`, which includes recovery changes absent from the original review. Reproduce findings on this baseline before fixing them. Application implementation has not started.
+**Version 2 preparation:** [branch baselines and rollback safeguards](BRANCH_BASELINE.md) preserve both the reviewed local code and the deployed site. Version 2 starts from the deployed commit `ed53ce7`, which includes recovery changes absent from the original review. Reproduce findings on this baseline before fixing them; current implementation begins with the explicitly approved platform and tracking scope.
 
-This turns the pre-launch review into **21 launch tasks and 6 post-launch tasks**. Each task has an individual assignment prompt, bounded scope, dependencies, acceptance criteria, authority limits, and required evidence. IDs are stable so you can say “work on L07” without repeating the review.
+This turns the pre-launch review into **24 launch tasks and 6 post-launch tasks**. Each task has an individual assignment prompt, bounded scope, dependencies, acceptance criteria, authority limits, and required evidence. IDs are stable so you can say “work on L07” without repeating the review. The user's [confirmed release decisions](RELEASE_DECISIONS.md) supersede earlier recommendations: selectable equal-access users, no passwords, remote web editing, physical TV off/wake, tracking under construction, and retirement of Fire compatibility.
 
 The aim is a dependable museum installation, not a rewrite: one landscape 75-inch TV in the main hall and one portrait 75-inch TV near the entrance, each with its own Glorin mini PC. Exact PC/OS/output details and physical installation suitability remain to be verified.
 
@@ -14,11 +14,11 @@ The original [review report](../../output/playwright/release-review/RELEASE_REVI
 
 1. **L00 — decisions:** lock down release scope, staff access, player setup, and after-hours behavior.
 2. **L01 — regression foundation:** make the reported failures reproducible with safe synthetic tests.
-3. **L02 — authentication**, as soon as its access decision is settled.
+3. **L03 — validated writes:** L02 is resolved as intentionally open editing; authentication is deferred and must not block reliability work.
 4. **L05 and L06 — preservation and persistence**, with serialized integration because both touch the host.
 5. Continue through the dependencies below, prioritizing data protection before visual polish.
 
-This is a work breakdown, not a promise that 21 tasks fit into one week. The **48–72-hour actual-device soak test is real elapsed time**. Reserve room for fixes and retesting. If the safety gates cannot pass before handoff, reduce scope explicitly or move the handoff date; do not mark unperformed tests complete.
+This is a work breakdown, not a promise that all tasks fit into one week. The **48–72-hour actual-device soak test is real elapsed time**. Reserve room for fixes and retesting. If the safety gates cannot pass before handoff, reduce scope explicitly or move the handoff date; do not mark unperformed tests complete.
 
 ## How to assign a task
 
@@ -37,7 +37,7 @@ Read [TASK_RULES.md](TASK_RULES.md) for production safety, required bug/changelo
 | Phase | Tasks | Exit gate |
 |---|---|---|
 | 1. Decisions and test foundation | L00, L01; begin L16 CI scaffolding | Agreed target/contracts; failures reproducible without production data |
-| 2. Protect identity and data | L02–L08 | Protected API/player access; validated writes; no silent overwrite or draft loss |
+| 2. Protect saved work | L02–L08 | Preserve approved open access; validated writes; no silent overwrite or draft loss |
 | 3. Correct scheduling and make players recover | L09–L12, L15 | Consistent schedule behavior; shareable media; durable offline recovery; truthful device state |
 | 4. Finish staff controls and release safeguards | L13, L14, L16, L17 | Usable controls/artwork checks; required CI; synthetic restore rehearsal |
 | 5. Prove the installation and hand off | L18, L19 | Actual-device acceptance/soak and staff sign-off on the exact candidate |
@@ -52,11 +52,11 @@ All tasks start **Planned**. The checklist means accepted completion, not “som
 
 | Done | ID / task | Priority | Depends on | State |
 |---|---|---|---|---|
-| [ ] | [L00 — Confirm release scope, access model, and hardware target](tasks/L00-release-decisions.md) | Required | None | Planned |
+| [ ] | [L00 — Confirm release scope, access model, and hardware target](tasks/L00-release-decisions.md) | Required | None | Access/scope resolved; power transport and actual PC setup pending |
 | [ ] | [L01 — Make the review failures reproducible in isolated tests](tasks/L01-regression-foundation.md) | P1 | None | Planned |
-| [ ] | [L02 — Enforce authenticated staff permissions at the service boundary](tasks/L02-staff-authentication.md) | P0 | L00, L01 | Planned |
-| [ ] | [L03 — Validate shared writes and enforce a safe storage contract](tasks/L03-validated-state-writes.md) | P1 | L01, L02 | Planned |
-| [ ] | [L04 — Separate paired display access from private staff state](tasks/L04-read-only-paired-players.md) | P0 | L02, L03 | Planned |
+| [ ] | [L02 — Preserve the approved open-access model](tasks/L02-staff-authentication.md) | Compatibility | Decision resolved | Public editing confirmed; authentication deferred; retain regression checks |
+| [ ] | [L03 — Validate shared writes and enforce a safe storage contract](tasks/L03-validated-state-writes.md) | P1 | L01; L02 decision resolved | Planned |
+| [ ] | [L04 — Give displays a minimal rendering feed](tasks/L04-read-only-paired-players.md) | P1 | L03 | Planned; no new access barrier |
 | [ ] | [L05 — Stop normal loading from rewriting approved content](tasks/L05-non-destructive-migrations.md) | P1 | L01 | Planned |
 | [ ] | [L06 — Unify durable saves and expose storage failures honestly](tasks/L06-honest-durable-persistence.md) | P1 | L01 | Planned |
 | [ ] | [L07 — Prevent board saves from overwriting concurrent edits](tasks/L07-conflict-safe-board-saves.md) | P1 | L03, L05, L06 | Planned |
@@ -73,6 +73,9 @@ All tasks start **Planned**. The checklist means accepted completion, not “som
 | [ ] | [L18 — Run final two-TV acceptance and a 48–72-hour soak test](tasks/L18-actual-device-acceptance.md) | Release gate | L02, L03, L04, L05, L06, L07, L08, L09, L10, L11, L12, L13, L14, L15, L16, L17 | Planned |
 | [ ] | [L19 — Finish staff documentation and rehearse independent operation](tasks/L19-staff-handoff-and-signoff.md) | Release gate | L13, L15, L17, L18 | Planned |
 | [ ] | [L20 — Deploy the approved candidate and complete handoff](tasks/L20-controlled-release.md) | Release gate | L18, L19 | Planned |
+| [ ] | [L21 — Retire Fire/Vega compatibility](tasks/L21-retire-fire-platform.md) | User-approved | L00 confirmed scope | Ready for test; BUG-0390; native toolchain check still blocked |
+| [ ] | [L22 — Mark retained tracking under construction](tasks/L22-tracking-release-status.md) | User-approved | L00 confirmed scope | Ready for test; BUG-0391; browser/fixtures pass |
+| [ ] | [L23 — Physical TV off/wake](tasks/L23-physical-tv-power.md) | Release gate | L00, L09, L11, L12; verified hardware | Transport investigation pending |
 
 Suggested states: **Planned → In progress → Ready for test → Verified**, or **Blocked: named missing input**. A task with passing local tests may still be ready-for-test pending hardware or staff evidence. Record bug IDs and evidence when work happens; no implementation bug records were created merely to write this plan.
 
@@ -82,9 +85,9 @@ The critical data/player path is:
 
 ```text
 L00 decisions + L01 tests
-  → L02 staff authentication
+  → L02 preserve intentionally open access (decision resolved)
   → L03 validated writes
-  → L04 paired read-only players
+  → L04 minimal non-mutating player feed
   → L10 shared media
   → L11 durable offline player
   → L12 device / publication status
@@ -111,24 +114,26 @@ These are *potential* work lanes if separate work is requested, not permission t
 
 | Shared area | Task sequence / integration rule |
 |---|---|
-| Worker and API contract | L02 → L03 → L04; then coordinate L10 and L12 against the same published contract |
+| Worker and API contract | L03 → L04, preserving L02's open-access decision; then coordinate L10 and L12 against the same published contract |
 | Host/storage/normalization | L05 and L06 serialize edits to lanternHost.ts; integrate both before L07/L11 |
 | Main application file | L07 → L08; merge L09 before L12/L13; avoid simultaneous broad App.tsx edits |
 | Media/cache | L10 → L11; L17 consumes the same media manifest |
 | CI/tests/docs | L01/L16 and early L19 drafting can progress independently, then rerun against integrated code |
 | Assets/font validation | L14 can be isolated once L10's contract is stable; no global style rewrite |
 
-Use one integration owner and rerun the entire suite after combining task results. Separate branches/worktrees do not eliminate semantic conflicts. Broad extraction of App.tsx and CSS belongs after launch, not in the middle of the save/authentication fixes.
+Use one integration owner and rerun the entire suite after combining task results. Separate branches/worktrees do not eliminate semantic conflicts. Broad extraction of App.tsx and CSS belongs after launch, not in the middle of the data-preservation fixes.
 
 ## Decisions register
+
+**Updated:** use [RELEASE_DECISIONS.md](RELEASE_DECISIONS.md) as the authoritative register. Access is resolved as intentionally public; private invitations and authentication are deferred. L18 now also requires L21, L22 and L23 acceptance.
 
 No decision below is assumed approved merely because a recommendation appears here.
 
 | Decision | Recommended starting point | Owner / status | Blocks |
 |---|---|---|---|
-| D1: launch feature scope | Focus on boards, donors, schedules, announcements, and recovery; defer unvalidated specialist workflows only with approval | Museum + user; unresolved | L00 scope, optional feature gates |
-| D2: staff roles and identity provider | Server-enforced staff identity; paired players with minimal read-only access; provider selected for actual account ownership/hosting | User + museum administrator; unresolved | L02 |
-| D3: after-hours / interruption policy | One documented policy shared by previews and players; museum chooses actual fallback content | Museum; unresolved | L09 |
+| D1: launch feature scope | Preserve normal boards, broadcasts, effects and recording; full puppets deferred; tracking under construction; Fire retired | User confirmed | Required workflows still need verification |
+| D2: staff access | Intentionally public editing, equal rights, selectable names, no passwords or private invites | User confirmed; authentication deferred | Not a blocker for reliability work |
+| D3: after-hours / interruption policy | Physical TV off without active scheduled content; wake for active published content; recompute after interruptions | User confirmed; hardware transport unverified | L09, L23 |
 | D4: PC/OS/player method | Verify both Glorin PCs; choose one supported persistent player installation | User / installer; unresolved | L15 |
 | D5: approved board content | Museum approves final names, programs, artwork, locations, and viewing-distance legibility | Museum content owner; unresolved | L14 final artwork list, L18 |
 | D6: operational ownership | Museum owns hosting/repository/device recovery and support responsibilities | Museum administrator; unresolved | L19/L20 |
@@ -155,7 +160,7 @@ If advanced broadcast/effects/recording is required for launch, **promote the re
 
 ## Release gates — all mandatory for the approved scope
 
-- [ ] Private administration data and write/control operations require the correct server-verified identity; paired players cannot mutate staff data.
+- [ ] The user-approved passwordless access boundary is implemented and documented truthfully; selectable names are not represented as verified identity. Any intentionally public editing is explicitly acknowledged before release.
 - [ ] Concurrent editing preserves unrelated newer work and retains both sides of true conflicts.
 - [ ] Drafts survive navigation/restart; save status is based on completed operations.
 - [ ] Invalid/oversized/stale writes leave the last good state unchanged.
@@ -165,6 +170,7 @@ If advanced broadcast/effects/recording is required for launch, **promote the re
 - [ ] Device/publication status is truthful, with no claim that software telemetry proves TV power.
 - [ ] Core controls pass the agreed desktop/keyboard/accessibility checks.
 - [ ] Both actual TVs pass final visual approval and automatic recovery tests.
+- [ ] Both TVs physically turn off without active scheduled content and wake for new active published content; an awake PC receives changes while the panel is off. L23 has actual-device evidence.
 - [ ] A documented 48–72-hour soak passes on the exact release candidate; affected evidence is repeated after material changes.
 - [ ] Synthetic state-and-media backup restoration passes; the protected production backup procedure and ownership are established without using live data as test input.
 - [ ] CI gates the complete critical suite and Worker type checking; no hidden skipped launch failures.
@@ -188,6 +194,6 @@ These tasks are deliberately separated from the deadline-critical fixes. None ha
 
 - This index, sequencing, decision register, and release gates.
 - One reusable rules/definition-of-done document.
-- 21 launch assignment cards and 6 post-launch assignment cards.
+- Originally 21 launch cards; now 24 with the approved platform, tracking and physical-power scope, plus 6 post-launch cards.
 
-No application code/configuration, production state, deployment, bug status, or changelog entry was changed. No task is marked complete. The next action is to choose the first assignment—not automatically execute the whole backlog.
+The original planning step did not alter application code. Implementation has now begun with the explicit L21/L22 scope changes; follow the current status and evidence rather than the original planning snapshot. The user's subsequent request authorizes publishing this progress to the existing live site, not changing saved museum content or declaring final handoff complete. A task card alone still does not authorize deployment.

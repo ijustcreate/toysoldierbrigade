@@ -1,42 +1,33 @@
-# L02 — Enforce authenticated staff permissions at the service boundary
+# L02 — Preserve the approved open-access model
 
-**Priority:** P0
+**Status:** Decision resolved; access-control implementation deferred by the user.
 
-**Type:** Code / security
+**Dependencies:** None remaining for the access decision. Regression testing belongs with L01/L16.
 
-**Dependencies:** L00, L01
-
-**Review coverage:** R1
-
-**Likely code areas:** worker/bugs.ts; src/host/lanternHost.ts; src/App.tsx user/session UI; deployment configuration
+**Review coverage:** R1, explicitly accepted public-access tradeoff
 
 ## Assignment prompt
 
-Implement only task L02, following the scope and acceptance criteria below. First read AGENTS.md, [task rules](../TASK_RULES.md), the [task index](../README.md), and completed dependency evidence. For decision/verification/deployment tasks, perform that stated task type rather than assuming code implementation. No implementation has been authorized by the existence of this card.
-
-**Outcome:** Prevent anonymous or unauthorized callers from reading administrative state or changing museum content/control operations.
+Read AGENTS.md, ../TASK_RULES.md and ../RELEASE_DECISIONS.md. Preserve public web editing, the top user selector, equal editing/publishing rights, and access from anywhere. The user declined private staff invite links for now. Do not add passwords, invites, account login, device authorization, or unequal roles. This card replaces the original authentication proposal; it does not authorize building that proposal.
 
 ## Scope / to-dos
 
-- [ ] Implement the approved identity approach from L00 with server-side verification, expiration/revocation handling, and the agreed role matrix.
-- [ ] Cover every applicable route: administrative state, assets, live/WebSocket signaling, bug operations, and control messages. Audit actual route coverage; CORS and state-version headers are not authentication.
-- [ ] Remove the local selectable name as a source of trusted audit identity. Preserve useful display names while deriving identity from the authenticated principal.
-- [ ] Provide clear signed-out/session-expired behavior that preserves recoverable drafts and does not bypass permissions.
-- [ ] Prepare a staged rollout and rollback procedure so access changes do not unexpectedly strand existing players. Do not provision accounts or activate production policies without explicit approval.
+- [x] Record the explicit decision to keep editing intentionally public and defer access restrictions.
+- [ ] Keep names as attribution, never represented as verified identity or different authority.
+- [ ] Preserve direct remote browser access without LAN-only restrictions or inbound museum port forwarding.
+- [ ] Retain validation, concurrency safety, recovery, and minimal display payloads without imposing authentication.
 
 ## Acceptance criteria
 
-- [ ] Anonymous requests cannot obtain private state or mutate any protected route, including direct non-browser requests and WebSocket/control attempts.
-- [ ] Authorized and unauthorized roles pass a route-by-role integration test matrix; forged client identity does not alter audit ownership.
-- [ ] Secrets do not enter frontend bundles, logs, URLs, screenshots, or the repository.
-- [ ] Session expiry/revocation and local development behavior are tested without an unauthenticated production bypass.
+- [ ] A fresh browser can open the staff site without an invitation, password, or external account.
+- [ ] Every selectable user can edit/publish equally; changing the name does not confer extra rights.
+- [ ] Remote browser access and player reconnect/recovery pass isolated tests.
+- [x] Public access is documented truthfully; deferred authentication is not a launch gate.
 
-## Out of scope / authority boundary
+## Out of scope
 
-No production rollout, account creation, unrelated security redesign, or live donor changes.
+No authentication implementation, production access-policy changes, live-content edits, or deployment. Revisit access restrictions only when the user requests them.
 
-## Required handoff evidence
+## Required evidence
 
-Authorization matrix, synthetic integration results, redacted configuration instructions, and rollout/rollback plan.
-
-Use the completion-report template in TASK_RULES.md. Keep local fixes, production deployment, live-content editing, and museum acceptance distinct.
+The recorded user decision and open-access compatibility tests as the remaining release work is integrated. Do not claim security isolation that the intentionally open service does not enforce.

@@ -5,7 +5,7 @@ This backlog was requested as a plan. Writing a task card does not start impleme
 ## Before starting an assigned task
 
 1. Read the repository AGENTS.md completely and inspect the current git status. Preserve unrelated changes.
-2. Read this file, the assigned card, and the dependency results in README.md. Re-check current code: the review baseline was September 9, 2026, commit `5288af2`, not a guarantee of the checkout you will receive.
+2. Read this file, RELEASE_DECISIONS.md, the assigned card, and the dependency results in README.md. The user's confirmed release decisions supersede older proposals, especially passwords/roles and TV power. Re-check current code: the review baseline was September 9, 2026, commit `5288af2`, not a guarantee of the checkout you will receive.
 3. If a required decision is unresolved, do safe investigation/test preparation and report the exact missing decision. Do not invent museum approval.
 4. Work only on the assigned card. Separate Codex tasks or subagents are not created unless the user explicitly requests them or applicable higher-priority instructions allow them.
 5. Existing supporting artifacts under `output/` are ignored by git and may not exist in a fresh worktree. Each card states its own required behavior; tests must recreate synthetic evidence rather than depend on those local artifacts.

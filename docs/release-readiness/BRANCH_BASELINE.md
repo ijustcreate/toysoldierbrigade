@@ -44,8 +44,8 @@ The local backup directory contains a manifest with checksums and capture time. 
 ## Working and release rules
 
 - Keep all Version 2 work on `codex/version-2` or explicitly requested subordinate branches, never on the saved Version 1 branches.
-- Do not push Version 2 changes to `main`: the existing workflow deploys pushes to `main` automatically.
-- The user's requested endpoint is a ready-to-deploy candidate. Actual production deployment remains a separate explicit action.
+- Pushing Version 2 changes to `main` deploys automatically and requires explicit authorization. On September 9 the user requested publication of the current progress for testing; see RELEASE_DECISIONS.md. This does not authorize subsequent unrequested deployments.
+- The final endpoint remains a ready-to-deploy handoff candidate. The authorized intermediate progress release is not final acceptance.
 - This baseline step creates branches and planning checkpoints; it does not claim fixes, completed acceptance tests, hardware readiness, or museum sign-off.
 - Re-check the remote heads and exact artifact before any approved rollout. Do not force-push or overwrite remote history.
 

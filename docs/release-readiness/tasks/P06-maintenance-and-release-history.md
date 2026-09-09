@@ -1,5 +1,7 @@
 # P06 — Retire obsolete paths and simplify maintenance information
 
+The Fire/Vega retirement portion has been explicitly approved and promoted to launch task L21. Do not defer it again or reintroduce retired code; this post-launch task now covers only the remaining maintenance/history work.
+
 **Priority:** Post-launch; separately authorized
 
 **Dependencies:** L20

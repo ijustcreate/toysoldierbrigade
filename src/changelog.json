@@ -1,5 +1,46 @@
 [
   {
+    "id": "DEV-0528",
+    "title": "Mark tracking under construction",
+    "summary": "Retained implemented tracking and calibration with clear experimental notices. Advanced costume and rig tools start collapsed, with full puppets deferred from handoff; existing saved profiles and media are preserved.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 3:14 PM",
+    "areas": [
+      "Broadcast",
+      "Tracking",
+      "Staff interface"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/components/EffectStudio.tsx",
+      "src/components/TrackingNotice.tsx",
+      "src/components/TrackingNotice.css"
+    ],
+    "tests": "Production build, 23 regressions, phase4 preservation fixture and isolated Playwright notice/toggle/keyboard/calibration checks passed."
+  },
+  {
+    "id": "DEV-0527",
+    "title": "Retire Fire-specific display integrations",
+    "summary": "Version 2 targets dedicated mini-PC players. Removed the Vega wrapper and unused ADB Fire TV command while preserving generic TV setup, orientation and wake locks. Version 1 branches retain the removed source.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 3:14 PM",
+    "areas": [
+      "Displays",
+      "Platform",
+      "Documentation"
+    ],
+    "files": [
+      "vega-display",
+      "src-tauri/src/lib.rs",
+      "src/displayWakeLock.ts",
+      "scripts/test-tv-mode-setup.mjs",
+      "scripts/test-pc-display-platform.mjs",
+      "package.json",
+      "README.md"
+    ],
+    "tests": "Production web build and 23 regression scripts passed; native cargo check blocked by existing missing msvcrt.lib."
+  },
+  {
     "id": "DEV-0526",
     "title": "Keep board recovery copies in IndexedDB",
     "summary": "Protected pre-merge board snapshots now persist in IndexedDB as well as localStorage, so large hand-authored boards remain recoverable when browser storage quota prevents a localStorage backup.",

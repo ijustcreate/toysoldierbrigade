@@ -1,5 +1,7 @@
 # L18 — Run final two-TV acceptance and a 48–72-hour soak test
 
+Additional launch prerequisites: L21, L22 and L23. The user will test this week. Acceptance must include actual TV standby/wake with the PC remaining connected, passwordless equal-access operation under the agreed boundary, and visibly experimental but retained tracking. See `../RELEASE_DECISIONS.md`.
+
 **Priority:** Release gate
 
 **Type:** Human-assisted verification

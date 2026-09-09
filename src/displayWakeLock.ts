@@ -2,7 +2,7 @@ export const DISPLAY_WAKE_LOCK_RETRY_MS = 60_000;
 
 /**
  * Keep an unattended browser display awake when the browser exposes the
- * Screen Wake Lock API. Fire TV / Silk can still enforce system-level idle
+ * Screen Wake Lock API. The browser or operating system can still enforce idle
  * policy, so callers must treat this as a best-effort enhancement rather than
  * simulated user activity.
  */
@@ -27,7 +27,7 @@ export function startDisplayWakeLock() {
         if (wakeLock === nextWakeLock) wakeLock = null;
       }, { once: true });
     } catch {
-      // The browser or Fire OS may reject the request because of its own power
+      // The browser or operating system may reject the request because of its power
       // policy. The retry pulse below gives a later visible page another chance.
       wakeLock = null;
     } finally {

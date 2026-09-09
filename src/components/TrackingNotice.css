@@ -1,0 +1,29 @@
+.tracking-development-notice {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid #bb862e;
+  border-radius: 9px;
+  color: #ffedc7;
+  background: #382b18;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tracking-development-notice strong { font-size: 13px; }
+.experimental-tracking-tools { min-width: 0; }
+.experimental-tracking-tools > summary {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.experimental-tracking-tools > summary span { display: block; margin-top: 4px; color: var(--muted); }
+.experimental-tracking-tools > summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+.effect-authoring-studio > .tracking-development-notice { margin: 12px 14px; }
+
+.theme-light .tracking-development-notice { color: #51350b; background: #fff5df; }

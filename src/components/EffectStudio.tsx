@@ -34,6 +34,7 @@ import type {
   TrackingAnchorPoint
 } from "../types";
 import "./EffectStudio.css";
+import { TrackingNotice } from "./TrackingNotice";
 
 type StudioTab = "costume" | "rig" | "calibration";
 
@@ -314,7 +315,7 @@ function CalibrationEditor({ studio, effects, userId, deviceId, onStudioChange, 
 }
 
 export function EffectStudio(props: EffectStudioProps) {
-  const [tab, setTab] = useState<StudioTab>("costume");
+  const [tab, setTab] = useState<StudioTab>("calibration");
   const status = props.trackingStatus;
   const activeCostume = props.studio.costumes.find((item) => item.id === props.effects.costumeId) ?? props.studio.costumes[0];
   const statusLabel = status?.phase === "warming" ? "Warming tracker" : status?.phase === "detecting" ? "Detecting face…" : status?.phase === "tracking" ? "Tracking" : status?.phase === "degraded" ? "Adaptive tracking" : status?.phase === "error" ? "Tracker needs attention" : "Tracker idle";
@@ -322,7 +323,8 @@ export function EffectStudio(props: EffectStudioProps) {
   const loadedProfile = useMemo(() => resolveCalibrationProfile(props.studio, props.userId, props.deviceId, props.effects.calibrationProfileId), [props.studio, props.userId, props.deviceId, props.effects.calibrationProfileId]);
 
   return <section className="effect-authoring-studio">
-    <header className="effect-studio-heading"><div><p className="eyebrow">Effect authoring</p><h3>Costumes, rigs & calibration</h3><span>Build approachable tracked characters without changing the camera pipeline.</span></div><div className={`tracking-runtime-pill ${status?.phase ?? "idle"}`}><i /><span><strong>{statusLabel}</strong><small>{statusDetail}</small></span></div></header>
+    <header className="effect-studio-heading"><div><p className="eyebrow">Experimental tracking</p><h3>Tracking calibration & advanced tools</h3><span>Calibration is available for testing; costume and rig tools are retained for later development.</span></div><div className={`tracking-runtime-pill ${status?.phase ?? "idle"}`}><i /><span><strong>{statusLabel}</strong><small>{statusDetail}</small></span></div></header>
+    <TrackingNotice />
     <div className="effect-visibility-controls">
       <label className="switch-row"><input type="checkbox" checked={props.effects.trackedPointsOverlay ?? props.effects.trackingDebug ?? false} onChange={(event) => props.onEffectsChange({ ...props.effects, trackedPointsOverlay: event.target.checked, trackingDebug: event.target.checked, faceTracking: event.target.checked || props.effects.faceTracking })} /><span><strong>Show tracked points</strong><small>Draw face, ear, body, hand, and finger landmarks.</small></span></label>
       <label className="switch-row"><input type="checkbox" checked={props.effects.trackingCameraUnderlay ?? true} onChange={(event) => props.onEffectsChange({ ...props.effects, trackingCameraUnderlay: event.target.checked, faceTracking: true })} /><span><strong>Show real camera underneath</strong><small>Compare colored landmarks with the live image while aligning.</small></span></label>
