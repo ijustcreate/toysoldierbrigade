@@ -15,6 +15,17 @@ export function fitDonorPanel(grid: HTMLElement): number {
       ".editable-board-text, small, .donor-name-line, img, .board-donor-preview-icon"
     ))
   }));
+  // Tight line-height can place letter ascenders/descenders outside an element's
+  // line box. Measure text ranges too, rather than accepting a clipped first row.
+  const textRanges = new Map<HTMLElement, Range>();
+  for (const { elements } of contents) {
+    for (const element of elements) {
+      if (!element.matches?.(".editable-board-text, .donor-name-line, small")) continue;
+      const range = element.ownerDocument.createRange();
+      range.selectNodeContents(element);
+      textRanges.set(element, range);
+    }
+  }
   const fits = (size: number) => {
     grid.style.setProperty("--donor-fitted-size", `${size}px`);
     return grid.scrollHeight <= grid.clientHeight + 1
@@ -24,7 +35,10 @@ export function fitDonorPanel(grid: HTMLElement): number {
         // Both rectangles use the same preview/TV scale, including editor zoom.
         return elements.every((element) => {
           const rect = element.getBoundingClientRect();
-          return rect.top >= bounds.top && rect.bottom <= bounds.bottom
+          const textRect = textRanges.get(element)?.getBoundingClientRect();
+          const textFits = !textRect || (textRect.top >= bounds.top && textRect.bottom <= bounds.bottom
+            && textRect.left >= bounds.left && textRect.right <= bounds.right);
+          return textFits && rect.top >= bounds.top && rect.bottom <= bounds.bottom
             && rect.left >= bounds.left && rect.right <= bounds.right
             && element.scrollWidth <= element.clientWidth + 1;
         });

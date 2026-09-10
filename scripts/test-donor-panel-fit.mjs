@@ -45,6 +45,15 @@ try {
   assert.equal(fitDonorPanel(roomy.grid), 9, "never enlarge a small authored font");
   globalThis.getComputedStyle = () => ({ fontSize: "18px" });
   assert.equal(fitDonorPanel(roomy.grid), 18, "a new font setting replaces, rather than compounds, old fitting");
+  const ink = fixture({ maximum: 28, heightLimit: 30 });
+  const inkElement = ink.grid.querySelectorAll()[0].querySelectorAll()[0];
+  inkElement.matches = () => true;
+  inkElement.ownerDocument = { createRange: () => ({ selectNodeContents() {}, getBoundingClientRect() {
+    const size = Number.parseFloat(ink.properties.get("--donor-fitted-size") ?? 28);
+    return { top: 20 - size, bottom: 20 + size, left: 0, right: 100 };
+  } }) };
+  globalThis.getComputedStyle = () => ({ fontSize: "28px" });
+  assert.ok(fitDonorPanel(ink.grid) <= 20, "letter bounds fit even when the line box is shorter than the font");
   roomy.grid.clientHeight = 0;
   assert.equal(fitDonorPanel(roomy.grid), 0, "hidden panels can defer fitting until resize");
   roomy.grid.clientHeight = 40;

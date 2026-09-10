@@ -1,5 +1,42 @@
 [
   {
+    "id": "DEV-0531",
+    "title": "Create the museum V2 board collection",
+    "summary": "Added opt-in authoring for separate redesigned versions of the existing board library: generated navy bookcloth and ivory-paper backgrounds, editable typography, complete Brigade membership selections, level honor rolls, story and spotlight compositions, and two-page Legacy Star Walls. New designs are unscheduled drafts; original boards, donor records, schedules and display assignments are never replaced.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 9:04 PM",
+    "areas": [
+      "Board design",
+      "Content safety",
+      "Assets"
+    ],
+    "files": [
+      "scripts/board-design-v2.mjs",
+      "scripts/publish-board-design-v2.mjs",
+      "scripts/board-design-v2-fixture.mjs",
+      "scripts/test-board-design-v2.mjs",
+      "scripts/check-board-design-v2-browser.mjs",
+      "public/assets/boards-v2"
+    ],
+    "tests": "25 regression scripts and production build; all 22 synthetic designs checked at portrait/landscape 4K, zero final overflow and unchanged saved board JSON; asset placement visually reviewed; independent review waived by user in favor of their preview approval"
+  },
+  {
+    "id": "DEV-0530",
+    "title": "Keep donor letter edges inside their rows",
+    "summary": "Refined display-only name fitting to check letter-range bounds as well as element boxes, preventing tight line spacing from clipping ascenders or descenders. Saved boards, font settings, memberships, and schedules are unchanged.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 9:03 PM",
+    "areas": [
+      "Board Editor",
+      "TV display"
+    ],
+    "files": [
+      "src/fitDonorPanel.ts",
+      "scripts/test-donor-panel-fit.mjs"
+    ],
+    "tests": "25 regression scripts and production build passed; synthetic 4K landscape and portrait donor boards verified with text-range containment and unchanged saved JSON"
+  },
+  {
     "id": "DEV-0529",
     "title": "Remove donor-panel scrollbars",
     "summary": "Board donor lists now fit their displayed names inside the panel without scrollbars. Saved font settings, donor membership, explicit row capacity and ordinary text boxes stay unchanged; editor and TV previews share the same fitting behavior.",
