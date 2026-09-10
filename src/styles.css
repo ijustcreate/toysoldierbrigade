@@ -7855,7 +7855,7 @@ textarea:focus-visible,
 }
 .panel-supporters-heading { flex-direction: column; }
 .panel-supporters-heading .board-section-title { max-width: 100%; overflow: hidden; font-size: min(var(--panel-font-size), 7cqw, 58cqh); white-space: normal; text-wrap: balance; }
-.panel-donors { flex-direction: column; align-items: stretch; min-height: 92px; }
+.panel-donors { flex-direction: column; align-items: stretch; min-height: 0; }
 
 .direct-donor-grid {
   display: grid;
@@ -7863,19 +7863,19 @@ textarea:focus-visible,
   grid-auto-rows: minmax(0, 1fr);
   flex: 1;
   min-height: 0;
-  margin-top: clamp(5px, 1vh, 12px);
+  margin-top: 0;
   align-items: stretch;
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-width: thin;
+  overflow: hidden;
 }
 
 .direct-donor-grid { column-gap: 7%; }
-/* Name size is an authored value. Rows may tighten when content fits, but
-   * constrained lists scroll instead of shrinking or clipping donor names. */
+/* The authored name size is a maximum; fitting is local to the rendered panel. */
 .direct-donor-name { display: flex; min-width: 0; min-height: 0; align-items: center; justify-content: center; gap: 5px; padding: 2px 4px; overflow: visible; border-bottom: var(--donor-divider-thickness) solid color-mix(in srgb, var(--donor-divider-color) var(--donor-divider-opacity), transparent); font-size: min(var(--donor-name-size), var(--donor-column-cap, 8.6cqw)); line-height: 1.12; letter-spacing: .07em; white-space: nowrap; }
 .direct-donor-name > .editable-board-text { min-width: 0; overflow: visible; font-size: 1em; letter-spacing: .035em; white-space: nowrap; }
 .direct-donor-name small { display: block; color: #9faaaa; font-size: .68em; letter-spacing: 0; }
+.direct-donor-grid .direct-donor-name { font-size: min(var(--donor-fitted-size, var(--donor-name-size)), var(--donor-column-cap, 8.6cqw)); padding: .07em .14em; gap: .04em; }
+.direct-donor-grid .direct-donor-name > .editable-board-text,
+.direct-donor-grid .direct-donor-name small { flex-shrink: 0; }
 .board-donor-presentation-editor {
   display: grid;
   gap: 11px;
@@ -14934,7 +14934,7 @@ body.theme-light {
   }
 }
 
-/* Board names retain one type size and gain lines instead of shrinking. */
+/* Names share one fitted type size per panel and retain their deliberate lines. */
 .direct-donor-name { flex-direction: column; gap: 1px; text-align: center; white-space: normal; }
 .direct-donor-name > .editable-board-text.multiline-donor-name {
   width: 100%;

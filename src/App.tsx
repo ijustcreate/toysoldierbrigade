@@ -82,6 +82,7 @@ import { startDisplayWakeLock } from "./displayWakeLock";
 import { ChromaVideo } from "./components/ChromaVideo";
 import { EffectStudio } from "./components/EffectStudio";
 import { TrackingNotice } from "./components/TrackingNotice";
+import { FittedDonorGrid } from "./components/FittedDonorGrid";
 import { ChromaKeySampler } from "./components/ChromaKeySampler";
 import { AuditHistoryPanel } from "./components/AuditHistoryPanel";
 import { AudioLevelMeter } from "./components/AudioLevelMeter";
@@ -4914,7 +4915,7 @@ function DirectBoardCanvas({
         {panel.type === "text" && <AutoFitBoardContent className="direct-single-text-content" fitOneLine={panel.textFlow === "fit-one-line"} fontSize={panel.fontSize} fontFamily={panel.fontFamily ?? "Montserrat"}><EditableBoardText className="board-text" value={panel.title} multiline onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
         {panel.type === "heading" && <AutoFitBoardContent className="direct-single-text-content"><EditableBoardText className="board-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
         {panel.type === "supporters-heading" && <AutoFitBoardContent className="direct-single-text-content"><EditableBoardText className="board-section-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
-        {panel.type === "donors" && <div className="direct-donor-grid" style={directDonorGridStyle(panelDonors(panel), panel.columns ?? program.columns, panel.rows, display, panel)}>{panelDonors(panel).slice(0, (panel.rows ?? Math.max(1, Math.ceil(panelDonors(panel).length / (panel.columns ?? program.columns)))) * (panel.columns ?? program.columns)).map((donor) => <DirectBoardDonorName donor={donor} display={display} panel={panel} palette={palette} onRename={onRenameDonor} key={donor.id} />)}{!panelDonors(panel).length && <button className="empty-board-action" type="button">Select donors or recognition levels in the inspector</button>}</div>}
+        {panel.type === "donors" && <FittedDonorGrid style={directDonorGridStyle(panelDonors(panel), panel.columns ?? program.columns, panel.rows, display, panel)}>{panelDonors(panel).slice(0, (panel.rows ?? Math.max(1, Math.ceil(panelDonors(panel).length / (panel.columns ?? program.columns)))) * (panel.columns ?? program.columns)).map((donor) => <DirectBoardDonorName donor={donor} display={display} panel={panel} palette={palette} onRename={onRenameDonor} key={donor.id} />)}{!panelDonors(panel).length && <button className="empty-board-action" type="button">Select donors or recognition levels in the inspector</button>}</FittedDonorGrid>}
         {panel.type === "message" && <AutoFitBoardContent className="direct-message-content"><EditableBoardText className="board-eyebrow" value={panel.eyebrow ?? ""} onCommit={(value) => commitText(panel, "eyebrow", value)} /><EditableBoardText className="board-message-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /><EditableBoardText className="board-copy" value={panel.body ?? ""} onCommit={(value) => commitText(panel, "body", value)} /></AutoFitBoardContent>}
         {panel.type === "story" && <><div className="direct-story-image" style={state.board.storyImageUrl ? { backgroundImage: `url(${state.board.storyImageUrl})` } : undefined}><ImageIcon size={22} /></div><AutoFitBoardContent className="direct-story-copy"><EditableBoardText className="board-eyebrow" value={panel.eyebrow ?? ""} onCommit={(value) => commitText(panel, "eyebrow", value)} /><EditableBoardText className="board-message-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /><EditableBoardText className="board-copy" value={panel.body ?? ""} onCommit={(value) => commitText(panel, "body", value)} /></AutoFitBoardContent></>}
         {panel.type === "image" && <div className={`direct-image-panel fit-${panel.imageFit ?? "contain"}`}>{panel.imageUrl ? <img src={resolveProjectAssetUrl(panel.imageUrl)} alt="" style={{ transform: `rotate(${panel.imageRotation ?? 0}deg) scaleX(${panel.imageMirrored ? -1 : 1})` }} /> : <><ImagePlus size={28} /><span>Choose an image in the right menu</span></>}</div>}
@@ -4983,12 +4984,10 @@ function directDonorGridStyle(donors: Donor[], columns: number, requestedRows: n
   })), columns, rowCount);
   return {
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-    // Keep each row at its content height before distributing any spare room.
-    // This prevents a larger authored gap from stealing the height needed by
-    // a multi-line donor name. The grid can then scroll when the panel cannot
-    // contain all requested rows and gaps at the authored font size.
-    gridTemplateRows: layout.rowUnits.map((units) => `minmax(max-content, ${units}fr)`).join(" "),
-    rowGap: `${panel?.donorRowGap ?? 0}px`,
+    // Passive signage cannot require scrolling. Bound rows and spacing to the
+    // panel; the shared grid fits text without altering authored settings.
+    gridTemplateRows: layout.rowUnits.map((units) => `minmax(0, ${units}fr)`).join(" "),
+    rowGap: `min(${panel?.donorRowGap ?? 0}px, ${10 / Math.max(1, rowCount)}%)`,
     columnGap: `${panel?.donorColumnGap ?? 7}%`,
     "--donor-column-cap": columns > 1 ? "5.2cqw" : "8.6cqw"
   } as React.CSSProperties;

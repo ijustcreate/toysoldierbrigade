@@ -1,5 +1,25 @@
 [
   {
+    "id": "DEV-0529",
+    "title": "Remove donor-panel scrollbars",
+    "summary": "Board donor lists now fit their displayed names inside the panel without scrollbars. Saved font settings, donor membership, explicit row capacity and ordinary text boxes stay unchanged; editor and TV previews share the same fitting behavior.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 8:37 PM",
+    "areas": [
+      "Board Editor",
+      "Displays",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "src/components/FittedDonorGrid.tsx",
+      "src/fitDonorPanel.ts",
+      "scripts/test-donor-panel-fit.mjs"
+    ],
+    "tests": "Production build and all 24 regression scripts passed; isolated Playwright verified editor resizing and portrait/landscape 4K display routes with no clipped displayed names or scrollbars."
+  },
+  {
     "id": "DEV-0528",
     "title": "Mark tracking under construction",
     "summary": "Retained implemented tracking and calibration with clear experimental notices. Advanced costume and rig tools start collapsed, with full puppets deferred from handoff; existing saved profiles and media are preserved.",
