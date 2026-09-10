@@ -105,7 +105,7 @@ function roster(source, state, urls) {
       text(board, `level-${index}`, `${level.name.toUpperCase()} LEVEL`, x, y, width, 5, portrait ? 14 : 19, { textColor: GOLD, letterSpacing: 1 });
       text(board, `pledge-${index}`, level.description, x, y + 4, width, 5, portrait ? 10 : 13, { textColor: GOLD });
       list(board, `${level.name} donors`, members.map((donor) => donor.id), x, y + 9, width,
-        portrait ? index === 0 ? 13 : 38 : 51, portrait ? 2 : index === 0 ? 1 : 3, portrait ? 15 : 23);
+        portrait ? index === 0 ? 13 : 38 : 51, portrait ? index === 0 ? 2 : 3 : index === 0 ? 1 : 3, portrait ? 15 : 23);
     });
     footer(board, source.footer || `With gratitude to every member of the ${society.classLabel}.`);
   } else {
