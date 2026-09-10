@@ -1,4 +1,5 @@
 import { createDisplayStateRefreshGuard } from "./displayStateRefresh";
+import { nextDisplayNumber, removeConfiguredDisplay } from "./displayManagement";
 import { NamesPerRowField } from "./components/NamesPerRowField";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -425,6 +426,7 @@ function ControlCenter() {
   const [ideasOpen, setIdeasOpen] = useState(true);
   const [displayEditorTab, setDisplayEditorTab] = useState<"setup" | "room" | "names">("setup");
   const [displayEditorOpen, setDisplayEditorOpen] = useState(false);
+  const [pendingDisplayDeleteId, setPendingDisplayDeleteId] = useState<ScreenId | null>(null);
   const [openAssignedRoomCamera, setOpenAssignedRoomCamera] = useState(false);
   const [scheduledBroadcastPrompt, setScheduledBroadcastPrompt] = useState<{ entry: ScheduleEntry; occurrenceKey: string } | null>(null);
   const [displayOpenNotice, setDisplayOpenNotice] = useState<{ message: string; outstanding?: ScreenId[] } | null>(null);
@@ -1046,19 +1048,14 @@ function ControlCenter() {
 
   const addDisplay = () => {
     updateState((current) => {
-      const nextNumber = Object.keys(current.screens).length + 1;
+      const nextNumber = nextDisplayNumber(current.screens);
       const id = `display-${nextNumber}`;
       return { ...current, screens: { ...current.screens, [id]: makeDisplay(id, nextNumber) } };
     });
   };
 
   const deleteDisplay = (id: ScreenId) => {
-    updateState((current) => {
-      if (Object.keys(current.screens).length <= 1) return current;
-      const screens = { ...current.screens };
-      delete screens[id];
-      return { ...current, screens };
-    });
+    if (state.screens[id] && Object.keys(state.screens).length > 1) setPendingDisplayDeleteId(id);
   };
 
   const identifyDisplay = (screenId: ScreenId) => {
@@ -1447,7 +1444,7 @@ function ControlCenter() {
             });
           }}
         />}
-        {view === "dashboard" && displayEditorOpen && <ScreensView state={state} activeUserId={activeUser?.id} selectedDisplayId={selectedDisplayId} setSelectedDisplayId={setSelectedDisplayId} openDisplays={openDisplays} updateState={updateState} initialEditingId={selectedDisplayId} initialEditorTab={displayEditorTab} initialOpenRoomCamera={openAssignedRoomCamera} editorOnly onClose={() => { setOpenAssignedRoomCamera(false); setDisplayEditorOpen(false); }} />}
+        {view === "dashboard" && displayEditorOpen && <ScreensView state={state} activeUserId={activeUser?.id} selectedDisplayId={selectedDisplayId} setSelectedDisplayId={setSelectedDisplayId} openDisplays={openDisplays} updateState={updateState} deleteDisplay={deleteDisplay} initialEditingId={selectedDisplayId} initialEditorTab={displayEditorTab} initialOpenRoomCamera={openAssignedRoomCamera} editorOnly onClose={() => { setOpenAssignedRoomCamera(false); setDisplayEditorOpen(false); }} />}
         {view === "revisions" && <RevisionsView state={state} />}
         {view === "bugs" && <BugsView onNewBug={() => void openBugReport()} launcherVisible={bugLauncherVisible} onLauncherVisibleChange={(visible) => {
           setBugLauncherVisible(visible);
@@ -1466,6 +1463,19 @@ function ControlCenter() {
         actionLabel={displayOpenNotice.outstanding?.length ? `Open ${state.screens[displayOpenNotice.outstanding[0]]?.label ?? "next display"}` : undefined}
         onAction={displayOpenNotice.outstanding?.length ? openNextDisplayWindow : undefined}
         onDismiss={() => setDisplayOpenNotice(null)}
+      />}
+      {pendingDisplayDeleteId && state.screens[pendingDisplayDeleteId] && <LanternConfirmDialog
+        eyebrow="Delete display"
+        title={`Delete “${state.screens[pendingDisplayDeleteId].label}”?`}
+        description="This removes the display from the dashboard and removes schedules assigned only to it. Your saved board designs, donor records, and other displays stay available."
+        confirmLabel="Delete display"
+        onCancel={() => setPendingDisplayDeleteId(null)}
+        onConfirm={() => {
+          const id = pendingDisplayDeleteId;
+          setPendingDisplayDeleteId(null);
+          updateState((current) => removeConfiguredDisplay(current, id));
+          if (selectedDisplayId === id) { setOpenAssignedRoomCamera(false); setDisplayEditorOpen(false); }
+        }}
       />}
       {boardOwnershipPrompt && state.screens[boardOwnershipPrompt] && <LanternConfirmDialog
         eyebrow="Board already open"
@@ -8279,6 +8289,7 @@ function ScreensView({
   setSelectedDisplayId,
   openDisplays,
   updateState,
+  deleteDisplay,
   initialEditingId,
   initialEditorTab,
   initialOpenRoomCamera = false,
@@ -8291,6 +8302,7 @@ function ScreensView({
   setSelectedDisplayId: (screenId: ScreenId) => void;
   openDisplays: () => void;
   updateState: (updater: (current: LanternState) => LanternState) => void;
+  deleteDisplay: (screenId: ScreenId) => void;
   initialEditingId?: ScreenId;
   initialEditorTab?: "setup" | "room" | "names";
   initialOpenRoomCamera?: boolean;
@@ -8610,18 +8622,9 @@ function ScreensView({
 
   const addDisplay = () => {
     updateState((current) => {
-      const nextNumber = Object.keys(current.screens).length + 1;
+      const nextNumber = nextDisplayNumber(current.screens);
       const id = `display-${nextNumber}`;
       return { ...current, screens: { ...current.screens, [id]: makeDisplay(id, nextNumber) } };
-    });
-  };
-
-  const deleteDisplay = (id: ScreenId) => {
-    updateState((current) => {
-      if (Object.keys(current.screens).length <= 1) return current;
-      const screens = { ...current.screens };
-      delete screens[id];
-      return { ...current, screens };
     });
   };
 
@@ -8749,6 +8752,10 @@ function ScreensView({
             {!rosterDonors.length && <div className="display-roster-empty"><Users size={22} /><strong>No names assigned</strong><span>Add a donor from the list above.</span></div>}
           </div>
         </div>}
+        <div className="editor-modal-actions">
+          {screens.length <= 1 && <span className="field-note">Keep at least one display configured.</span>}
+          <button type="button" className="command-button danger" disabled={screens.length <= 1} onClick={() => deleteDisplay(editingScreen.id)}><Trash2 size={16} /> Delete display</button>
+        </div>
       </aside>}
       {roomPortal}
       {displayNotice && <LanternNotice message={displayNotice} onDismiss={() => setDisplayNotice(null)} />}

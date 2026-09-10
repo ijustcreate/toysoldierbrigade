@@ -1,5 +1,26 @@
 [
   {
+    "id": "DEV-0537",
+    "title": "Confirm display deletion from settings",
+    "summary": "Add Delete display to display settings and require named confirmation from both settings and dashboard trash buttons. Keep board designs and donors, remove only the display and its dedicated schedules, protect the last display, and preserve remaining display IDs after reload or later additions.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 11:35 PM",
+    "areas": [
+      "Dashboard",
+      "Display settings"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/displayManagement.ts",
+      "src/host/lanternHost.ts",
+      "src/components/LanternDialog.css",
+      "scripts/test-display-management.mjs",
+      "scripts/test-state-preservation.mjs",
+      "scripts/check-display-deletion-browser.cjs"
+    ],
+    "tests": "Production build; isolated browser confirm/cancel/Escape/reload/last-display and preservation checks; deletion and ID unit checks; state preservation/authority; shared-state optimistic concurrency; screenshot inspection"
+  },
+  {
     "id": "DEV-0535",
     "title": "Keep donor rows equal in height",
     "summary": "Give all donor-list rows equal height so a row of shorter names is not squeezed between neighboring rows. Preserve authored panel sizing, spacing, fonts, roster, and schedules while retaining text fitting.",
