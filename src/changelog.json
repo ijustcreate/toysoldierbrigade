@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0535",
+    "title": "Keep donor rows equal in height",
+    "summary": "Give all donor-list rows equal height so a row of shorter names is not squeezed between neighboring rows. Preserve authored panel sizing, spacing, fonts, roster, and schedules while retaining text fitting.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 11:21 PM",
+    "areas": [
+      "Board Editor",
+      "Displays",
+      "Donor lists"
+    ],
+    "files": [
+      "src/donorNameLayout.ts",
+      "scripts/test-donor-name-layout.mjs",
+      "scripts/check-equal-donor-rows-browser.cjs"
+    ],
+    "tests": "Production build; layout and fitting checks; state preservation/authority; browser regression in editor, 1080p and 4K with equal rows, no text overflow and unchanged saved board/donor/schedule data"
+  },
+  {
     "id": "DEV-0533",
     "title": "Set more names in each row",
     "summary": "Replace the four preset choices with a number box and left/right arrows for 1-99 names per row. Existing saved counts and board settings remain unchanged until edited.",

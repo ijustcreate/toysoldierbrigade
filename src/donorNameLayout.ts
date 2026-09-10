@@ -42,7 +42,11 @@ export function buildDonorNameGridLayout(
     lineCounts[row] = Math.max(lineCounts[row], splitDonorNameLines(item.name).length);
     subtextRows[row] ||= Boolean(item.hasSubtext);
   });
-  const rowUnits = lineCounts.map((lineCount, row) => lineCount * .92 + (subtextRows[row] ? .72 : 0) + .48);
+  // Reserve the tallest name/subtext requirement for every row. Short names
+  // must not make their row thinner than the neighboring donor rows.
+  const requiredRowUnits = lineCounts.map((lineCount, row) => lineCount * .92 + (subtextRows[row] ? .72 : 0) + .48);
+  const uniformRowUnits = Math.max(...requiredRowUnits);
+  const rowUnits = Array.from({ length: rowCount }, () => uniformRowUnits);
   return {
     rowCount,
     rowUnits,

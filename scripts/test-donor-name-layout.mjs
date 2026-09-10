@@ -17,7 +17,20 @@ const gridLayout = buildDonorNameGridLayout([
   { name: "Joanne Waters" }
 ], 2);
 assert.equal(gridLayout.rowCount, 2);
-assert.ok(gridLayout.rowUnits[0] > 2 * gridLayout.rowUnits[1] - .01, "a row with a three-line donor must receive more than twice the single-line row space");
+assert.equal(gridLayout.rowUnits[0], gridLayout.rowUnits[1], "short-name rows must be as tall as neighboring multiline-name rows");
+assert.ok(gridLayout.rowUnits[0] >= 3.24, "each row reserves enough space for the tallest name");
+assert.equal(gridLayout.totalUnits, gridLayout.rowCount * gridLayout.rowUnits[0]);
+
+for (const columns of [1, 3, 6, 12]) {
+  const mixed = buildDonorNameGridLayout([
+    { name: "Alex and Jordan Example", hasSubtext: true },
+    ...Array.from({ length: 23 }, () => ({ name: "Short Name" }))
+  ], columns, 25);
+  assert.equal(mixed.rowCount, 25, "authored row capacity is preserved");
+  assert.equal(new Set(mixed.rowUnits).size, 1, "all rows, including empty capacity, have equal height");
+  assert.ok(mixed.rowUnits[0] > gridLayout.rowUnits[0], "uniform rows also reserve subtext space");
+}
+assert.deepEqual(buildDonorNameGridLayout([], 3).rowUnits, [1.4], "empty lists remain safe");
 
 console.log(JSON.stringify({
   conjunction: splitDonorNameLines("Kevin and Sandy Huber"),
