@@ -1,4 +1,5 @@
 import { createDisplayStateRefreshGuard } from "./displayStateRefresh";
+import { NamesPerRowField } from "./components/NamesPerRowField";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -4461,7 +4462,7 @@ function ThemeStudio({
                 </div>}
               </section>
               {selectedPanel.type === "donors" && <>
-                <div className="field"><span>Names in each row</span><SegmentedControl value={String(selectedPanel.columns ?? selectedProgram.columns)} options={[["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"]]} onChange={(value) => patchPanel(selectedPanel.id, { columns: Number(value) as BoardPanel["columns"] })} /></div>
+                <NamesPerRowField key={selectedPanel.id} value={selectedPanel.columns ?? selectedProgram.columns} onChange={(columns) => patchPanel(selectedPanel.id, { columns })} />
                 <div className="two-col"><Slider label="Row height" info="Controls the height allocated to each donor row." value={selectedPanel.donorRowGap ?? 0} min={0} max={80} onChange={(donorRowGap) => patchPanel(selectedPanel.id, { donorRowGap })} /><Slider label="Column spacing" info="Controls the gap between donor columns. Set to 0 for touching side edges." value={selectedPanel.donorColumnGap ?? 0} min={0} max={30} onChange={(donorColumnGap) => patchPanel(selectedPanel.id, { donorColumnGap })} /></div>
                 <details className="inspector-details" open>
                   <summary>Scrolling credits</summary>

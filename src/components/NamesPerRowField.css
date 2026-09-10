@@ -1,0 +1,6 @@
+.names-per-row-stepper { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; gap: 6px; align-items: center; }
+.names-per-row-stepper button { display: grid; place-items: center; min-height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--panel); cursor: pointer; }
+.names-per-row-stepper button:hover:not(:disabled) { border-color: var(--teal); }
+.names-per-row-stepper button:disabled { opacity: .4; cursor: default; }
+.names-per-row-stepper input { min-width: 0; width: 100%; min-height: 36px; text-align: center; font-variant-numeric: tabular-nums; appearance: textfield; }
+.names-per-row-stepper input::-webkit-inner-spin-button, .names-per-row-stepper input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
