@@ -1,0 +1,39 @@
+# Lantern display PC setup
+
+This package prepares a fresh Windows 11 mini PC to run one assigned museum recognition display.
+
+## What the setup does
+
+1. Asks for the hosted site URL, display ID, and monitor orientation. Use the display ID shown in the Lantern control center, such as `display-1`.
+2. Finds the installed Google Chrome executable and saves the assigned display URL.
+3. Copies the display launcher to `C:\ProgramData\LanternDisplay`.
+4. Creates a full-screen Chrome launcher using a separate browser profile, so the display does not reuse a staff member's normal Chrome tabs or profile.
+5. Creates `Lantern Display.lnk` on the desktop for manual recovery and `Lantern Display Setup.lnk` to change the assignment later.
+6. Registers a Windows task that starts the player whenever the configured Windows account signs in.
+7. Registers a second Windows task that performs a recovery check every day at 5:00 AM. If Chrome was closed, the player starts again.
+8. Runs a small watchdog that reopens Chrome if it crashes or is closed.
+9. Sets the AC monitor, sleep, and hibernate timers to never expire so the attached display stays available while the PC has power.
+
+The package does not change museum board content, enable remote access, store a Windows password, or turn the TV on and off. The display page itself requests the browser Screen Wake Lock when supported, but Windows and the TV's own power settings still need to be tested on site.
+
+## Install
+
+1. Install current Google Chrome and connect the mini PC to the intended monitor.
+2. Extract this ZIP to a local folder.
+3. Right-click `Setup-LanternDisplay.bat` and choose **Run as administrator**.
+4. Enter the hosted site URL, assigned display ID, and orientation when prompted.
+5. Sign in once to the Windows account that should run the display, then restart the PC to verify automatic startup.
+
+The setup is designed for a PC that remains powered on or sleeps. A Windows task can wake a sleeping PC only when wake timers are allowed by the power plan and hardware. If the PC is fully shut down, open BIOS/UEFI and look for one of these names: **Power On By RTC**, **Resume By Alarm**, **Wake on RTC**, or **Restore AC Power Loss**. Configure the daily 5:00 AM power-on and choose **Power On** after AC loss if the firmware offers it. Firmware menus vary by manufacturer; verify this on the delivered mini PC before mounting it.
+
+For portrait displays, set Windows **Settings > System > Display > Display orientation** to **Portrait**. Leave the Lantern mount setting at `none`; do not rotate the screen in both Windows and the player.
+
+## Recovery and maintenance
+
+Use the desktop setup shortcut to change the assigned display. Use Task Scheduler to inspect the tasks named `Lantern Display - Start at sign-in` and `Lantern Display - 5 AM check`. To stop the display temporarily, close Chrome and disable those tasks until maintenance is complete.
+
+## Remote-access planning (not enabled by this package)
+
+The safest first version is same-network Windows Remote Desktop when the mini PCs run Windows 11 Pro. Create a dedicated local support account with a strong unique password, enable Remote Desktop only on the **Private** network profile, allow it through Windows Firewall, and record each PC's name or reserved LAN address. Staff could then use `mstsc.exe` from another museum computer. Windows 11 Home cannot host the built-in RDP service, so it would need a separately approved tool such as Chrome Remote Desktop or RustDesk.
+
+Before adding a guided button to the site, we should decide whether remote access is LAN-only, which Windows edition the PCs have, who is allowed to use it, and how credentials will be stored and rotated. The site should provide an explanation and a printable checklist; it should not expose passwords or silently open remote access from a browser click.

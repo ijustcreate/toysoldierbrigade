@@ -9527,6 +9527,16 @@ function RecognitionSettingsView({ state, updateState, appearance, onAppearanceC
 
   return (
     <section className="settings-workspace">
+      <header className="settings-page-header">
+        <div>
+          <p className="eyebrow">Site settings</p>
+          <h1>Control Center setup</h1>
+          <p>Prepare a Windows 11 mini PC to run an assigned museum display.</p>
+        </div>
+        <a className="command-button primary" href={`${import.meta.env.BASE_URL}pc-setup/lantern-pc-display-setup.zip`} download="lantern-pc-display-setup.zip" title="Download Windows mini PC setup files">
+          <Save size={16} /> <span>PC setup files</span>
+        </a>
+      </header>
       <section className="appearance-settings" aria-labelledby="appearance-heading">
         <div>
           <p className="eyebrow">Site appearance</p>

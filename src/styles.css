@@ -5792,6 +5792,64 @@ textarea:focus-visible,
   transform: translate(-50%, -50%);
 }
 
+/* The basic message template is the most common announcement treatment. Keep
+   its content easy to scan at a distance while letting the operator's chosen
+   text and background colors continue to drive the visual identity. */
+.announcement-fixed-canvas .announcement-display-overlay.temporary-card {
+  isolation: isolate;
+  overflow: hidden;
+  gap: 2.2cqi;
+  border-width: 2px;
+  border-color: color-mix(in srgb, currentColor 24%, transparent);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, .32),
+    0 3px 0 color-mix(in srgb, currentColor 12%, transparent) inset;
+}
+
+.announcement-fixed-canvas .announcement-display-overlay.temporary-card::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 0;
+  width: 1.15cqi;
+  content: "";
+  background: currentColor;
+  opacity: .78;
+}
+
+.announcement-fixed-canvas .announcement-display-overlay.temporary-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.announcement-fixed-canvas .announcement-display-overlay.temporary-card > strong {
+  max-width: 94%;
+  font-size: 4.35cqi;
+  font-weight: 850;
+  letter-spacing: -.035em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.announcement-fixed-canvas .announcement-display-overlay.temporary-card > span {
+  max-width: 92%;
+  font-size: 2.05cqi;
+  font-weight: 560;
+  line-height: 1.34;
+  text-wrap: pretty;
+}
+
+.announcement-fixed-canvas .announcement-display-overlay.temporary-card > .announcement-details {
+  max-width: 88%;
+  margin-top: .35cqi;
+  padding: .7cqi 1.3cqi;
+  border-color: color-mix(in srgb, currentColor 24%, transparent);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font-size: 1.2cqi;
+  font-weight: 700;
+  letter-spacing: .025em;
+  opacity: .82;
+}
+
 .announcement-display-overlay.temporary-card.has-timer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -9237,6 +9295,73 @@ textarea:focus-visible,
   overflow-y: auto;
 }
 
+/* Portrait ribbons use the same stacked card treatment as the basic message
+   template in the operator preview. Keep that treatment consistent when the
+   saved announcement still uses the default Ribbon layout. */
+.announcement-fixed-canvas.portrait .announcement-display-overlay.ribbon,
+.announcement-fixed-canvas.portrait .announcement-display-overlay.lower-third {
+  isolation: isolate;
+  overflow: hidden;
+  border-width: 2px;
+  border-color: color-mix(in srgb, currentColor 24%, transparent);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, .32),
+    0 3px 0 color-mix(in srgb, currentColor 12%, transparent) inset;
+}
+
+.announcement-fixed-canvas.portrait .announcement-display-overlay.ribbon::before,
+.announcement-fixed-canvas.portrait .announcement-display-overlay.lower-third::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 0;
+  width: 1.15cqi;
+  content: "";
+  background: currentColor;
+  opacity: .78;
+}
+
+.announcement-fixed-canvas.portrait .announcement-display-overlay.ribbon > *,
+.announcement-fixed-canvas.portrait .announcement-display-overlay.lower-third > * {
+  position: relative;
+  z-index: 1;
+}
+
+.announcement-fixed-canvas.portrait .announcement-display-overlay.ribbon > strong,
+.announcement-fixed-canvas.portrait .announcement-display-overlay.lower-third > strong {
+  max-width: 94%;
+  font-size: 6.2cqi;
+  font-weight: 850;
+  letter-spacing: -.035em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.announcement-fixed-canvas.portrait .announcement-display-overlay.ribbon > span,
+.announcement-fixed-canvas.portrait .announcement-display-overlay.lower-third > span {
+  max-width: 92%;
+  font-size: 3.35cqi;
+  font-weight: 560;
+  line-height: 1.34;
+  text-wrap: pretty;
+}
+
+.announcement-fixed-canvas.portrait .announcement-display-overlay.ribbon > .announcement-details,
+.announcement-fixed-canvas.portrait .announcement-display-overlay.lower-third > .announcement-details {
+  max-width: 88%;
+  margin-top: .35cqi;
+  padding: .7cqi 1.3cqi;
+  border-color: color-mix(in srgb, currentColor 24%, transparent);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font-size: 2.2cqi;
+  font-weight: 700;
+  letter-spacing: .025em;
+  opacity: .82;
+}
+.settings-page-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
+.settings-page-header h1 { margin: 4px 0 5px; color: var(--ink); font-size: 22px; }
+.settings-page-header p:last-child { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.settings-page-header .command-button { flex: 0 0 auto; white-space: nowrap; }
+
 .settings-intro {
   display: flex;
   min-height: 50px;
@@ -9827,6 +9952,8 @@ body.theme-light {
 @media (max-width: 760px) {
   .appearance-settings { align-items: stretch; flex-direction: column; }
   .appearance-select { width: 100%; }
+  .settings-page-header { align-items: stretch; flex-direction: column; }
+  .settings-page-header .command-button { justify-content: center; }
 }
 .placeholder-action:disabled { opacity: .62; cursor: help; }
 .placeholder-action:disabled:hover { transform: none; box-shadow: none; }
@@ -15355,3 +15482,33 @@ body.theme-light {
 .display-room-sharing { position: fixed; z-index: 30; left: 14px; bottom: 14px; display: flex; align-items: center; gap: 9px; max-width: min(520px, calc(100vw - 28px)); padding: 10px 12px; border: 1px solid rgba(116, 211, 173, .55); border-radius: 10px; background: rgba(7, 22, 34, .94); color: #e6fff4; box-shadow: 0 8px 28px rgba(0,0,0,.25); font-size: 12px; }
 .display-room-sharing span { flex: 1; }
 .display-room-sharing button { border: 1px solid rgba(255,255,255,.35); border-radius: 6px; padding: 5px 8px; background: transparent; color: inherit; cursor: pointer; font-weight: 700; }
+
+/* Final portrait hierarchy for the default Ribbon card. */
+.announcement-fixed-canvas.portrait .announcement-display-overlay.ribbon > strong,
+.announcement-fixed-canvas.portrait .announcement-display-overlay.lower-third > strong {
+  font-size: 6.2cqi;
+  font-weight: 850;
+  letter-spacing: -.035em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.announcement-fixed-canvas.portrait .announcement-display-overlay.ribbon > span,
+.announcement-fixed-canvas.portrait .announcement-display-overlay.lower-third > span {
+  font-size: 3.35cqi;
+  font-weight: 560;
+  line-height: 1.34;
+  text-wrap: pretty;
+}
+
+.announcement-fixed-canvas.portrait .announcement-display-overlay.ribbon > .announcement-details,
+.announcement-fixed-canvas.portrait .announcement-display-overlay.lower-third > .announcement-details {
+  margin-top: .35cqi;
+  padding: .7cqi 1.3cqi;
+  border-color: color-mix(in srgb, currentColor 24%, transparent);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font-size: 2.2cqi;
+  font-weight: 700;
+  letter-spacing: .025em;
+  opacity: .82;
+}
