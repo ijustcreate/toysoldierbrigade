@@ -1,5 +1,56 @@
 [
   {
+    "id": "DEV-0554",
+    "title": "Show deployed site build identifier",
+    "summary": "Display the deployed commit short SHA beside shared project data so staff can quickly confirm which site build a browser is running.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 11:50 AM",
+    "areas": [
+      "Settings",
+      "Deployment diagnostics",
+      "Shared project data"
+    ],
+    "files": [
+      "vite.config.ts",
+      "src/App.tsx"
+    ],
+    "tests": "npx tsc --noEmit --pretty false; npm run build"
+  },
+  {
+    "id": "DEV-0553",
+    "title": "Restore published Version 2 boards after shared-state rollback",
+    "summary": "Added an explicit restore mode for the previously published V2 board collection and used it with a fresh read-only backup and state-version precondition; only missing V2 boards were appended.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 11:38 AM",
+    "areas": [
+      "Version 2 boards",
+      "Shared state recovery",
+      "Release"
+    ],
+    "files": [
+      "scripts/publish-board-design-v2.mjs"
+    ],
+    "tests": "Live restore receipt verified 21 boards appended; 22 existing boards preserved; schedules and displays unchanged; node scripts/test-board-design-v2.mjs; npm run build"
+  },
+  {
+    "id": "DEV-0552",
+    "title": "Structured donor names and donor-list ordering",
+    "summary": "Added optional first, middle, and last donor name fields, additional multi-donor names with configurable and/& joiner, saved donor-list sorting by first name/last name/manual, and legacy-safe display-name rendering.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 11:24 AM",
+    "areas": [
+      "Donor records",
+      "Board editor",
+      "Recognition display"
+    ],
+    "files": [
+      "src/types.ts",
+      "src/donorName.ts",
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0551",
     "title": "Restore last-known Version 2 board presentation",
     "summary": "Published the verified Version 2 board collection and safe TV presentation behavior so the last-known V2 boards can be used again without changing live board data.",

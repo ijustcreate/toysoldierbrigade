@@ -22,6 +22,12 @@ export interface ImageCrop {
 export interface Donor {
   id: string;
   name: string;
+  /** Structured name data used for sorting and multi-person recognition names. Legacy name remains the fallback. */
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  additionalNames?: Array<{ firstName: string; middleName?: string; lastName: string }>;
+  multiDonorJoiner?: "&" | "and";
   tier: string;
   category: string;
   active: boolean;
@@ -319,6 +325,8 @@ export interface BoardPanel {
   columns?: number;
   rows?: number;
   donorIds?: string[];
+  /** Ordering for this donor-list panel. */
+  donorSort?: "manual" | "first-name" | "last-name";
   /** One donor positioned on an image-backed recognition star. */
   donorId?: string;
   /** Dynamically includes matching tiers from the board roster as membership changes. */
