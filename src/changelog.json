@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0543",
+    "title": "Clean live V2 board layouts",
+    "summary": "Reset the existing V2 board collection to its canonical panel layouts, correct portrait versus landscape background assets, center full-scale crops, and add the bundled Children's Museum logo to all 18 existing V2 boards while preserving rosters, schedules, displays, and deleted drafts.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:40 AM",
+    "areas": [
+      "Board design",
+      "Live content",
+      "Branding"
+    ],
+    "files": [
+      "18 existing V2 board records; output/live-state-backups/after-board-cleanup.json"
+    ],
+    "tests": "Read-only backup, version-checked state write, post-save integrity read-back, donor/schedule/display preservation, node scripts/test-board-design-v2.mjs; npm run build"
+  },
+  {
     "id": "DEV-0542",
     "title": "Repair V2 background framing and add museum logo",
     "summary": "Use portrait artwork on portrait V2 boards, keep landscape artwork on landscape boards, normalize generated crops to centered full scale, and place the existing bundled Children's Museum logo as a contained top mark.",
