@@ -1,5 +1,35 @@
 [
   {
+    "id": "DEV-0566",
+    "title": "Restore recognition board app entry",
+    "summary": "Replaced the root migration interstitial with the Vite application shell so the deployed site loads the recognition-board app.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 2:48 PM",
+    "areas": [
+      "Deployment",
+      "Application shell"
+    ],
+    "files": [
+      "index.html"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0565",
+    "title": "Restore recognition board app entry",
+    "summary": "Replaced the root migration interstitial with the Vite application shell so the deployed site loads the recognition-board app.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 2:48 PM",
+    "areas": [
+      "Deployment",
+      "Application shell"
+    ],
+    "files": [
+      "index.html"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0564",
     "title": "Readable calendar resize handles and side-aware overlays",
     "summary": "Placed event copy above the visual resize bars while preserving edge pointer hit zones; documented and verified opposite-side editor/preview positioning.",
