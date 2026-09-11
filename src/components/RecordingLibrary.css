@@ -124,6 +124,22 @@
 .compact-recording-library .recording-library__item:focus-within .recording-library__media,
 .compact-recording-library .recording-library__item.previewing .recording-library__media { display: block; }
 .compact-recording-library .recording-library__item.previewing .recording-library__media { pointer-events: auto; }
+.compact-recording-library .recording-library__item.previewing .recording-library__media {
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: 1;
+  display: block;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: min(100%, 360px);
+  margin-bottom: 2px;
+  transform: none;
+}
+.compact-recording-library .recording-library__item.previewing .recording-library__media video {
+  display: block;
+  pointer-events: auto;
+}
 .compact-recording-library .recording-library__details { grid-column: 1; }
 .compact-recording-library .recording-library__metadata span:nth-child(n + 4) { display: none; }
 .compact-recording-library .recording-library__details > small { display: none; }

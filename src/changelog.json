@@ -1,5 +1,111 @@
 [
   {
+    "id": "DEV-0563",
+    "title": "Default Broadcast preview to portrait",
+    "summary": "Restored the initial Broadcast/Stream target to the portrait display.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:24 PM",
+    "areas": [
+      "Broadcast preview",
+      "Initial live state"
+    ],
+    "files": [
+      "src/sampleData.ts"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0562",
+    "title": "Default Broadcast preview to portrait",
+    "summary": "Restored the initial Broadcast/Stream target to the portrait display.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:24 PM",
+    "areas": [
+      "Broadcast preview",
+      "Initial live state"
+    ],
+    "files": [
+      "src/sampleData.ts"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0561",
+    "title": "Default Broadcast preview to landscape",
+    "summary": "Changed the initial Broadcast/Stream target to the landscape display so the default studio composition opens in landscape.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:24 PM",
+    "areas": [
+      "Broadcast preview",
+      "Initial live state"
+    ],
+    "files": [
+      "src/sampleData.ts"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0560",
+    "title": "Default Broadcast preview to landscape",
+    "summary": "Changed the initial Broadcast/Stream target to the landscape display so the default studio composition opens in landscape.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:23 PM",
+    "areas": [
+      "Broadcast preview",
+      "Initial live state"
+    ],
+    "files": [
+      "src/sampleData.ts"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0559",
+    "title": "Open recorded videos in the library player",
+    "summary": "Made compact saved-recording previews expand inline with an interactive video player and native controls when Preview is clicked.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:22 PM",
+    "areas": [
+      "Broadcast preview",
+      "Recording library"
+    ],
+    "files": [
+      "src/components/RecordingLibrary.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0558",
+    "title": "Synchronize broadcast preview display targets",
+    "summary": "Kept the Broadcast preview selector, multi-display target state, and frame edits on the same effective target set so 2D/3D previews and edits stay aligned.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:21 PM",
+    "areas": [
+      "Broadcast preview",
+      "Display targeting",
+      "Frame editing"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; npm run test:shared-state-worker"
+  },
+  {
+    "id": "DEV-0557",
+    "title": "Preserve image backgrounds in 3D preview",
+    "summary": "Kept baked board artwork visible at oblique 3D angles by adding the board texture as emissive output on the front-face material.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:18 PM",
+    "areas": [
+      "3D preview",
+      "Board renderer"
+    ],
+    "files": [
+      "src/display/BabylonDonorWall.tsx"
+    ],
+    "tests": "npm run build; node scripts/test-tv-safe-board-renderer.mjs"
+  },
+  {
     "id": "DEV-0556",
     "title": "Open donor editor from board donor lists",
     "summary": "Added a per-donor edit action in the board donor-list browser that opens the existing donor editor UI.",

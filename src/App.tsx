@@ -6770,11 +6770,9 @@ function LivePreviewPanel({
   const selectedFrame = normalizeBroadcastComposition(liveCompositionForDisplay(state.live, previewScreen.id)).frame;
   const sourceCropEdges = normalizeCropEdges(selectedFrame.cropEdges);
   const updateTargetFrames = (updater: (frame: LanternState["live"]["frame"]) => LanternState["live"]["frame"]) => updateState((current) => {
-    const targetScreenIds = current.live.target === "all"
-      ? Object.keys(current.screens)
-      : current.screens[current.live.target]
-        ? [current.live.target]
-        : [previewScreen.id];
+    const targetScreenIds = liveTargets(current.live, current).length
+      ? liveTargets(current.live, current)
+      : [previewScreen.id];
     const displayLayouts = { ...current.live.displayLayouts };
     targetScreenIds.forEach((screenId) => {
       const frame = normalizeBroadcastComposition(liveCompositionForDisplay(current.live, screenId)).frame;
@@ -7504,7 +7502,7 @@ function LivePreviewPanel({
       <div className="live-studio-workspace">
       <section className="live-program-monitor" aria-label="Broadcast preview">
         <div className="live-program-monitor-head">
-          <div><span className={state.live.active ? "live-indicator active" : "live-indicator"} /><strong>{state.live.active ? "Program output" : "Preview"}</strong><label className="monitor-display-select"><span className="sr-only">Preview display</span><select aria-label="Preview display" value={state.live.target} disabled={recordingActive} title={recordingActive ? "Stop recording before changing the selected display." : undefined} onChange={(event) => patchLive({ target: event.target.value as TargetScreen })}>{targetOptions(state).map((option) => <option key={option} value={option}>{targetOptionLabels(state)[option]}</option>)}</select></label></div>
+          <div><span className={state.live.active ? "live-indicator active" : "live-indicator"} /><strong>{state.live.active ? "Program output" : "Preview"}</strong><label className="monitor-display-select"><span className="sr-only">Preview display</span><select aria-label="Preview display" value={state.live.target} disabled={recordingActive} title={recordingActive ? "Stop recording before changing the selected display." : undefined} onChange={(event) => { const target = event.target.value as TargetScreen; patchLive({ target, targets: target === "all" ? undefined : [target] }); }}>{targetOptions(state).map((option) => <option key={option} value={option}>{targetOptionLabels(state)[option]}</option>)}</select></label></div>
           <div className="live-program-monitor-tools">
             <span className="monitor-source-label">{liveSourceLabel(state.live.source)}</span>
             <div className="preview-view-mode" role="group" aria-label="Board preview dimension"><button type="button" className={boardViewMode === "2d" ? "active" : ""} aria-pressed={boardViewMode === "2d"} onClick={() => setBoardViewMode("2d")}><Lock size={12} /> 2D</button><button type="button" className={boardViewMode === "3d" ? "active" : ""} aria-pressed={boardViewMode === "3d"} onClick={() => setBoardViewMode("3d")}><Rotate3d size={12} /> 3D</button></div>

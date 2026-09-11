@@ -381,6 +381,11 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
     });
     const panelMaterial = new StandardMaterial("baked-donor-lettering", scene);
     panelMaterial.diffuseTexture = texture;
+    // The canvas already contains the authored board artwork, including image
+    // backgrounds. Keep that artwork visible at oblique angles in 3D instead
+    // of allowing scene lighting to crush the background texture to near black.
+    panelMaterial.emissiveTexture = texture;
+    panelMaterial.emissiveColor = Color3.White();
     panelMaterial.diffuseColor = Color3.White();
     panelMaterial.specularColor = state.theme.finish === "Matte" ? new Color3(0.06, 0.07, 0.07) : new Color3(0.24, 0.2, 0.14);
     panelMaterial.specularPower = state.theme.finish === "Soft Gloss" ? 52 : state.theme.finish === "Matte" ? 8 : 24;

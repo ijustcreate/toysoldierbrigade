@@ -8894,6 +8894,7 @@ textarea:focus-visible,
 }
 
 .calendar-resize-handle {
+  z-index: 2;
   right: 3px;
   left: 3px;
   height: 10px;
@@ -8908,6 +8909,7 @@ textarea:focus-visible,
   left: 2px;
   height: 3px;
   border-radius: 2px;
+  z-index: -1;
   background: rgba(255, 255, 255, .78);
   content: "";
 }
@@ -8918,6 +8920,16 @@ textarea:focus-visible,
 .calendar-resize-handle.bottom::after { bottom: 1px; }
 .calendar-event:hover .calendar-resize-handle,
 .calendar-event.selected .calendar-resize-handle { opacity: .9; }
+
+/* Keep event copy readable when resize affordances are visible. The handles
+   retain the top/bottom hit area, while their white grab bars sit behind copy. */
+.calendar-event > strong,
+.calendar-event > span:not(.calendar-resize-handle),
+.calendar-event > small {
+  position: relative;
+  z-index: 3;
+  pointer-events: none;
+}
 
 .schedule-color-row {
   display: grid;
