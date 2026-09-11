@@ -1,11 +1,13 @@
 /** One-time, explicitly requested content authoring; never run during deployment. */
-import { readFile, writeFile, mkdir, access } from "node:fs/promises";
+import { readFile, writeFile, mkdir, access, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { ASSETS, buildBoardVersions, appendBoardVersions } from "./board-design-v2.mjs";
 
 const publish = process.argv.includes("--publish-new-boards");
+const restorePublished = process.argv.includes("--restore-published-boards");
+if (publish && restorePublished) throw new Error("Choose only one publication mode: --publish-new-boards or --restore-published-boards.");
 const endpoint = process.env.LANTERN_V2_CONTENT_ENDPOINT?.replace(/\/bugs\/?$/, "").replace(/\/$/, "");
 if (!endpoint || new URL(endpoint).protocol !== "https:") throw new Error("Set the verified LANTERN_V2_CONTENT_ENDPOINT HTTPS service URL.");
 const folder = path.resolve("output/board-design-v2");
@@ -24,7 +26,7 @@ async function snapshot() {
   return { ...data, backup: file, sha256: hash(raw) };
 }
 const localUrls = Object.fromEntries(Object.entries(ASSETS).map(([key, file]) => [key, `/assets/boards-v2/${file}`]));
-if (!publish) {
+if (!publish && !restorePublished) {
   const current = await snapshot();
   const boards = buildBoardVersions(current.state, localUrls);
   // An authoring artifact, not a mutation-test fixture or startup seed.
@@ -63,12 +65,17 @@ if (!publish) {
     if (response.status === 409) continue;
     if (!response.ok) throw new Error(`Creation failed: ${response.status}; inspect before retrying.`);
     const result = await response.json();
-    const receipt = { createdAt: new Date().toISOString(), previousVersion: current.updatedAt,
+    const receipt = { createdAt: new Date().toISOString(), mode: restorePublished ? "restore-published-boards" : "publish-new-boards", previousVersion: current.updatedAt,
       savedVersion: result.updatedAt, backup: current.backup, backupSha256: current.sha256,
       boards: boards.map(({ id, name, donorIds }) => ({ id, name, donors: donorIds.length })),
       originalBoardsPreserved: beforeBoards.length, schedulesAndDisplaysUnchanged: true };
     // Write the receipt before follow-up checks: a transient GET failure must not permit republishing.
-    await writeFile(receiptPath, JSON.stringify(receipt, null, 2), { flag: "wx" });
+    if (restorePublished) {
+      const restoreReceiptPath = path.join(folder, `restore-receipt-${stamp()}.json`);
+      await writeFile(restoreReceiptPath, JSON.stringify(receipt, null, 2), { flag: "wx" });
+    } else {
+      await writeFile(receiptPath, JSON.stringify(receipt, null, 2), { flag: "wx" });
+    }
     const verifyResponse = await fetch(`${endpoint}/state`, { cache: "no-store" });
     if (!verifyResponse.ok) throw new Error("Saved successfully; verification read failed. Inspect the receipt, do not rerun.");
     const verified = await verifyResponse.json();
@@ -78,7 +85,12 @@ if (!publish) {
     const missing = boards.filter((board) => !verified.state.boardPrograms.some((item) => item.id === board.id));
     receipt.verification = { readVersion: verified.updatedAt, visibleNewBoards: boards.length - missing.length,
       concurrentChangeAfterSave: verified.updatedAt !== result.updatedAt };
-    await writeFile(receiptPath, JSON.stringify(receipt, null, 2));
+    if (restorePublished) {
+      const restoreReceipts = (await readdir(folder)).filter((name) => name.startsWith("restore-receipt-")).sort();
+      await writeFile(path.join(folder, restoreReceipts.at(-1)), JSON.stringify(receipt, null, 2));
+    } else {
+      await writeFile(receiptPath, JSON.stringify(receipt, null, 2));
+    }
     console.log(JSON.stringify(receipt, null, 2));
     saved = true;
     break;
