@@ -7,6 +7,7 @@ import path from "node:path";
 const bugRoot = path.resolve(".lantern", "bugs");
 const pagesBase = process.env.GITHUB_ACTIONS ? "/toysoldierbrigade/" : "/";
 const pagesAssetPrefix = pagesBase.replace(/\/$/, "");
+const appBuild = process.env.GITHUB_SHA?.slice(0, 7) ?? "local";
 
 function rewriteRootAssetUrls(): Plugin {
   if (!pagesAssetPrefix) return { name: "rewrite-root-asset-urls" };
@@ -96,6 +97,9 @@ function lanternBugApi(): Plugin {
 
 export default defineConfig({
   base: pagesBase,
+  define: {
+    "import.meta.env.VITE_LANTERN_BUILD": JSON.stringify(appBuild)
+  },
   plugins: [react(), lanternBugApi(), rewriteRootAssetUrls()],
   clearScreen: false,
   server: {

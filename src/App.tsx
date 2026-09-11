@@ -136,6 +136,8 @@ import {
   uploadLanternAsset
 } from "./host/lanternHost";
 import type { SharedStatePersistenceDetail } from "./host/lanternHost";
+
+const APP_BUILD = import.meta.env.VITE_LANTERN_BUILD ?? "local";
 import { mergeConcurrentState } from "./concurrentStateMerge";
 import { attachDisplayVideoReceiver, DirectorVideoBridge } from "./host/videoBridge";
 import type {
@@ -9602,6 +9604,7 @@ function RecognitionSettingsView({ state, updateState, appearance, onAppearanceC
           <p className="eyebrow">Shared project data</p>
           <h2 id="site-sync-heading">Pull latest site changes</h2>
           <span>{siteSyncAvailable ? "Replace this computer’s local working copy with the latest saved data from the live site before you begin editing." : "Configure VITE_LANTERN_READ_ENDPOINT in this local build to enable read-only pulls from the live site."}</span>
+          <small aria-label="Application build">Site build: {APP_BUILD}</small>
           {siteSyncStatus && <small role="status">{siteSyncStatus}</small>}
         </div>
         <button type="button" className="command-button secondary" onClick={onPullSiteChanges} disabled={!siteSyncAvailable || siteSyncing}><Download size={16} /> {siteSyncing ? "Pulling…" : "Pull latest site changes"}</button>
