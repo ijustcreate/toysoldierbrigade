@@ -410,6 +410,7 @@ function ControlCenter() {
   const [selectedDisplayId, setSelectedDisplayId] = useState<ScreenId>(() => firstDisplayId(loadLanternState()));
   const [requestedBoardEditorId, setRequestedBoardEditorId] = useState<string | null>(null);
   const [requestedBoardEditorPanelId, setRequestedBoardEditorPanelId] = useState<string | null>(null);
+  const [requestedDonorId, setRequestedDonorId] = useState<string | null>(null);
   const [videoStatus, setVideoStatus] = useState("Idle");
   const [donorSetupOpen, setDonorSetupOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -1322,10 +1323,13 @@ function ControlCenter() {
             addDonor={addDonor}
             donorSetupOpen={donorSetupOpen}
             closeDonorSetup={() => setDonorSetupOpen(false)}
+            requestedDonorId={requestedDonorId}
+            onRequestedDonorHandled={() => setRequestedDonorId(null)}
             onOpenBoard={(boardId, panelId) => { setRequestedBoardEditorId(boardId); setRequestedBoardEditorPanelId(panelId ?? null); setView("theme"); }}
+            onOpenDonor={(donorId) => { setRequestedDonorId(donorId); setView("donors"); }}
           />
         )}
-        {view === "theme" && <ThemeStudio state={state} selectedDisplayId={selectedDisplayId} setSelectedDisplayId={setSelectedDisplayId} requestedBoardId={requestedBoardEditorId} requestedPanelId={requestedBoardEditorPanelId} onRequestedBoardHandled={() => { setRequestedBoardEditorId(null); setRequestedBoardEditorPanelId(null); }} updateState={updateState} />}
+        {view === "theme" && <ThemeStudio state={state} selectedDisplayId={selectedDisplayId} setSelectedDisplayId={setSelectedDisplayId} requestedBoardId={requestedBoardEditorId} requestedPanelId={requestedBoardEditorPanelId} onRequestedBoardHandled={() => { setRequestedBoardEditorId(null); setRequestedBoardEditorPanelId(null); }} onOpenDonor={(donorId) => { setRequestedDonorId(donorId); setView("donors"); }} updateState={updateState} />}
         {view === "schedule" && <ScheduleCalendarView
           state={state}
           updateState={updateState}
@@ -2707,7 +2711,10 @@ function DonorsView({
   addDonor,
   donorSetupOpen,
   closeDonorSetup,
-  onOpenBoard
+  requestedDonorId,
+  onRequestedDonorHandled,
+  onOpenBoard,
+  onOpenDonor
 }: {
   state: LanternState;
   activeUserId?: string;
@@ -2719,7 +2726,10 @@ function DonorsView({
   addDonor: () => void;
   donorSetupOpen: boolean;
   closeDonorSetup: () => void;
+  requestedDonorId: string | null;
+  onRequestedDonorHandled: () => void;
   onOpenBoard: (boardId: string, panelId?: string) => void;
+  onOpenDonor: (donorId: string) => void;
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Donor | null>(null);
@@ -2856,6 +2866,12 @@ function DonorsView({
     setSelectedDonorBoardId(donorListOptions(state).find((option) => option.id === initialListId)?.boardId ?? "");
     setEditTab("basic");
   };
+  useEffect(() => {
+    if (!requestedDonorId) return;
+    const donor = state.donors.find((item) => item.id === requestedDonorId);
+    if (donor) editDonor(donor);
+    onRequestedDonorHandled();
+  }, [requestedDonorId]);
 
   const givingBoardMatchesDonor = (current: LanternState, board: DonorBoardProgram, donor: Donor) => {
     if (!donor.givingProgramId || board.givingProgramId !== donor.givingProgramId) return false;
@@ -3189,11 +3205,11 @@ function DonorsView({
           <EditorTabs value={editTab} options={[["basic", "Donor info"], ["images", "Donor images"], ["giving", "Pledge & donations"], ["history", "Donation history"], ["displays", "Donor lists"]]} onChange={(value) => setEditTab(value as typeof editTab)} />
           <div className="editor-modal-body donor-editor-body">
             {editTab === "basic" && <div className="editor-form-grid">
-              <LabeledInput label="Legacy/display name" info="Used when structured name fields are empty; existing donor records remain compatible." value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
               <div className="two-col span-two"><LabeledInput label="First name" info="Used by first-name sorting." value={draft.firstName ?? ""} onChange={(firstName) => setDraft({ ...draft, firstName: firstName || undefined })} /><LabeledInput label="Middle name (optional)" info="Optional middle name shown between first and last name." value={draft.middleName ?? ""} onChange={(middleName) => setDraft({ ...draft, middleName: middleName || undefined })} /></div>
               <LabeledInput label="Last name" info="Used by last-name sorting." value={draft.lastName ?? ""} onChange={(lastName) => setDraft({ ...draft, lastName: lastName || undefined })} />
-              <label className="field"><span>Multi-donor joiner</span><select value={draft.multiDonorJoiner ?? "and"} onChange={(event) => setDraft({ ...draft, multiDonorJoiner: event.target.value as Donor["multiDonorJoiner"] })}><option value="and">and</option><option value="&">&amp;</option></select></label>
-              <label className="field span-two"><span>Additional donor names <small>(one per line: first|middle|last)</small></span><textarea rows={3} value={(draft.additionalNames ?? []).map((name) => [name.firstName, name.middleName ?? "", name.lastName].join("|")).join("\n")} onChange={(event) => setDraft({ ...draft, additionalNames: event.target.value.split("\n").map((line) => line.split("|")).filter((parts) => parts[0]?.trim() && parts[2]?.trim()).map(([firstName, middleName, lastName]) => ({ firstName: firstName.trim(), middleName: middleName.trim() || undefined, lastName: lastName.trim() })) || undefined })} placeholder="Alex||Rivera\nJordan|M|Rivera" /></label>
+              <label className="field"><span>Join names with</span><select value={draft.multiDonorJoiner ?? "and"} onChange={(event) => setDraft({ ...draft, multiDonorJoiner: event.target.value as Donor["multiDonorJoiner"] })}><option value="and">and</option><option value="&">&amp;</option></select></label>
+              {(draft.people ?? []).map((person, index) => <div className="two-col span-two" key={index}><LabeledInput label={`Person ${index + 2} first name`} value={person.firstName} onChange={(firstName) => setDraft({ ...draft, people: (draft.people ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, firstName } : item) })} /><LabeledInput label="Last name" value={person.lastName} onChange={(lastName) => setDraft({ ...draft, people: (draft.people ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, lastName } : item) })} /></div>)}
+              <button type="button" className="command-button secondary compact span-two" onClick={() => setDraft({ ...draft, people: [...(draft.people ?? []), { firstName: "", lastName: "" }] })}><Plus size={14} /> Add another person</button>
               <LabeledSelect label="Donor type" info="Relationship type for stewardship and reporting." value={draft.donorType ?? "Individual"} options={["Individual", "Family", "Organization", "Foundation", "Corporate", "Government", "Anonymous", "Other"]} onChange={(donorType) => setDraft({ ...draft, donorType: donorType as Donor["donorType"] })} />
               <LabeledInput label="Organization / household" info="Optional organization, family, or household name." value={draft.organizationName ?? ""} onChange={(organizationName) => setDraft({ ...draft, organizationName })} />
               <LabeledSelect label="Recognition category" info="Recognition category used by existing board filters." value={draft.category} options={state.recognitionSettings.categories} onChange={(category) => setDraft({ ...draft, category })} />
@@ -3496,7 +3512,7 @@ function DonorSetupWizard({ state, onClose, onCreate }: { state: LanternState; o
   ];
   const recognitionDate = draft.givingProgramId ? (draft.pledgeStartYear ?? draft.since) : (draft.donationDate ?? draft.since);
   const recognitionYear = Number(recognitionDate.slice(0, 4));
-  const nameError = draft.name.trim() ? "" : "Enter the donor or organization name.";
+  const nameError = (draft.firstName?.trim() || draft.lastName?.trim() || draft.name.trim()) ? "" : "Enter the donor's first and last name.";
   const sinceError = /^(\d{4}|\d{4}-\d{2}-\d{2})$/.test(recognitionDate) && recognitionYear >= 1800 && recognitionYear <= currentYear + 1
     ? ""
     : `Enter a four-digit year between 1800 and ${currentYear + 1}.`;
@@ -3531,7 +3547,7 @@ function DonorSetupWizard({ state, onClose, onCreate }: { state: LanternState; o
     onCreate({
       ...draft,
       id: `d-${Date.now()}`,
-      name: draft.name.trim(),
+      name: [draft.firstName, draft.middleName, draft.lastName].filter(Boolean).join(" ").trim() || draft.name.trim(),
       since: recognitionDate.trim(),
       donationDate: draft.givingProgramId && !draft.amount ? undefined : recognitionDate.trim(),
       donationType: draft.amount ? (draft.donationType ?? "Cash") : draft.givingProgramId ? undefined : draft.donationType,
@@ -3633,9 +3649,9 @@ function DonorSetupWizard({ state, onClose, onCreate }: { state: LanternState; o
             <div className="editor-form-grid setup-form-grid">
               <label className={`field span-two${attempted && nameError ? " has-error" : ""}`}>
                 <span>Display name <b>Required</b></span>
-                <input autoFocus value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} placeholder="e.g. The Rivera Family or Northstar Labs" />
                 <div className="two-col"><label className="field"><span>First name</span><input value={draft.firstName ?? ""} onChange={(event) => setDraft({ ...draft, firstName: event.target.value || undefined })} /></label><label className="field"><span>Last name</span><input value={draft.lastName ?? ""} onChange={(event) => setDraft({ ...draft, lastName: event.target.value || undefined })} /></label></div>
-                <label className="field"><span>Additional donors <small>(first|middle|last, one per line)</small></span><textarea rows={2} value={(draft.additionalNames ?? []).map((name) => [name.firstName, name.middleName ?? "", name.lastName].join("|")).join("\n")} onChange={(event) => setDraft({ ...draft, additionalNames: event.target.value.split("\n").map((line) => line.split("|")).filter((parts) => parts[0]?.trim() && parts[2]?.trim()).map(([firstName, middleName, lastName]) => ({ firstName: firstName.trim(), middleName: middleName.trim() || undefined, lastName: lastName.trim() })) || undefined })} placeholder="Alex||Rivera" /></label>
+                {(draft.people ?? []).map((person, index) => <div className="two-col" key={index}><label className="field"><span>Person {index + 2} first name</span><input value={person.firstName} onChange={(event) => setDraft({ ...draft, people: (draft.people ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, firstName: event.target.value } : item) })} /></label><label className="field"><span>Last name</span><input value={person.lastName} onChange={(event) => setDraft({ ...draft, people: (draft.people ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, lastName: event.target.value } : item) })} /></label></div>)}
+                <button type="button" className="command-button secondary compact" onClick={() => setDraft({ ...draft, people: [...(draft.people ?? []), { firstName: "", lastName: "" }] })}><Plus size={14} /> Add another person</button>
                 <label className="field"><span>Join names with</span><select value={draft.multiDonorJoiner ?? "and"} onChange={(event) => setDraft({ ...draft, multiDonorJoiner: event.target.value as Donor["multiDonorJoiner"] })}><option value="and">and</option><option value="&">&amp;</option></select></label>
                 <small className="field-guidance">This is the name guests will see on recognition boards.</small>
                 {attempted && nameError && <small className="field-error" role="alert">{nameError}</small>}
@@ -3896,6 +3912,7 @@ function ThemeStudio({
   requestedBoardId,
   requestedPanelId,
   onRequestedBoardHandled,
+  onOpenDonor,
   updateState
 }: {
   state: LanternState;
@@ -3904,6 +3921,7 @@ function ThemeStudio({
   requestedBoardId: string | null;
   requestedPanelId: string | null;
   onRequestedBoardHandled: () => void;
+  onOpenDonor: (donorId: string) => void;
   updateState: (updater: (current: LanternState) => LanternState) => void;
 }) {
   const [draftState, setDraftState] = useState<LanternState>(() => structuredClone(savedState));
@@ -4497,7 +4515,7 @@ function ThemeStudio({
                     <label><span>Sort</span><select value={rosterSort} onChange={(event) => setRosterSort(event.target.value as typeof rosterSort)}><option value="name-asc">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="level">Level, then name</option></select></label>
                     <label><span>Board display order</span><select value={selectedPanel.donorSort ?? "manual"} onChange={(event) => patchPanel(selectedPanel.id, { donorSort: event.target.value as BoardPanel["donorSort"] })}><option value="manual">User ordered</option><option value="first-name">Alphabetical by first name</option><option value="last-name">Alphabetical by last name</option></select></label>
                   </div>
-                  <div className="board-donor-picker full-roster-picker">{filteredBoardDonors.map((donor) => { const selected = selectedDonorListIds.includes(donor.id); const cutOff = cutOffDonorIds.includes(donor.id); const facets = donorRosterFacets(donor, state.givingPrograms); return <label key={donor.id} className={`${selected ? "selected" : ""}${cutOff ? " cut-off" : ""}`}><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedDonorListMember(donor.id, event.target.checked)} /><span><strong>{donorDisplayName(donor)}</strong><small>{facets.slice(0, 3).join(" · ") || "No giving level or tags"}{donor.donationType ? ` · ${donor.donationType}` : ""}{!donor.active ? " · Inactive" : ""}</small></span><b>{cutOff ? "Cut off" : selected ? "Included" : "Excluded"}</b></label>; })}{!filteredBoardDonors.length && <p className="board-roster-empty">No donors match these filters. Existing selections remain unchanged.</p>}</div>
+                  <div className="board-donor-picker full-roster-picker">{filteredBoardDonors.map((donor) => { const selected = selectedDonorListIds.includes(donor.id); const cutOff = cutOffDonorIds.includes(donor.id); const facets = donorRosterFacets(donor, state.givingPrograms); return <label key={donor.id} className={`${selected ? "selected" : ""}${cutOff ? " cut-off" : ""}`}><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedDonorListMember(donor.id, event.target.checked)} /><span><strong>{donorDisplayName(donor)}</strong><small>{facets.slice(0, 3).join(" · ") || "No giving level or tags"}{donor.donationType ? ` · ${donor.donationType}` : ""}{!donor.active ? " · Inactive" : ""}</small></span><button type="button" className="icon-button compact" onClick={(event) => { event.preventDefault(); onOpenDonor(donor.id); }} aria-label={`Edit ${donorDisplayName(donor)}`} title="Edit donor"><Pencil size={14} /></button><b>{cutOff ? "Cut off" : selected ? "Included" : "Excluded"}</b></label>; })}{!filteredBoardDonors.length && <p className="board-roster-empty">No donors match these filters. Existing selections remain unchanged.</p>}</div>
                   <p className="field-note">Search and filters only change which rows are shown. Hidden donor selections stay in this list until you explicitly remove them.</p>
                 </div>}
               </section>

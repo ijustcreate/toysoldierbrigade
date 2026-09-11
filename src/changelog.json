@@ -1,5 +1,38 @@
 [
   {
+    "id": "DEV-0556",
+    "title": "Open donor editor from board donor lists",
+    "summary": "Added a per-donor edit action in the board donor-list browser that opens the existing donor editor UI.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:15 PM",
+    "areas": [
+      "Board editor",
+      "Donor records"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0555",
+    "title": "Improve structured donor name entry",
+    "summary": "Replaced legacy/display-name and textarea additional-name inputs with repeatable structured person rows, configurable joiner, and compatibility parsing for existing donor names used by donor lists.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:13 PM",
+    "areas": [
+      "Donor records",
+      "Donor lists",
+      "Recognition display"
+    ],
+    "files": [
+      "src/types.ts",
+      "src/donorName.ts",
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0554",
     "title": "Show deployed site build identifier",
     "summary": "Display the deployed commit short SHA beside shared project data so staff can quickly confirm which site build a browser is running.",

@@ -26,7 +26,7 @@ export interface Donor {
   firstName?: string;
   middleName?: string;
   lastName?: string;
-  additionalNames?: Array<{ firstName: string; middleName?: string; lastName: string }>;
+  people?: Array<{ firstName: string; middleName?: string; lastName: string }>;
   multiDonorJoiner?: "&" | "and";
   tier: string;
   category: string;
