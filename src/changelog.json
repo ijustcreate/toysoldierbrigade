@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0564",
+    "title": "Readable calendar resize handles and side-aware overlays",
+    "summary": "Placed event copy above the visual resize bars while preserving edge pointer hit zones; documented and verified opposite-side editor/preview positioning.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 12:25 PM",
+    "areas": [
+      "Schedule calendar",
+      "Event editor"
+    ],
+    "files": [
+      "src/styles.css",
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0563",
     "title": "Default Broadcast preview to portrait",
     "summary": "Restored the initial Broadcast/Stream target to the portrait display.",
