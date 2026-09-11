@@ -1,5 +1,57 @@
 [
   {
+    "id": "DEV-0546",
+    "title": "Polish every recognition board",
+    "summary": "Applied a small visual cleanup to all 38 saved boards: keep panels on canvas, prevent unintended image cropping, and normalize missing framing and background settings without changing donors, schedules, or displays.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:45 AM",
+    "areas": [
+      "Board design",
+      "Live content",
+      "Visual polish"
+    ],
+    "files": [
+      "38 shared board records; output/live-state-backups/after-all-board-polish.json"
+    ],
+    "tests": "Read-only backup, version-checked state write, post-save integrity read-back, 38-board change audit, donor/schedule/display preservation"
+  },
+  {
+    "id": "DEV-0545",
+    "title": "Add downloadable mini PC setup package",
+    "summary": "Added a hosted Windows 11 display setup ZIP and a Settings header download button for assigning and recovering dedicated display PCs.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:44 AM",
+    "areas": [
+      "Settings",
+      "Mini PC display setup"
+    ],
+    "files": [
+      "public/pc-setup/Setup-LanternDisplay.bat",
+      "public/pc-setup/Setup-LanternDisplay.ps1",
+      "public/pc-setup/Launch-LanternDisplay.ps1",
+      "public/pc-setup/README-PC-SETUP.md",
+      "public/pc-setup/lantern-pc-display-setup.zip",
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; PowerShell parser checks; ZIP listing verification"
+  },
+  {
+    "id": "DEV-0544",
+    "title": "Polish basic announcement message template",
+    "summary": "Improved the default announcement card hierarchy and spacing for portrait and landscape previews while preserving saved message content and chosen colors.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:43 AM",
+    "areas": [
+      "Announcements",
+      "Display preview"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; local portrait and landscape preview verification"
+  },
+  {
     "id": "DEV-0543",
     "title": "Clean live V2 board layouts",
     "summary": "Reset the existing V2 board collection to its canonical panel layouts, correct portrait versus landscape background assets, center full-scale crops, and add the bundled Children's Museum logo to all 18 existing V2 boards while preserving rosters, schedules, displays, and deleted drafts.",
