@@ -3946,6 +3946,7 @@ function ThemeStudio({
   const [pendingPanelDelete, setPendingPanelDelete] = useState<{ programId: string; ids: string[]; removed: Array<{ panel: BoardPanel; index: number }>; x: number; y: number } | null>(null);
   const [lastDeletedPanels, setLastDeletedPanels] = useState<{ programId: string; removed: Array<{ panel: BoardPanel; index: number }> } | null>(null);
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [boardBackgroundPickerOpen, setBoardBackgroundPickerOpen] = useState(false);
   const boardPickerRef = useRef<HTMLDetailsElement>(null);
   const boardActionsMenuRef = useRef<HTMLDetailsElement>(null);
   const boardAddMenuRef = useRef<HTMLDetailsElement>(null);
@@ -3994,6 +3995,16 @@ function ThemeStudio({
       ? { imageUrl, imageFit: "cover", height: accentHeight, y: (selectedPanel.y ?? 5) + (currentHeight - accentHeight) / 2 }
       : { imageUrl, imageFit: "contain" });
     setImagePickerOpen(false);
+  };
+  const chooseBoardBackgroundLibraryImage = (imageUrl: string) => {
+    if (!selectedProgram) return;
+    patchProgram({
+      backgroundMode: "image",
+      backgroundImage: imageUrl,
+      backgroundMediaId: undefined,
+      backgroundCrop: { scale: 1, x: 0, y: 0, rotation: 0 }
+    });
+    setBoardBackgroundPickerOpen(false);
   };
   useEffect(() => {
     const handleSharedBoardSave = (event: Event) => {
@@ -4543,7 +4554,12 @@ function ThemeStudio({
               <label className="switch-row"><input type="checkbox" checked={selectedProgram.showFrame ?? display.showFrame ?? true} onChange={(event) => patchProgram({ showFrame: event.target.checked })} /><span>Show board frame</span></label>
             </div></details>
             <details className="inspector-details"><summary>Board image</summary><div className="inspector-block">
+              {selectedProgram.backgroundImage && <div className="board-background-preview">
+                <img src={resolveProjectAssetUrl(selectedProgram.backgroundImage)} alt={`${selectedProgram.name} background preview`} />
+                <div><strong>Current board image</strong><span>Shown behind this board’s content</span></div>
+              </div>}
               <div className="board-background-controls">
+                <button type="button" className="command-button secondary compact" onClick={() => setBoardBackgroundPickerOpen(true)}><ImageIcon size={15} /> Choose from site image library</button>
                 <label className="command-button secondary compact image-upload-button"><ImagePlus size={15} /> {selectedProgram.backgroundImage ? "Replace board image" : "Add board image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => void chooseBoardBackground(event.target.files?.[0])} /></label>
                 {selectedProgram.backgroundImage && <button type="button" className="command-button danger compact" onClick={removeBoardBackground}><Trash2 size={15} /> Use display background</button>}
               </div>
@@ -4561,6 +4577,7 @@ function ThemeStudio({
       <MobileBoardPageRail />
       {pendingProgramDelete && <LanternConfirmDialog eyebrow="Delete board template" title={`Delete “${pendingProgramDelete.name}”?`} description="This removes the reusable board and its board-specific presentation settings. Donor profiles remain available, and displays using this board move to the next available board." confirmLabel="Delete board" onCancel={() => setPendingProgramDeleteId(null)} onConfirm={() => deleteProgram(pendingProgramDelete.id)} />}
       {imagePickerOpen && selectedPanel && createPortal(<MediaLibraryPicker images={boardImageLibrary} selectedUrl={selectedPanel.imageUrl} onChoose={chooseBoardLibraryImage} onClose={() => setImagePickerOpen(false)} />, document.body)}
+      {boardBackgroundPickerOpen && createPortal(<MediaLibraryPicker images={boardImageLibrary} selectedUrl={selectedProgram.backgroundImage} onChoose={chooseBoardBackgroundLibraryImage} onClose={() => setBoardBackgroundPickerOpen(false)} />, document.body)}
       {pendingPanelDelete && createPortal(<section className="panel-delete-confirm" style={{ left: pendingPanelDelete.x, top: pendingPanelDelete.y }} role="alertdialog" aria-label="Confirm element deletion"><strong>Remove {pendingPanelDelete.removed.length === 1 ? "this element" : `${pendingPanelDelete.removed.length} elements`}?</strong><span>You can restore it with Ctrl/Cmd+Z.</span><div><button type="button" onClick={() => setPendingPanelDelete(null)}>Cancel</button><button type="button" className="danger" onClick={confirmRemovePanel}>Remove</button></div></section>, document.body)}
     </section>
   );

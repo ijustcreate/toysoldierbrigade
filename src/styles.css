@@ -8257,6 +8257,12 @@ textarea:focus-visible,
 .panel-position-note { display: block; margin-top: -1px; color: #8db5bc; font-size: 8px; line-height: 1.35; }
 .image-upload-button { position: relative; overflow: hidden; cursor: pointer; }
 .image-upload-button input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.board-background-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.board-background-preview { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 10px; margin-bottom: 10px; padding: 7px; border: 1px solid rgba(121, 202, 198, .28); border-radius: 7px; background: rgba(8, 23, 36, .42); }
+.board-background-preview img { display: block; width: 72px; height: 48px; border-radius: 4px; object-fit: cover; background: #101b29; }
+.board-background-preview strong, .board-background-preview span { display: block; }
+.board-background-preview strong { color: #d7f1ef; font-size: 10px; }
+.board-background-preview span { margin-top: 2px; color: #8fa7b9; font-size: 9px; line-height: 1.3; }
 .direct-image-panel { display: grid; width: 100%; height: 100%; place-items: center; overflow: hidden; color: #79cac6; font-size: 10px; }
 .direct-image-panel img { display: block; width: 100%; height: 100%; }
 .direct-image-panel.fit-contain img { object-fit: contain; }

@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0549",
+    "title": "Show board background preview and library picker",
+    "summary": "Board editor now displays the selected board image and lets users choose replacement artwork from the site image library while retaining upload and display-background controls.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:51 AM",
+    "areas": [
+      "Board editor",
+      "Media library"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0548",
     "title": "Document unattended display sign-in",
     "summary": "Added the Windows auto-sign-in prerequisite to the mini PC setup guide and refreshed the hosted ZIP so power-loss recovery does not stop at the login screen.",
