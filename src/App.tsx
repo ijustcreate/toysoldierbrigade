@@ -101,6 +101,9 @@ import { donorRosterFacetOptions, donorRosterFacets, filterDonorRoster, material
 import { AnimatedDonorName, BoardDonorPresentationEditor, recognitionIconGlyph } from "./components/BoardDonorPresentationEditor";
 import { clearBoardDonorStyle, patchBoardDonorStyle, resolveBoardDonorPresentation } from "./boardPresentation";
 import { formatMediaDeviceError, mediaDeviceManager, type MediaDeviceLease } from "./host/mediaDeviceManager";
+import { RoomCameraProvider } from "./host/remoteRoomCamera";
+import { useRoomCamera } from "./host/useRoomCamera";
+import type { RoomComputer } from "./host/roomCameraProtocol";
 import { openRoomCameraPopout, ROOM_CAMERA_POPOUT_ROOT_ID } from "./roomCameraPopout";
 import {
   defaultUserPreferences,
@@ -6479,8 +6482,8 @@ function LivePreviewPanel({
   const [liveTab, setLiveTab] = useState<"setup" | "frame" | "effects">("setup");
   const [previewWindow, setPreviewWindow] = useState<Window | null>(null);
   const [roomCameraWindow, setRoomCameraWindow] = useState<Window | null>(null);
-  const [roomCameraStream, setRoomCameraStream] = useState<MediaStream | null>(null);
-  const [roomCameraError, setRoomCameraError] = useState<string | null>(null);
+  const [roomCameraPopupError, setRoomCameraPopupError] = useState<string | null>(null);
+  const [broadcastRoomMuted, setBroadcastRoomMuted] = useState(true);
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [phoneMode, setPhoneMode] = useState(() => window.innerWidth <= 760);
   const [phoneSettingsOpen, setPhoneSettingsOpen] = useState(false);
@@ -6512,7 +6515,6 @@ function LivePreviewPanel({
   const liveActiveRef = useRef(state.live.active);
   const shutdownMobileBroadcastRef = useRef<() => void>(() => undefined);
   const deferredUnmountShutdownRef = useRef<number | null>(null);
-  const roomCameraLeaseRef = useRef<MediaDeviceLease | null>(null);
   const roomCameraWindowRef = useRef<Window | null>(null);
   const previewWindowRef = useRef<Window | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -6629,8 +6631,6 @@ function LivePreviewPanel({
       if (!previewLease) previewStreamRef.current?.getTracks().forEach((track) => track.stop());
       if (previewWindowRef.current && !previewWindowRef.current.closed) previewWindowRef.current.close();
       if (roomCameraWindowRef.current && !roomCameraWindowRef.current.closed) roomCameraWindowRef.current.close();
-      roomCameraLeaseRef.current?.release();
-      roomCameraLeaseRef.current = null;
       recorderRef.current?.state === "recording" && recorderRef.current.stop();
       recordingInputRef.current?.getTracks().forEach((track) => track.stop());
       demoRecordingCaptureRef.current?.stop();
@@ -6663,14 +6663,17 @@ function LivePreviewPanel({
   const openTargetLabels = Object.fromEntries(openScreens.map((screen) => [screen.id, `${screen.label} (${screen.orientation})`]));
   const selectedLiveTargets = liveTargets(state.live, state);
   const previewScreen = state.screens[selectedLiveTargets[0] ?? state.live.target] ?? allScreens[0];
+  const broadcastRoom = useRoomCamera(previewScreen?.id);
+  const roomCameraStream = broadcastRoom.stream;
+  const roomCameraError = roomCameraPopupError ?? broadcastRoom.error;
+  const broadcastRoomRef = useRef(broadcastRoom);
+  broadcastRoomRef.current = broadcastRoom;
   const previewScreens = selectedLiveTargets.length > 1 ? allScreens.filter((screen) => selectedLiveTargets.includes(screen.id)) : [previewScreen];
   const closeBroadcastRoomCamera = () => {
     const popup = roomCameraWindowRef.current;
     roomCameraWindowRef.current = null;
     setRoomCameraWindow(null);
-    roomCameraLeaseRef.current?.release();
-    roomCameraLeaseRef.current = null;
-    setRoomCameraStream(null);
+    broadcastRoom.stop();
     if (popup && !popup.closed) popup.close();
   };
   const openBroadcastRoomCamera = async () => {
@@ -6679,7 +6682,7 @@ function LivePreviewPanel({
     if (!popup || popup.closed) {
       popup = openRoomCameraPopout(window, document, previewScreen.label);
       if (!popup) {
-        setRoomCameraError("The browser blocked the room-camera window. Allow pop-ups for this site, then try again.");
+        setRoomCameraPopupError("The browser blocked the room-camera window. Allow pop-ups for this site, then try again.");
         return;
       }
       roomCameraWindowRef.current = popup;
@@ -6687,32 +6690,13 @@ function LivePreviewPanel({
         if (roomCameraWindowRef.current !== popup) return;
         roomCameraWindowRef.current = null;
         setRoomCameraWindow(null);
-        roomCameraLeaseRef.current?.release();
-        roomCameraLeaseRef.current = null;
-        setRoomCameraStream(null);
+        broadcastRoomRef.current.stop();
       }, { once: true });
     }
     setRoomCameraWindow(popup);
     popup.focus();
-    setRoomCameraError(null);
-    try {
-      const nextLease = await mediaDeviceManager.acquire(`broadcast:room:${previewScreen.id}`, {
-        video: {
-          deviceId: previewScreen.roomVideoDeviceId,
-          constraints: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } },
-          fallbackToDefault: true,
-          required: true
-        },
-        audio: false
-      });
-      const previousLease = roomCameraLeaseRef.current;
-      roomCameraLeaseRef.current = nextLease;
-      if (previousLease && previousLease.consumerId !== nextLease.consumerId) previousLease.release();
-      setRoomCameraStream(nextLease.stream);
-    } catch (error) {
-      setRoomCameraStream(null);
-      setRoomCameraError(formatMediaDeviceError(error, { kind: "video", deviceId: previewScreen.roomVideoDeviceId }));
-    }
+    setRoomCameraPopupError(null);
+    broadcastRoom.start(previewScreen);
   };
   const patchDisplayLayout = (screenId: ScreenId, patch: NonNullable<LanternState["live"]["displayLayouts"]>[string]) => updateState((current) => ({
     ...current,
@@ -7397,14 +7381,20 @@ function LivePreviewPanel({
           <div className="room-view-shell">
             <header className="room-view-header">
               <div><span className={roomCameraStream ? "live-indicator active" : "live-indicator"} /><strong>{previewScreen.label}</strong><small>Room camera · broadcast monitor</small></div>
+              <button type="button" className="icon-button" onClick={() => setBroadcastRoomMuted((muted) => !muted)} title={broadcastRoomMuted ? "Listen to room" : "Mute room audio"}>{broadcastRoomMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}</button>
               <button type="button" className="icon-button" onClick={closeBroadcastRoomCamera} title="Close room camera"><X size={18} /></button>
             </header>
+            <RemoteRoomDevices screen={previewScreen} computers={broadcastRoom.computers} refresh={broadcastRoom.refresh} patch={(patch) => {
+              updateState((current) => ({ ...current, screens: { ...current.screens, [previewScreen.id]: { ...current.screens[previewScreen.id], ...patch } } }));
+              broadcastRoom.start({ ...previewScreen, ...patch });
+            }} />
             <div className="room-view-video">
               {roomCameraStream
-                ? <MediaStreamVideo stream={roomCameraStream} muted />
+                ? <><MediaStreamVideo stream={roomCameraStream} muted /><MediaStreamAudioOutput stream={roomCameraStream} muted={broadcastRoomMuted || previewScreen.roomAudioEnabled === false} gain={previewScreen.roomAudioGain ?? 1} /></>
                 : <div className="room-view-empty"><Camera size={34} /><strong>Room camera unavailable</strong><span>{roomCameraError ?? "Connecting to the camera assigned to this display…"}</span></div>}
             </div>
-            <footer className="room-view-footer"><span>Monitoring only · audio muted</span><span>{previewScreen.roomVideoDeviceId ? "Assigned camera" : "Default camera"}</span></footer>
+            <footer className="room-view-footer"><span>{broadcastRoomMuted ? "Room audio muted · use speaker button to listen" : "Listening to room"}</span><button type="button" className="command-button secondary compact" onClick={() => broadcastRoom.start(previewScreen)}>Reconnect</button></footer>
+            {roomCameraStream && roomCameraError && <p className="room-device-warning">{roomCameraError}</p>}
           </div>
         </main>,
         roomCameraPortalRoot
@@ -8314,12 +8304,10 @@ function ScreensView({
   const [editorTab, setEditorTab] = useState<"setup" | "room" | "names">(initialEditorTab ?? "setup");
   const [rosterAddId, setRosterAddId] = useState("");
   const [draggedRosterDonorId, setDraggedRosterDonorId] = useState<string | null>(null);
-  const [mediaDevices, setMediaDevices] = useState<MediaDeviceInfo[]>([]);
   const [availableMonitors, setAvailableMonitors] = useState<Array<{ id: number; name?: string; positionX: number; positionY: number; width: number; height: number }>>([]);
-  const [deviceError, setDeviceError] = useState<string | null>(null);
   const [displayNotice, setDisplayNotice] = useState<string | null>(null);
   const [roomScreenId, setRoomScreenId] = useState<ScreenId | null>(null);
-  const [roomStream, setRoomStream] = useState<MediaStream | null>(null);
+  const [roomRequest, setRoomRequest] = useState<DisplayProfile | null>(null);
   const [roomMuted, setRoomMuted] = useState(false);
   const [roomAudioGain, setRoomAudioGain] = useState(1);
   const [roomPopoutWindow, setRoomPopoutWindow] = useState<Window | null>(null);
@@ -8335,10 +8323,8 @@ function ScreensView({
   const roomViewDragRef = useRef<{ pointerX: number; pointerY: number; x: number; y: number } | null>(null);
   const roomViewResizeRef = useRef<{ pointerX: number; pointerY: number; width: number; height: number } | null>(null);
   const roomViewLayoutRef = useRef(roomViewLayout);
-  const roomStreamRef = useRef<MediaStream | null>(null);
   const roomVideoRef = useRef<HTMLVideoElement | null>(null);
   const openedInitialRoomCameraRef = useRef(false);
-  const roomLeaseRef = useRef<MediaDeviceLease | null>(null);
   const roomPopoutWindowRef = useRef<Window | null>(null);
   const editingScreen = editingId ? state.screens[editingId] : null;
   const screens = Object.values(state.screens);
@@ -8350,12 +8336,15 @@ function ScreensView({
   const availableRosterDonors = state.donors.filter((donor) => donor.active && !rosterIds.includes(donor.id));
   const selectedRosterAddId = availableRosterDonors.some((donor) => donor.id === rosterAddId) ? rosterAddId : availableRosterDonors[0]?.id ?? "";
   const roomScreen = roomScreenId ? state.screens[roomScreenId] : null;
+  const roomConnection = useRoomCamera(roomScreenId ?? undefined);
+  const settingsRoomConnection = useRoomCamera(editorTab === "room" ? editingId ?? undefined : undefined);
+  const roomConnectionRef = useRef(roomConnection);
+  roomConnectionRef.current = roomConnection;
+  const roomStream = roomConnection.stream;
+  const deviceError = roomConnection.error;
+  useEffect(() => { if (roomRequest) roomConnection.start(roomRequest); }, [roomRequest]);
   const activePreferences = state.userPreferences.find((preferences) => preferences.userId === activeUserId);
   const roomMirrored = roomScreen ? activePreferences?.roomMirrorByDisplay[roomScreen.id] ?? false : false;
-  const roomCameras = mediaDevices.filter((device) => device.kind === "videoinput");
-  const roomMics = mediaDevices.filter((device) => device.kind === "audioinput");
-  const roomCameraOptions = deviceOptionList(roomCameras, "Default camera", "Camera");
-  const roomMicOptions = deviceOptionList(roomMics, "Default mic", "Mic");
   const monitorOptions = ["", ...availableMonitors.map((monitor) => String(monitor.id))];
   const monitorLabels = Object.fromEntries([["", availableMonitors.length ? "Use current monitor" : "Current monitor (browser preview)"], ...availableMonitors.map((monitor) => [String(monitor.id), monitor.name?.trim() || `Monitor ${monitor.id + 1} · ${monitor.width}×${monitor.height}`])]);
   useEffect(() => {
@@ -8495,17 +8484,13 @@ function ScreensView({
   };
 
   useEffect(() => {
-    void navigator.mediaDevices?.enumerateDevices().then(setMediaDevices).catch(() => setMediaDevices([]));
     return () => {
       const popup = roomPopoutWindowRef.current;
       roomPopoutWindowRef.current = null;
       if (popup && !popup.closed) popup.close();
-      roomLeaseRef.current?.release();
-      roomLeaseRef.current = null;
     };
   }, []);
 
-  useEffect(() => { roomStreamRef.current = roomStream; }, [roomStream]);
   useEffect(() => { roomViewLayoutRef.current = roomViewLayout; }, [roomViewLayout]);
   useEffect(() => {
     if (!roomScreen) return;
@@ -8519,25 +8504,9 @@ function ScreensView({
     return () => window.removeEventListener("resize", fitRoomView);
   }, []);
 
-  const detectRoomDevices = async () => {
-    setDeviceError(null);
-    try {
-      const permissionLease = await mediaDeviceManager.acquire("room:device-probe", {
-        video: { required: false },
-        audio: { required: false }
-      });
-      setMediaDevices(await navigator.mediaDevices.enumerateDevices());
-      permissionLease.release();
-    } catch (error) {
-      setDeviceError(formatMediaDeviceError(error));
-    }
-  };
-
   const releaseRoomView = () => {
-    roomLeaseRef.current?.release();
-    roomLeaseRef.current = null;
-    roomStreamRef.current = null;
-    setRoomStream(null);
+    roomConnectionRef.current.stop();
+    setRoomRequest(null);
     setRoomScreenId(null);
   };
 
@@ -8579,36 +8548,7 @@ function ScreensView({
     const savedLayout = activePreferences?.roomWindows[screen.id];
     if (savedLayout) applyRoomViewLayout(savedLayout);
     setRoomScreenId(screen.id);
-    const previousLease = roomLeaseRef.current;
-    try {
-      const lease = await mediaDeviceManager.acquire(`room:${screen.id}`, {
-        video: {
-          deviceId: screen.roomVideoDeviceId,
-          constraints: { width: { ideal: 1280 }, height: { ideal: 720 } }
-        },
-        audio: screen.roomAudioEnabled === false ? false : {
-          deviceId: screen.roomAudioDeviceId,
-          required: false
-        }
-      });
-      if (previousLease && previousLease.consumerId !== lease.consumerId) previousLease.release();
-      roomLeaseRef.current = lease;
-      roomStreamRef.current = lease.stream;
-      setRoomScreenId(screen.id);
-      setRoomStream(lease.stream);
-      setMediaDevices(await navigator.mediaDevices.enumerateDevices());
-      const messages = [
-        ...lease.fallbacks.map((fallback) => `The assigned ${fallback.kind === "video" ? "camera" : "microphone"} was unavailable, so the default device is in use.`),
-        ...lease.issues.map((issue) => formatMediaDeviceError(issue.error, { kind: issue.kind }))
-      ];
-      setDeviceError(messages.join(" ") || null);
-    } catch (error) {
-      if (!roomStreamRef.current) {
-        setRoomScreenId(screen.id);
-        setRoomStream(null);
-      }
-      setDeviceError(formatMediaDeviceError(error, { kind: "video", deviceId: screen.roomVideoDeviceId }));
-    }
+    setRoomRequest({ ...screen });
   };
 
   useEffect(() => {
@@ -8649,16 +8589,12 @@ function ScreensView({
             <button type="button" className="icon-button" onClick={closeRoomView} title="Close room view"><X size={18} /></button>
           </div>
         </header>
-        <div className="room-view-device-controls">
-          <label><span>Camera</span><select value={roomScreen.roomVideoDeviceId ?? ""} onChange={(event) => { const roomVideoDeviceId = event.target.value || undefined; patchDisplay(roomScreen.id, { roomVideoDeviceId }); void openRoomView({ ...roomScreen, roomVideoDeviceId }); }}>{roomCameraOptions.options.map((value) => <option key={value || "default"} value={value}>{roomCameraOptions.labels[value] ?? value}</option>)}</select></label>
-          <label><span>Microphone</span><select value={roomScreen.roomAudioDeviceId ?? ""} onChange={(event) => { const roomAudioDeviceId = event.target.value || undefined; patchDisplay(roomScreen.id, { roomAudioDeviceId }); void openRoomView({ ...roomScreen, roomAudioDeviceId }); }}>{roomMicOptions.options.map((value) => <option key={value || "default"} value={value}>{roomMicOptions.labels[value] ?? value}</option>)}</select></label>
-          <button type="button" className="icon-button" onClick={() => void detectRoomDevices()} title="Detect cameras and microphones"><RefreshCcw size={16} /></button>
-        </div>
+        <RemoteRoomDevices screen={roomScreen} computers={roomConnection.computers} refresh={roomConnection.refresh} patch={(patch) => { patchDisplay(roomScreen.id, patch); void openRoomView({ ...roomScreen, ...patch }, { popOut: false }); }} />
         <div className="room-view-video">
           {roomStream ? <><MediaStreamVideo stream={roomStream} muted className={roomMirrored ? "mirrored" : undefined} elementRef={roomVideoRef} /><RoomFaceTrackingOverlay videoRef={roomVideoRef} enabled={roomScreen.roomFaceTrackingEnabled ?? false} mirrored={roomMirrored} /><MediaStreamAudioOutput stream={roomStream} muted={roomMuted || roomScreen.roomAudioEnabled === false} gain={roomAudioGain} /></> : <div className="room-view-empty"><Camera size={34} /><strong>Room camera unavailable</strong><span>{deviceError ?? "Connecting to the camera assigned to this display…"}</span></div>}
         </div>
         <div className="room-audio-monitor"><AudioLevelMeter stream={roomStream} muted={roomMuted || roomScreen.roomAudioEnabled === false} gain={roomAudioGain} label="Room microphone" /><label><span>Gain</span><input type="range" min="0" max="2" step="0.05" value={roomAudioGain} onInput={(event) => setRoomAudioGain(Number(event.currentTarget.value))} onPointerUp={() => patchDisplay(roomScreen.id, { roomAudioGain })} onBlur={() => patchDisplay(roomScreen.id, { roomAudioGain })} /><output>{Math.round(roomAudioGain * 100)}%</output></label>{deviceError && roomStream && <p className="room-device-warning"><AlertTriangle size={13} /> {deviceError}</p>}</div>
-        <footer className="room-view-footer"><span>{roomMuted || roomScreen.roomAudioEnabled === false ? "Audio muted" : `Room audio · ${Math.round(roomAudioGain * 100)}%`}</span><span>{roomMirrored ? "Mirrored monitor" : roomScreen.roomVideoDeviceId ? "Assigned camera" : "Default camera"}</span></footer>
+        <footer className="room-view-footer"><span>{roomMuted || roomScreen.roomAudioEnabled === false ? "Audio muted" : `Room audio · ${Math.round(roomAudioGain * 100)}%`}</span><button type="button" className="command-button secondary compact" onClick={() => void openRoomView(roomScreen, { popOut: false })}>Reconnect</button></footer>
       </div>
     : null;
   const roomPortal = roomScreen && roomViewPanel
@@ -8708,10 +8644,9 @@ function ScreensView({
           </div>
         </div>}
         {editorTab === "room" && <div className="room-device-editor">
-          <div className="room-device-heading"><div><strong>Camera at this display</strong><span>Assign the USB camera and microphone facing the room.</span></div><button type="button" className="command-button secondary compact" onClick={() => void detectRoomDevices()}><RefreshCcw size={15} /> Detect devices</button></div>
-          <LabeledSelect label="Room webcam" info="Camera physically facing visitors at this monitor." value={editingScreen.roomVideoDeviceId ?? ""} options={roomCameraOptions.options} optionLabels={roomCameraOptions.labels} onChange={(value) => patchDisplay(editingScreen.id, { roomVideoDeviceId: value || undefined })} />
-          <LabeledSelect label="Room microphone" info="Microphone used to hear people near this monitor." value={editingScreen.roomAudioDeviceId ?? ""} options={roomMicOptions.options} optionLabels={roomMicOptions.labels} onChange={(value) => patchDisplay(editingScreen.id, { roomAudioDeviceId: value || undefined })} />
-          <label className="switch-row"><input type="checkbox" checked={editingScreen.roomAudioEnabled ?? true} onChange={(event) => patchDisplay(editingScreen.id, { roomAudioEnabled: event.target.checked })} /><Volume2 size={16} /><span>Capture room audio</span></label>
+          <div className="room-device-heading"><div><strong>Camera at this display</strong><span>Open this board on the screen's computer. When opening its room camera for the first time, allow camera and microphone access there.</span></div></div>
+          <RemoteRoomDevices screen={editingScreen} computers={settingsRoomConnection.computers} refresh={settingsRoomConnection.refresh} patch={(patch) => { patchDisplay(editingScreen.id, patch); if (roomScreenId === editingScreen.id) setRoomRequest({ ...editingScreen, ...patch }); }} />
+          <label className="switch-row"><input type="checkbox" checked={editingScreen.roomAudioEnabled ?? true} onChange={(event) => { const patch = { roomAudioEnabled: event.target.checked }; patchDisplay(editingScreen.id, patch); if (roomScreenId === editingScreen.id) setRoomRequest({ ...editingScreen, ...patch }); }} /><Volume2 size={16} /><span>Capture room audio</span></label>
           <label className="switch-row"><input type="checkbox" checked={editingScreen.roomFaceTrackingEnabled ?? false} onChange={(event) => patchDisplay(editingScreen.id, { roomFaceTrackingEnabled: event.target.checked })} /><ScanFace size={16} /><span><strong>Track room guests — Under construction</strong><small>Experimental face boxes and guest count. Tracking remains available for testing.</small></span></label>
           {deviceError && <div className="device-error"><AlertTriangle size={16} /><span>{deviceError}</span></div>}
           <button type="button" className="command-button primary" onClick={() => void openRoomView(editingScreen)}><PictureInPicture2 size={17} /> Pop out room camera</button>
@@ -10260,6 +10195,13 @@ function DisplayWallApp({ screenIds }: { screenIds: ScreenId[] }) {
 }
 
 function DisplayApp({ screenId }: { screenId: ScreenId }) {
+  const [roomSharingStatus, setRoomSharingStatus] = useState<string | null>(null);
+  const roomProviderRef = useRef<RoomCameraProvider | null>(null);
+  useEffect(() => {
+    const provider = new RoomCameraProvider(screenId, setRoomSharingStatus);
+    roomProviderRef.current = provider;
+    return () => { roomProviderRef.current = null; provider.close(); };
+  }, [screenId]);
   const refreshGuard = useRef(createDisplayStateRefreshGuard());
   const [state, setState] = useState<LanternState>(() => loadLanternState());
   // Render immediately, then refresh from the published state in the
@@ -10482,6 +10424,7 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
         });
       }}
     >
+      {roomSharingStatus && <div className="display-room-sharing" role="status" onClick={(event) => event.stopPropagation()}><Camera size={18} /><span>{roomSharingStatus}</span><button type="button" onClick={() => roomProviderRef.current?.stopSharing()}>Stop sharing</button></div>}
       {scheduledBoard && (scheduledBoardProgram?.panels?.length
         ? <AuthoredBoardPresentation state={state} display={screen} program={scheduledBoardProgram} />
         : <BabylonDonorWall
@@ -10839,7 +10782,37 @@ function targetOptionLabels(state: LanternState) {
   }));
 }
 
-function deviceOptionList(devices: MediaDeviceInfo[], defaultLabel: string, fallbackName: string) {
+function RemoteRoomDevices({ screen, computers, refresh, patch }: {
+  screen: DisplayProfile; computers: RoomComputer[]; refresh: () => void; patch: (patch: Partial<DisplayProfile>) => void;
+}) {
+  // Duplicate display tabs on one computer share device IDs. Prefer the newest
+  // tab, but never mix devices from different computers into a single list.
+  const unique = computers.filter((computer, index) => computers.findIndex((other) => other.deviceId === computer.deviceId) === index);
+  const selected = screen.roomComputerId ? unique.find((computer) => computer.deviceId === screen.roomComputerId) : unique.length === 1 ? unique[0] : undefined;
+  const camera = deviceOptionList(selected?.devices.filter((device) => device.kind === "videoinput") ?? [], "Default camera at display", "Camera at display");
+  const mic = deviceOptionList(selected?.devices.filter((device) => device.kind === "audioinput") ?? [], "Default microphone at display", "Microphone at display");
+  for (const [options, saved, name] of [[camera, screen.roomVideoDeviceId, "camera"], [mic, screen.roomAudioDeviceId, "microphone"]] as const) {
+    if (saved && !options.options.includes(saved)) {
+      options.options.push(saved);
+      options.labels[saved] = `Saved ${name} · unavailable on this computer`;
+    }
+  }
+  return <div className="remote-room-devices">
+    <label><span>Display computer</span><select aria-label="Display computer" value={screen.roomComputerId ?? ""} onChange={(event) => patch({ roomComputerId: event.target.value || undefined })}>
+      <option value="">{unique.length === 1 ? `Automatic · ${unique[0].name}` : "Choose the computer at this screen"}</option>
+      {screen.roomComputerId && !unique.some((computer) => computer.deviceId === screen.roomComputerId) && <option value={screen.roomComputerId}>Assigned computer · offline</option>}
+      {unique.map((computer) => <option key={computer.deviceId} value={computer.deviceId}>{computer.name}</option>)}
+    </select></label>
+    <div className="room-view-device-controls">
+      <label><span>Room webcam</span><select aria-label="Room webcam" disabled={!selected} value={screen.roomVideoDeviceId ?? ""} onChange={(event) => patch({ roomVideoDeviceId: event.target.value || undefined })}>{camera.options.map((value) => <option key={value} value={value}>{camera.labels[value]}</option>)}</select></label>
+      <label><span>Room microphone</span><select aria-label="Room microphone" disabled={!selected} value={screen.roomAudioDeviceId ?? ""} onChange={(event) => patch({ roomAudioDeviceId: event.target.value || undefined })}>{mic.options.map((value) => <option key={value} value={value}>{mic.labels[value]}</option>)}</select></label>
+      <button type="button" className="icon-button" onClick={refresh} title="Detect devices at the display computer"><RefreshCcw size={16} /></button>
+    </div>
+    <small role="status">{selected?.error ?? (!unique.length ? "No display computer connected. Open the board at the screen, then detect devices." : !selected ? "Select the computer attached to this screen to see its cameras." : selected.devices.some((device) => !device.label) ? "Allow camera and microphone access on the display computer when opening the room camera, then detect devices again." : `Devices attached to ${selected.name}`)}</small>
+  </div>;
+}
+
+function deviceOptionList(devices: Pick<MediaDeviceInfo, "deviceId" | "label">[], defaultLabel: string, fallbackName: string) {
   const options = [""];
   const labels: Record<string, string> = { "": defaultLabel };
   devices.forEach((device, index) => {

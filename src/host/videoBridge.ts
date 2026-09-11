@@ -5,7 +5,7 @@ type DirectorStatus = "idle" | "camera" | "demo" | "connecting" | "live" | "ende
 type StatusListener = (status: DirectorStatus, detail?: string) => void;
 type StreamListener = (stream: MediaStream | null) => void;
 
-function displayDeviceName() {
+export function displayDeviceName() {
   const userAgent = navigator.userAgent;
   if (/SMART-TV|SmartTV|Tizen|Web0S|NetCast|HbbTV/i.test(userAgent)) return "Smart TV browser";
   if (/Android TV|GoogleTV/i.test(userAgent)) return "TV browser";
@@ -22,7 +22,7 @@ interface DemoStream extends MediaStream {
   __cleanup?: () => void;
 }
 
-const iceServers: RTCIceServer[] = [
+export const iceServers: RTCIceServer[] = [
   { urls: "stun:stun.cloudflare.com:3478" },
   ...(import.meta.env.VITE_LANTERN_TURN_URL
     ? [{

@@ -15346,3 +15346,12 @@ body.theme-light {
 
 .shared-state-warning span { flex: 1; }
 .shared-state-warning button { border: 0; background: transparent; color: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+
+.remote-room-devices { display: grid; gap: 8px; margin: 10px 0; }
+.remote-room-devices > label, .room-view-device-controls label { display: grid; gap: 4px; min-width: 0; }
+.remote-room-devices > label span, .room-view-device-controls label span { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.remote-room-devices select { width: 100%; }
+.remote-room-devices small { color: var(--muted); line-height: 1.35; }
+.display-room-sharing { position: fixed; z-index: 30; left: 14px; bottom: 14px; display: flex; align-items: center; gap: 9px; max-width: min(520px, calc(100vw - 28px)); padding: 10px 12px; border: 1px solid rgba(116, 211, 173, .55); border-radius: 10px; background: rgba(7, 22, 34, .94); color: #e6fff4; box-shadow: 0 8px 28px rgba(0,0,0,.25); font-size: 12px; }
+.display-room-sharing span { flex: 1; }
+.display-room-sharing button { border: 1px solid rgba(255,255,255,.35); border-radius: 6px; padding: 5px 8px; background: transparent; color: inherit; cursor: pointer; font-weight: 700; }
