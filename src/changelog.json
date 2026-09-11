@@ -1,5 +1,39 @@
 [
   {
+    "id": "DEV-0551",
+    "title": "Restore last-known Version 2 board presentation",
+    "summary": "Published the verified Version 2 board collection and safe TV presentation behavior so the last-known V2 boards can be used again without changing live board data.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 11:24 AM",
+    "areas": [
+      "Version 2 boards",
+      "TV display",
+      "Release"
+    ],
+    "files": [
+      "src/App.tsx",
+      "scripts/test-display-safe-fullscreen.mjs"
+    ],
+    "tests": "node scripts/test-board-design-v2.mjs; npm run test:state-authority; node scripts/test-display-safe-fullscreen.mjs; npm run build"
+  },
+  {
+    "id": "DEV-0550",
+    "title": "Prevent green screen during TV presentation",
+    "summary": "Removed the browser Fullscreen API transition from the TV display context-menu action. The installed display app now stays within its existing fixed borderless viewport, avoiding Chrome/WebView output-mode renegotiation that can destabilize rotated HDMI TV panels.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 11:18 AM",
+    "areas": [
+      "TV display",
+      "Presentation mode",
+      "Desktop app"
+    ],
+    "files": [
+      "src/App.tsx",
+      "scripts/test-display-safe-fullscreen.mjs"
+    ],
+    "tests": "node scripts/test-display-safe-fullscreen.mjs; npx tsc --noEmit --pretty false; npm run build"
+  },
+  {
     "id": "DEV-0549",
     "title": "Show board background preview and library picker",
     "summary": "Board editor now displays the selected board image and lets users choose replacement artwork from the site image library while retaining upload and display-background controls.",
