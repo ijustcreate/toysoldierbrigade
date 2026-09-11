@@ -24,6 +24,8 @@ The package does not change museum board content, enable remote access, store a 
 4. Enter the hosted site URL, assigned display ID, and orientation when prompted.
 5. Sign in once to the Windows account that should run the display, then restart the PC to verify automatic startup.
 
+For unattended recovery after a reboot or power outage, Windows must sign in to this dedicated display account automatically. On a dedicated, physically secured display PC, press `Win+R`, run `netplwiz`, clear **Users must enter a user name and password to use this computer**, select the display account, and enter its password. Use a standard local account dedicated to the display; do not use a staff administrator account. This setting keeps a credential on the PC, so follow the museum's IT policy. If automatic sign-in is prohibited, an operator must sign in after the PC powers on, or IT should configure an approved Windows kiosk/MDM profile.
+
 The setup is designed for a PC that remains powered on or sleeps. A Windows task can wake a sleeping PC only when wake timers are allowed by the power plan and hardware. If the PC is fully shut down, open BIOS/UEFI and look for one of these names: **Power On By RTC**, **Resume By Alarm**, **Wake on RTC**, or **Restore AC Power Loss**. Configure the daily 5:00 AM power-on and choose **Power On** after AC loss if the firmware offers it. Firmware menus vary by manufacturer; verify this on the delivered mini PC before mounting it.
 
 For portrait displays, set Windows **Settings > System > Display > Display orientation** to **Portrait**. Leave the Lantern mount setting at `none`; do not rotate the screen in both Windows and the player.
