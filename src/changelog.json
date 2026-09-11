@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0548",
+    "title": "Document unattended display sign-in",
+    "summary": "Added the Windows auto-sign-in prerequisite to the mini PC setup guide and refreshed the hosted ZIP so power-loss recovery does not stop at the login screen.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:49 AM",
+    "areas": [
+      "Mini PC display setup"
+    ],
+    "files": [
+      "public/pc-setup/README-PC-SETUP.md",
+      "public/pc-setup/lantern-pc-display-setup.zip"
+    ],
+    "tests": "ZIP listing verification"
+  },
+  {
     "id": "DEV-0547",
     "title": "Harden mini PC setup maintenance shortcut",
     "summary": "Persisted the setup script in the installed ProgramData folder so the desktop maintenance shortcut remains usable after the downloaded ZIP is removed.",
