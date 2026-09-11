@@ -18,13 +18,19 @@ let visionFilesetPromise: Promise<VisionFileset> | null = null;
 const modelAssetPromises = new Map<VisionModelKind, Promise<Uint8Array | null>>();
 
 export function getVisionModule() {
-  visionModulePromise ??= import("@mediapipe/tasks-vision");
+  visionModulePromise ??= import("@mediapipe/tasks-vision").catch(error => {
+    visionModulePromise = null;
+    throw error;
+  });
   return visionModulePromise;
 }
 
 export function getVisionFileset() {
   if (!visionFilesetPromise) {
-    visionFilesetPromise = getVisionModule().then(({ FilesetResolver: Resolver }) => Resolver.forVisionTasks(VISION_WASM_URL));
+    visionFilesetPromise = getVisionModule().then(({ FilesetResolver: Resolver }) => Resolver.forVisionTasks(VISION_WASM_URL)).catch(error => {
+      visionFilesetPromise = null;
+      throw error;
+    });
   }
   return visionFilesetPromise;
 }
@@ -36,12 +42,15 @@ export function getVisionFileset() {
 export function getVisionModelAsset(kind: VisionModelKind) {
   const existing = modelAssetPromises.get(kind);
   if (existing) return existing;
-  const promise = typeof fetch === "undefined"
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  const promise = (typeof fetch === "undefined"
     ? Promise.resolve(null)
-    : fetch(VISION_MODEL_URLS[kind], { cache: "force-cache" })
+    : fetch(VISION_MODEL_URLS[kind], { cache: "force-cache", signal: controller.signal })
       .then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Model request returned ${response.status}`)))
       .then((buffer) => new Uint8Array(buffer))
-      .catch(() => null);
+      .catch(() => { modelAssetPromises.delete(kind); return null; }))
+    .finally(() => clearTimeout(timeout));
   modelAssetPromises.set(kind, promise);
   return promise;
 }

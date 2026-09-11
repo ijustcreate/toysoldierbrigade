@@ -315,7 +315,8 @@ export interface BoardPanel {
   title: string;
   body?: string;
   size: "compact" | "standard" | "feature";
-  columns?: 1 | 2 | 3 | 4;
+  /** Number of donor names per row; the editor accepts whole numbers from 1 to 99. */
+  columns?: number;
   rows?: number;
   donorIds?: string[];
   /** One donor positioned on an image-backed recognition star. */
@@ -665,6 +666,16 @@ export interface CostumeArtPiece {
   zIndex: number;
   visible: boolean;
   inferred?: boolean;
+  /** Local transparent atlas art. Rect is in source pixels; size is in face units. */
+  sprite?: {
+    source: string;
+    rect: [number, number, number, number];
+    width: number;
+    height: number;
+    pivotX: number;
+    pivotY: number;
+    flipX?: boolean;
+  };
 }
 
 export interface CostumeDefinition {

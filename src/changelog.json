@@ -1,5 +1,200 @@
 [
   {
+    "id": "DEV-0541",
+    "title": "Add cute skeleton rig starter assets",
+    "summary": "Add an opt-in transparent parts atlas and sprite-backed cute skeleton starter for the Effect Studio without changing authored costumes.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:28 AM",
+    "areas": [
+      "Effect Studio",
+      "Assets",
+      "Costumes"
+    ],
+    "files": [
+      "public/assets/characters/cute-skeleton",
+      "src/cuteSkeleton.ts",
+      "src/costumeRenderer.ts",
+      "src/components/EffectStudio.tsx",
+      "src/types.ts",
+      "src/effectStudio.ts"
+    ],
+    "tests": "node scripts/phase4-effect-studio-fixture.mjs; npm run build"
+  },
+  {
+    "id": "DEV-0540",
+    "title": "Improve tracking and background effects",
+    "summary": "Make face tracking recover faster and keep green-screen or automatic background removal responsive while preserving the existing render budget.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:28 AM",
+    "areas": [
+      "Broadcast",
+      "Effects",
+      "Face tracking"
+    ],
+    "files": [
+      "src/components/ChromaVideo.tsx",
+      "src/trackingRuntime.ts",
+      "src/videoMatting.ts",
+      "src/visionResources.ts",
+      "src/App.tsx"
+    ],
+    "tests": "node scripts/test-tracking-runtime.mjs; node scripts/test-video-effects.mjs; npm run build"
+  },
+  {
+    "id": "DEV-0539",
+    "title": "Use cameras at the display computer",
+    "summary": "Room camera controls now discover and stream the webcam and microphone attached to the selected display computer, with reusable browser permission and visible sharing controls.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:23 AM",
+    "areas": [
+      "Room camera",
+      "Display connections",
+      "WebRTC"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/types.ts",
+      "src/host/remoteRoomCamera.ts",
+      "src/host/roomCameraProtocol.ts",
+      "src/host/useRoomCamera.ts",
+      "src/host/videoBridge.ts",
+      "src/styles.css"
+    ],
+    "tests": "npx tsc --noEmit; npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0538",
+    "title": "Fit broadcast video without clipping",
+    "summary": "Default video framing is centered at 100% with whole-source fit. Preserve portrait and other source aspect ratios in the processing canvas within the existing pixel budget, match preview/display fit behavior, and fit scheduled recordings. Fit whole source clears old crop offsets while preserving panel placement.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 11:37 PM",
+    "areas": [
+      "Broadcast",
+      "Video playback"
+    ],
+    "files": [
+      "src/sampleData.ts",
+      "src/broadcastComposition.ts",
+      "src/broadcastVideoFraming.ts",
+      "src/components/ChromaVideo.tsx",
+      "src/App.tsx",
+      "src/styles.css",
+      "scripts/test-broadcast-composition.mjs",
+      "scripts/test-tracking-runtime.mjs",
+      "scripts/check-broadcast-fit-browser.cjs"
+    ],
+    "tests": "Production build; composition, popout, tracking and state preservation tests; eight isolated browser source/aspect-ratio checks with edge pixels and processing budget verified"
+  },
+  {
+    "id": "DEV-0537",
+    "title": "Confirm display deletion from settings",
+    "summary": "Add Delete display to display settings and require named confirmation from both settings and dashboard trash buttons. Keep board designs and donors, remove only the display and its dedicated schedules, protect the last display, and preserve remaining display IDs after reload or later additions.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 11:35 PM",
+    "areas": [
+      "Dashboard",
+      "Display settings"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/displayManagement.ts",
+      "src/host/lanternHost.ts",
+      "src/components/LanternDialog.css",
+      "scripts/test-display-management.mjs",
+      "scripts/test-state-preservation.mjs",
+      "scripts/check-display-deletion-browser.cjs"
+    ],
+    "tests": "Production build; isolated browser confirm/cancel/Escape/reload/last-display and preservation checks; deletion and ID unit checks; state preservation/authority; shared-state optimistic concurrency; screenshot inspection"
+  },
+  {
+    "id": "DEV-0536",
+    "title": "Restore preview size after display tests",
+    "summary": "Always restore the normal browser viewport after 4K board checks, including failed checks, so local review windows are not left oversized or cropped.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 11:28 PM",
+    "areas": [
+      "Preview testing"
+    ],
+    "files": [
+      "scripts/check-board-scaling-browser.cjs",
+      "scripts/check-equal-donor-rows-browser.cjs",
+      "scripts/check-board-design-v2-browser.mjs"
+    ],
+    "tests": "Syntax and whitespace checks; real browser success and injected 4K failure both restore 1280x720; current preview containment verified"
+  },
+  {
+    "id": "DEV-0535",
+    "title": "Keep donor rows equal in height",
+    "summary": "Give all donor-list rows equal height so a row of shorter names is not squeezed between neighboring rows. Preserve authored panel sizing, spacing, fonts, roster, and schedules while retaining text fitting.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 11:21 PM",
+    "areas": [
+      "Board Editor",
+      "Displays",
+      "Donor lists"
+    ],
+    "files": [
+      "src/donorNameLayout.ts",
+      "scripts/test-donor-name-layout.mjs",
+      "scripts/check-equal-donor-rows-browser.cjs"
+    ],
+    "tests": "Production build; layout and fitting checks; state preservation/authority; browser regression in editor, 1080p and 4K with equal rows, no text overflow and unchanged saved board/donor/schedule data"
+  },
+  {
+    "id": "DEV-0534",
+    "title": "Restore the Legacy Star Wall in painted wood",
+    "summary": "Rebuilt the damaged portrait Legacy Star Wall with a generated blue painted-wall background and 22 yellow painted-wood stars. Exact existing donor labels remain editable, grouped with each star, fully visible without scrolling. Updated only the requested board after an immutable backup and version-checked save; preserved all other boards, donor records, and schedules.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 11:17 PM",
+    "areas": [
+      "Board design",
+      "Legacy donors",
+      "Content safety"
+    ],
+    "files": [
+      "scripts/legacy-star-wall-design.mjs",
+      "scripts/test-legacy-star-wall-design.mjs",
+      "public/assets/legacy-star-wall-v2/README.md"
+    ],
+    "tests": "Authoring and state-preservation tests; synthetic portrait 4K layout; exact production read-back preservation; read-only live verification of 22 stars and 22 labels without overflow"
+  },
+  {
+    "id": "DEV-0533",
+    "title": "Set more names in each row",
+    "summary": "Replace the four preset choices with a number box and left/right arrows for 1-99 names per row. Existing saved counts and board settings remain unchanged until edited.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 11:15 PM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/types.ts",
+      "src/components/NamesPerRowField.tsx",
+      "src/components/NamesPerRowField.css"
+    ],
+    "tests": "Production build; state preservation and authority; donor layout and fitting; isolated browser arrows, typed values, bounds, save/reload, six-column rendering, and unrelated-setting preservation"
+  },
+  {
+    "id": "DEV-0532",
+    "title": "Fit complete boards across screen sizes",
+    "summary": "Preserve authored board proportions and orientation on every display size by isolating mobile editor sizing from presentation canvases. Reduce presentation gutters and restore preview test viewport sizing so 4K checks do not leave an oversized review window.",
+    "author": "Codex",
+    "createdAt": "Sep 9, 2026, 9:10 PM",
+    "areas": [
+      "Display",
+      "Board previews"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "scripts/check-board-scaling-browser.cjs",
+      "scripts/check-board-design-v2-browser.mjs"
+    ],
+    "tests": "Production build; 176 browser resize cases covering 22 boards and eight viewport sizes; two mounting directions; saved board preservation; mobile and desktop screenshot inspection; donor overflow and viewport restore check"
+  },
+  {
     "id": "DEV-0531",
     "title": "Create the museum V2 board collection",
     "summary": "Added opt-in authoring for separate redesigned versions of the existing board library: generated navy bookcloth and ivory-paper backgrounds, editable typography, complete Brigade membership selections, level honor rolls, story and spotlight compositions, and two-page Legacy Star Walls. New designs are unscheduled drafts; original boards, donor records, schedules and display assignments are never replaced.",

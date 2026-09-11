@@ -1,4 +1,6 @@
 import { createDisplayStateRefreshGuard } from "./displayStateRefresh";
+import { nextDisplayNumber, removeConfiguredDisplay } from "./displayManagement";
+import { NamesPerRowField } from "./components/NamesPerRowField";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -161,6 +163,7 @@ import { nextVisitorMessage, normalizeVisitorMessageRotation } from "./visitorMe
 import { resolveActiveBoardProgram, resolveCurrentBoardSchedule, resolveCurrentScheduleEntry, scheduleMatchesDate } from "./scheduleResolution";
 import { CHROMA_KEY_PRESETS, createBackgroundRemovalPatch, resolveBackgroundRemoval, SCREENLESS_REMOVAL_TECHNOLOGY, type BackgroundRemovalMethod } from "./backgroundRemoval";
 import { broadcastSourceTransformStyle, frameSurfaceStyle, normalizeBroadcastComposition, normalizeCropEdges } from "./broadcastComposition";
+import { fitWholeBroadcastSource } from "./broadcastVideoFraming";
 import { renderCostumeOverlay } from "./costumeRenderer";
 import { resolveCalibrationProfile } from "./effectStudio";
 import type { TrackingRuntimeStatus } from "./trackingRuntime";
@@ -424,6 +427,7 @@ function ControlCenter() {
   const [ideasOpen, setIdeasOpen] = useState(true);
   const [displayEditorTab, setDisplayEditorTab] = useState<"setup" | "room" | "names">("setup");
   const [displayEditorOpen, setDisplayEditorOpen] = useState(false);
+  const [pendingDisplayDeleteId, setPendingDisplayDeleteId] = useState<ScreenId | null>(null);
   const [openAssignedRoomCamera, setOpenAssignedRoomCamera] = useState(false);
   const [scheduledBroadcastPrompt, setScheduledBroadcastPrompt] = useState<{ entry: ScheduleEntry; occurrenceKey: string } | null>(null);
   const [displayOpenNotice, setDisplayOpenNotice] = useState<{ message: string; outstanding?: ScreenId[] } | null>(null);
@@ -1045,19 +1049,14 @@ function ControlCenter() {
 
   const addDisplay = () => {
     updateState((current) => {
-      const nextNumber = Object.keys(current.screens).length + 1;
+      const nextNumber = nextDisplayNumber(current.screens);
       const id = `display-${nextNumber}`;
       return { ...current, screens: { ...current.screens, [id]: makeDisplay(id, nextNumber) } };
     });
   };
 
   const deleteDisplay = (id: ScreenId) => {
-    updateState((current) => {
-      if (Object.keys(current.screens).length <= 1) return current;
-      const screens = { ...current.screens };
-      delete screens[id];
-      return { ...current, screens };
-    });
+    if (state.screens[id] && Object.keys(state.screens).length > 1) setPendingDisplayDeleteId(id);
   };
 
   const identifyDisplay = (screenId: ScreenId) => {
@@ -1446,7 +1445,7 @@ function ControlCenter() {
             });
           }}
         />}
-        {view === "dashboard" && displayEditorOpen && <ScreensView state={state} activeUserId={activeUser?.id} selectedDisplayId={selectedDisplayId} setSelectedDisplayId={setSelectedDisplayId} openDisplays={openDisplays} updateState={updateState} initialEditingId={selectedDisplayId} initialEditorTab={displayEditorTab} initialOpenRoomCamera={openAssignedRoomCamera} editorOnly onClose={() => { setOpenAssignedRoomCamera(false); setDisplayEditorOpen(false); }} />}
+        {view === "dashboard" && displayEditorOpen && <ScreensView state={state} activeUserId={activeUser?.id} selectedDisplayId={selectedDisplayId} setSelectedDisplayId={setSelectedDisplayId} openDisplays={openDisplays} updateState={updateState} deleteDisplay={deleteDisplay} initialEditingId={selectedDisplayId} initialEditorTab={displayEditorTab} initialOpenRoomCamera={openAssignedRoomCamera} editorOnly onClose={() => { setOpenAssignedRoomCamera(false); setDisplayEditorOpen(false); }} />}
         {view === "revisions" && <RevisionsView state={state} />}
         {view === "bugs" && <BugsView onNewBug={() => void openBugReport()} launcherVisible={bugLauncherVisible} onLauncherVisibleChange={(visible) => {
           setBugLauncherVisible(visible);
@@ -1465,6 +1464,19 @@ function ControlCenter() {
         actionLabel={displayOpenNotice.outstanding?.length ? `Open ${state.screens[displayOpenNotice.outstanding[0]]?.label ?? "next display"}` : undefined}
         onAction={displayOpenNotice.outstanding?.length ? openNextDisplayWindow : undefined}
         onDismiss={() => setDisplayOpenNotice(null)}
+      />}
+      {pendingDisplayDeleteId && state.screens[pendingDisplayDeleteId] && <LanternConfirmDialog
+        eyebrow="Delete display"
+        title={`Delete “${state.screens[pendingDisplayDeleteId].label}”?`}
+        description="This removes the display from the dashboard and removes schedules assigned only to it. Your saved board designs, donor records, and other displays stay available."
+        confirmLabel="Delete display"
+        onCancel={() => setPendingDisplayDeleteId(null)}
+        onConfirm={() => {
+          const id = pendingDisplayDeleteId;
+          setPendingDisplayDeleteId(null);
+          updateState((current) => removeConfiguredDisplay(current, id));
+          if (selectedDisplayId === id) { setOpenAssignedRoomCamera(false); setDisplayEditorOpen(false); }
+        }}
       />}
       {boardOwnershipPrompt && state.screens[boardOwnershipPrompt] && <LanternConfirmDialog
         eyebrow="Board already open"
@@ -4461,7 +4473,7 @@ function ThemeStudio({
                 </div>}
               </section>
               {selectedPanel.type === "donors" && <>
-                <div className="field"><span>Names in each row</span><SegmentedControl value={String(selectedPanel.columns ?? selectedProgram.columns)} options={[["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"]]} onChange={(value) => patchPanel(selectedPanel.id, { columns: Number(value) as BoardPanel["columns"] })} /></div>
+                <NamesPerRowField key={selectedPanel.id} value={selectedPanel.columns ?? selectedProgram.columns} onChange={(columns) => patchPanel(selectedPanel.id, { columns })} />
                 <div className="two-col"><Slider label="Row height" info="Controls the height allocated to each donor row." value={selectedPanel.donorRowGap ?? 0} min={0} max={80} onChange={(donorRowGap) => patchPanel(selectedPanel.id, { donorRowGap })} /><Slider label="Column spacing" info="Controls the gap between donor columns. Set to 0 for touching side edges." value={selectedPanel.donorColumnGap ?? 0} min={0} max={30} onChange={(donorColumnGap) => patchPanel(selectedPanel.id, { donorColumnGap })} /></div>
                 <details className="inspector-details" open>
                   <summary>Scrolling credits</summary>
@@ -4679,8 +4691,8 @@ function DirectBoardCanvas({
     if (!canvas || !stage) return;
     const updateFitScale = () => {
       const metaHeight = stage.querySelector<HTMLElement>(".board-stage-meta")?.offsetHeight ?? 0;
-      const availableWidth = Math.max(1, stage.clientWidth - 34);
-      const availableHeight = Math.max(1, stage.clientHeight - metaHeight - 24);
+      const availableWidth = Math.max(1, stage.clientWidth - (presentation ? 8 : 34));
+      const availableHeight = Math.max(1, stage.clientHeight - (presentation ? 8 : metaHeight + 24));
       // Editors should never grow past their working resolution. A presentation
       // surface is different: it should fill the available display while keeping
       // the authored 9:16 / 16:9 coordinate system intact.
@@ -4952,10 +4964,12 @@ function AuthoredBoardPresentation({ state, display, program, highlightedPanelId
 }) {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  return <div className={`authored-board-presentation ${orientationClass(display)}`} aria-label={`${program.name} board preview`}>
+  // A different screen shape must letterbox the authored board, never reshape it.
+  const boardDisplay = { ...display, orientation: program.orientation };
+  return <div className={`authored-board-presentation ${orientationClass(boardDisplay)}`} aria-label={`${program.name} board preview`}>
     <DirectBoardCanvas
       state={state}
-      display={display}
+      display={boardDisplay}
       program={program}
       panels={program.panels ?? []}
       selectedPanelId={highlightedPanelId}
@@ -7504,7 +7518,7 @@ function LivePreviewPanel({
       {liveTab === "frame" && <div className="live-frame-tab live-tab-panel">
         <div className="live-toolbox direct-frame-controls">
           <div className="direct-control-heading"><h3>Direct manipulation</h3><SegmentedControl value={directMode} options={[["frame", "Move & resize"], ["crop", "Pan, zoom & crop"]]} onChange={(value) => setDirectMode(value as typeof directMode)} /></div>
-          <div className="field camera-source-fit"><span>Source fit <InfoDot text="Fill covers the camera panel. Fit keeps the whole camera or shared window visible." /></span><SegmentedControl value={selectedFrame.fitMode ?? "fill"} options={[["fill", "Fill frame"], ["fit", "Fit whole source"]]} onChange={(value) => updateTargetFrames((frame) => ({ ...frame, fitMode: value as "fit" | "fill", crop: { ...frame.crop, scale: value === "fit" ? Math.min(frame.crop.scale, 1) : Math.max(frame.crop.scale, 1) } }))} /></div>
+          <div className="field camera-source-fit"><span>Source fit <InfoDot text="Fit centers the whole source and resets zoom, pan, edge crops, and rotation. Fill covers the panel by cropping the source." /></span><SegmentedControl value={selectedFrame.fitMode ?? "fit"} options={[["fit", "Fit whole source"], ["fill", "Fill frame"]]} onChange={(value) => updateTargetFrames((frame) => value === "fit" ? fitWholeBroadcastSource(frame) : { ...frame, fitMode: "fill", crop: { ...frame.crop, scale: Math.max(frame.crop.scale, 1) } })} /></div>
           {directMode === "frame" ? <div className="four-col">
             <Slider label="Left" info="Video position from the left edge." value={selectedFrame.x} min={0} max={90} onChange={(value) => updateTargetFrames((frame) => ({ ...frame, x: Math.min(value, 100 - frame.width) }))} />
             <Slider label="Top" info="Video position from the top edge." value={selectedFrame.y} min={0} max={90} onChange={(value) => updateTargetFrames((frame) => ({ ...frame, y: Math.min(value, 100 - frame.height) }))} />
@@ -7547,15 +7561,15 @@ function LivePreviewPanel({
       </div>}
       {liveTab === "effects" && <div className="live-toolbox live-tab-panel effects-tab">
         <section className="effect-settings-card background-removal-card">
-        <div className="effect-card-heading"><div><strong>Background removal</strong><span>One local pipeline at a time</span></div><b>LOCAL</b></div>
+        <div className="effect-card-heading"><div><strong>Background removal</strong><span>Use a backdrop color or automatically keep the person</span></div><b>LOCAL</b></div>
         <label className="switch-row background-removal-toggle">
           <input type="checkbox" checked={backgroundRemoval.enabled} onChange={(event) => setBackgroundRemovalEnabled(event.target.checked)} />
           <span><strong>Background Removal</strong><small>{backgroundRemoval.enabled ? `On — ${selectedRemovalMethod === "chroma" ? "Chroma Key" : "Screenless Removal"}` : "Off — the camera background remains visible"}</small></span>
         </label>
 
         {backgroundRemoval.enabled && <div className="background-removal-methods">
-          <div className="field removal-method-field"><span>Removal method</span><SegmentedControl value={selectedRemovalMethod} options={[["chroma", "Chroma Key"], ["screenless", "Screenless Removal"]]} onChange={(value) => selectBackgroundRemovalMethod(value as BackgroundRemovalMethod)} /></div>
-          <p className="background-removal-help"><strong>Chroma Key</strong> removes a chosen backdrop color. <strong>Screenless Removal</strong> uses {SCREENLESS_REMOVAL_TECHNOLOGY.name} ({SCREENLESS_REMOVAL_TECHNOLOGY.model}) locally in this browser. They are separate pipelines and cannot be combined; camera frames are not sent to a background-removal service.</p>
+          <div className="field removal-method-field"><span>Removal method</span><SegmentedControl value={selectedRemovalMethod} options={[["chroma", "Green / blue screen"], ["screenless", "Automatic"]]} onChange={(value) => selectBackgroundRemovalMethod(value as BackgroundRemovalMethod)} /></div>
+          <p className="background-removal-help"><strong>Green / blue screen</strong> is the lighter option with an evenly lit backdrop. <strong>Automatic</strong> keeps the person without a special screen. Use even lighting and contrast with your background for cleaner hair and hands. Camera processing stays on this device.</p>
         </div>}
 
         </section>
@@ -7574,7 +7588,7 @@ function LivePreviewPanel({
         </section>}
 
         {backgroundRemoval.enabled && selectedRemovalMethod === "screenless" && <section className="effect-settings-card ai-settings-card">
-          <div className="effect-card-heading"><div><strong>Screenless Removal</strong><span>{SCREENLESS_REMOVAL_TECHNOLOGY.name} runs person segmentation in this browser</span></div><b>LOCAL</b></div>
+          <div className="effect-card-heading"><div><strong>Automatic background</strong><span>Keep the person; choose what appears behind them</span></div><b>LOCAL</b></div>
           <div className="field"><span>Background result <InfoDot text="Remove keeps only the person over the board. You can instead place a blur, solid color, gradient, or image behind them." /></span><SegmentedControl value={state.live.effects.background} options={[["remove", "Remove"], ["blur", "Blur"], ["solid", "Solid"], ["gradient", "Gradient"], ["image", "Image"]]} onChange={(value) => patchLive({ chromaKey: { ...state.live.chromaKey, enabled: false }, effects: { ...state.live.effects, background: value as LanternState["live"]["effects"]["background"] } })} /></div>
           <div className="three-col ai-precision-controls">
             <Slider label="Edge precision" info="Raise this to reject more background; lower it to retain fine hair and hands." value={Math.round(state.live.effects.segmentationThreshold * 100)} min={20} max={75} onChange={(value) => patchLive({ effects: { ...state.live.effects, segmentationThreshold: value / 100 } })} />
@@ -7610,7 +7624,7 @@ function LivePreviewPanel({
               costumeEnabled: enabled && state.live.effects.costumeEnabled,
               handProp: enabled ? state.live.effects.handProp : "none"
             } });
-          }} /><ScanFace size={16} /><span><strong>Face, body & hand tracking</strong><small>{trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "Detecting face…" : "Head, ears, eyes, mouth, shoulders, hands and fingers"}</small></span><InfoDot text="The local tracker warms once, stabilizes landmarks between frames, and adapts between 60 and 30 FPS when needed." /></label>
+          }} /><ScanFace size={16} /><span><strong>Face tracking</strong><small>{trackingStatus?.phase === "detecting" || trackingStatus?.phase === "warming" ? "Detecting face…" : "Glasses and hats follow your face. Hands and body load only when needed."}</small></span><InfoDot text="Tracking follows new camera frames and adjusts its work to the device. Use front lighting and keep your face inside the frame." /></label>
           <div className="phase4-effect-choice-grid">
             <div><span>Glasses</span><div className="accessory-options"><button type="button" className={!state.live.effects.glassesEnabled ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, glassesEnabled: false } })}>Off</button>{(["classic", "playful"] as const).map((style) => <button type="button" key={style} className={state.live.effects.glassesEnabled && (state.live.effects.glassesStyle ?? "classic") === style ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, glassesEnabled: true, glassesStyle: style, accessory: "glasses", faceTracking: true } })}><Glasses size={15} /> {style === "classic" ? "Classic" : "Playful"}</button>)}</div></div>
             <div><span>Hats</span><div className="accessory-options"><button type="button" className={!state.live.effects.hatEnabled ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, hatEnabled: false, partyHatEnabled: false } })}>Off</button>{(["party", "wizard"] as const).map((style) => <button type="button" key={style} className={state.live.effects.hatEnabled && (state.live.effects.hatStyle ?? "party") === style ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, hatEnabled: true, partyHatEnabled: style === "party", hatStyle: style, faceTracking: true } })}><PartyPopper size={15} /> {style === "party" ? "Party" : "Wizard"}</button>)}</div></div>
@@ -8278,6 +8292,7 @@ function ScreensView({
   setSelectedDisplayId,
   openDisplays,
   updateState,
+  deleteDisplay,
   initialEditingId,
   initialEditorTab,
   initialOpenRoomCamera = false,
@@ -8290,6 +8305,7 @@ function ScreensView({
   setSelectedDisplayId: (screenId: ScreenId) => void;
   openDisplays: () => void;
   updateState: (updater: (current: LanternState) => LanternState) => void;
+  deleteDisplay: (screenId: ScreenId) => void;
   initialEditingId?: ScreenId;
   initialEditorTab?: "setup" | "room" | "names";
   initialOpenRoomCamera?: boolean;
@@ -8609,18 +8625,9 @@ function ScreensView({
 
   const addDisplay = () => {
     updateState((current) => {
-      const nextNumber = Object.keys(current.screens).length + 1;
+      const nextNumber = nextDisplayNumber(current.screens);
       const id = `display-${nextNumber}`;
       return { ...current, screens: { ...current.screens, [id]: makeDisplay(id, nextNumber) } };
-    });
-  };
-
-  const deleteDisplay = (id: ScreenId) => {
-    updateState((current) => {
-      if (Object.keys(current.screens).length <= 1) return current;
-      const screens = { ...current.screens };
-      delete screens[id];
-      return { ...current, screens };
     });
   };
 
@@ -8748,6 +8755,10 @@ function ScreensView({
             {!rosterDonors.length && <div className="display-roster-empty"><Users size={22} /><strong>No names assigned</strong><span>Add a donor from the list above.</span></div>}
           </div>
         </div>}
+        <div className="editor-modal-actions">
+          {screens.length <= 1 && <span className="field-note">Keep at least one display configured.</span>}
+          <button type="button" className="command-button danger" disabled={screens.length <= 1} onClick={() => deleteDisplay(editingScreen.id)}><Trash2 size={16} /> Delete display</button>
+        </div>
       </aside>}
       {roomPortal}
       {displayNotice && <LanternNotice message={displayNotice} onDismiss={() => setDisplayNotice(null)} />}
@@ -10504,7 +10515,7 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
         <div className={`live-overlay broadcast-frame-surface mask-${liveComposition.frame.maskShape ?? "rectangle"}${!liveComposition.chromaKey.enabled && liveComposition.effects.background === "remove" ? " screenless-transparent" : ""}`} style={{ left: `${liveComposition.frame.x}%`, top: `${liveComposition.frame.y}%`, width: `${liveComposition.frame.width}%`, height: `${liveComposition.frame.height}%`, clipPath: liveComposition.frame.maskShape === "polygon" ? livePolygonClip(liveComposition.frame) : undefined, ...frameSurfaceStyle(liveComposition), ...(!liveComposition.chromaKey.enabled && liveComposition.effects.background === "remove" ? { backgroundColor: "transparent" } : {}) }}>
           <div className="broadcast-crop-viewport" style={{ clipPath: `inset(${liveCropEdges.top}% ${liveCropEdges.right}% ${liveCropEdges.bottom}% ${liveCropEdges.left}%)` }}>
             <div className="live-camera-transform" style={broadcastSourceTransformStyle(liveComposition)}>
-              <ChromaVideo stream={stream} chromaKey={liveComposition.chromaKey} effects={liveComposition.effects} crop={liveComposition.frame.crop} fitMode={screen.orientation === "Portrait" && liveComposition.source === "camera" ? "fit" : liveComposition.frame.fitMode} renderTrackedOverlay={displayCostumeRenderer} preserveVideoUnderDiagnostics renderToCanvas />
+              <ChromaVideo stream={stream} chromaKey={liveComposition.chromaKey} effects={liveComposition.effects} crop={liveComposition.frame.crop} fitMode={liveComposition.frame.fitMode} renderTrackedOverlay={displayCostumeRenderer} preserveVideoUnderDiagnostics renderToCanvas />
             </div>
           </div>
           {(!stream || liveMediaNotice) && <div className="video-waiting">{liveMediaNotice ?? "Waiting for local video signal"}</div>}

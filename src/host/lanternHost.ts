@@ -1554,7 +1554,8 @@ export function normalizeState(state: LanternState): LanternState {
   const defaultScreens = initialState.screens;
   const screens: LanternState["screens"] = {};
 
-  if (legacyScreens["display-1"] || legacyScreens["display-2"]) {
+  // Modern displays retain their IDs even after the original two are deleted.
+  if (Object.keys(legacyScreens).some((id) => id !== "portrait" && id !== "landscape")) {
     Object.entries(legacyScreens).forEach(([id, screen]) => {
       screens[id] = normalizeScreen(screen, defaultScreens[id] ?? defaultScreens["display-2"], id);
     });

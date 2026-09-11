@@ -53,6 +53,30 @@ assert.equal(normalized.frameStyle.thickness, 6);
 assert.equal(normalized.backgroundImage, legacyLive.backgroundImage, "legacy custom images survive normalization");
 assert.equal(normalized.backgroundImagePreset, "custom");
 assert.deepEqual(normalized.frame.cropEdges, { top: 0, right: 0, bottom: 0, left: 0 });
+assert.equal(normalized.frame.fitMode, "fit", "missing source fit defaults to showing the whole source");
+assert.deepEqual(normalized.frame.crop, legacyLive.frame.crop, "normalization preserves saved pan and zoom");
+assert.equal(composition.normalizeBroadcastComposition({ ...legacyLive, frame: { ...legacyLive.frame, fitMode: "fill" } }).frame.fitMode, "fill", "explicit Fill stays selected");
+
+const framingSource = await readFile(new URL("../src/broadcastVideoFraming.ts", import.meta.url), "utf8");
+const framingJs = ts.transpileModule(framingSource, { compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.ES2020 } }).outputText;
+const framing = await import(`data:text/javascript;base64,${Buffer.from(framingJs).toString("base64")}`);
+for (const [width, height] of [[1920, 1080], [1080, 1920], [1024, 768], [1080, 1080], [3840, 2160], [3440, 1440], [320, 240]]) {
+  const size = framing.broadcastProcessingSize(width, height);
+  assert.ok(size.width * size.height <= 640 * 360, "processing never exceeds the previous pixel budget");
+  assert.ok(Math.max(size.width, size.height) <= 640);
+  assert.ok(Math.abs(size.width - size.height * width / height) < 2.5, "processed source preserves aspect ratio within pixel rounding");
+}
+assert.deepEqual(framing.broadcastProcessingSize(1080, 1920), { width: 360, height: 640 });
+assert.deepEqual(framing.broadcastProcessingSize(0, NaN), { width: 640, height: 360 });
+const savedFrame = { ...legacyLive.frame, rotation: -1, cropEdges: { top: 2, right: 4, bottom: 12, left: 7 }, mirrorX: true };
+const savedCopy = structuredClone(savedFrame);
+const fitted = framing.fitWholeBroadcastSource(savedFrame);
+assert.deepEqual(savedFrame, savedCopy, "Fit never mutates the saved input");
+assert.deepEqual(fitted.crop, { scale: 1, x: 0, y: 0 });
+assert.deepEqual(fitted.cropEdges, { top: 0, right: 0, bottom: 0, left: 0 });
+assert.equal(fitted.rotation, 0);
+assert.equal(fitted.mirrorX, true);
+for (const key of ["x", "y", "width", "height"]) assert.equal(fitted[key], savedFrame[key], "Fit preserves panel layout");
 
 const cropped = composition.normalizeCropEdges({ top: 12, right: 18, bottom: 7, left: 21 });
 assert.deepEqual(cropped, { top: 12, right: 18, bottom: 7, left: 21 }, "all four crop edges remain independent");

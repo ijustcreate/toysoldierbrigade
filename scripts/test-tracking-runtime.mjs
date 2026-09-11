@@ -156,9 +156,10 @@ assert.match(rendererSource, /Detecting face…/);
 assert.match(rendererSource, /outputFaceBlendshapes: true/);
 assert.match(rendererSource, /trackingCameraUnderlay/);
 assert.match(rendererSource, /renderTrackedOverlay/);
-assert.match(rendererSource, /warmVisionResources/);
+assert.match(rendererSource, /getVisionModelAsset\("face"\)/);
+assert.doesNotMatch(rendererSource, /warmVisionResources\(\["face"\]\)/, "ordinary camera playback must not download an unused face model");
 assert.match(rendererSource, /const IDLE_FACE_SCAN_INTERVAL_MS = 100/);
-assert.match(rendererSource, /drawCoverMedia\(sourceContext, video/);
+assert.match(rendererSource, /sourceContext\.drawImage\(video, 0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT\)/);
 
 console.log(JSON.stringify({
   reportedBefore: {

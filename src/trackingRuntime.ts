@@ -253,12 +253,13 @@ export function shouldRenderTrackingFrame(nowMs: number, previousFrameAt: number
   return nowMs - previousFrameAt >= (1_000 / targetFps) - 1;
 }
 
-export function smoothTrackingPoints(previous: TrackingPoint[] | null, detected: TrackingPoint[], responseScale = 1) {
+export function smoothTrackingPoints(previous: TrackingPoint[] | null, detected: TrackingPoint[], responseScale = 1, elapsedMs = 1000 / 30) {
   if (!previous || previous.length !== detected.length) return detected.map((landmark) => ({ ...landmark }));
   return detected.map((landmark, index) => {
     const old = previous[index];
     const movement = Math.hypot(landmark.x - old.x, landmark.y - old.y);
-    const response = Math.max(0.34, Math.min(0.9, (0.4 + movement * 13) * responseScale));
+    const baseResponse = Math.max(0.34, Math.min(0.9, (0.4 + movement * 13) * responseScale));
+    const response = 1 - Math.pow(1 - baseResponse, Math.max(.5, Math.min(3, elapsedMs / (1000 / 30))));
     return {
       ...landmark,
       x: old.x + (landmark.x - old.x) * response,

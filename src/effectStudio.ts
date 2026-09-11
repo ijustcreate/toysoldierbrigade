@@ -209,6 +209,11 @@ function normalizeBone(candidate: EffectRigBone, fallbackAnchor: TrackingAnchorP
   };
 }
 
+function normalizeSprite(sprite: CostumeArtPiece["sprite"]): CostumeArtPiece["sprite"] {
+  if (!sprite || typeof sprite.source !== "string" || !/^assets\/[\w./-]+\.png$/.test(sprite.source) || sprite.source.includes("..") || !Array.isArray(sprite.rect) || sprite.rect.length !== 4 || sprite.rect.some(value => !Number.isFinite(value) || value < 0 || value > 8192) || sprite.rect[2] <= 0 || sprite.rect[3] <= 0) return undefined;
+  return { source: sprite.source, rect: [...sprite.rect], width: finite(sprite.width, 1, .01, 8), height: finite(sprite.height, 1, .01, 8), pivotX: finite(sprite.pivotX, .5, 0, 1), pivotY: finite(sprite.pivotY, .5, 0, 1), flipX: Boolean(sprite.flipX) };
+}
+
 function normalizeCostume(candidate: CostumeDefinition | null | undefined): CostumeDefinition | null {
   if (!candidate || typeof candidate.id !== "string" || !candidate.id.trim()) return null;
   const now = candidate.updatedAt || candidate.createdAt || EFFECT_STUDIO_SEED_TIMESTAMP;
@@ -237,7 +242,8 @@ function normalizeCostume(candidate: CostumeDefinition | null | undefined): Cost
       rotation: finite(item.rotation, 0, -180, 180),
       zIndex: Math.round(finite(item.zIndex, 10, -100, 100)),
       visible: item.visible !== false,
-      inferred: Boolean(item.inferred)
+      inferred: Boolean(item.inferred),
+      sprite: normalizeSprite(item.sprite)
     }))
   };
 }

@@ -35,6 +35,7 @@ import type {
 } from "../types";
 import "./EffectStudio.css";
 import { TrackingNotice } from "./TrackingNotice";
+import { cuteSkeletonStarter } from "../cuteSkeleton";
 
 type StudioTab = "costume" | "rig" | "calibration";
 
@@ -85,7 +86,7 @@ function CostumeMiniPreview({ costume }: { costume: CostumeDefinition }) {
   const visibleCount = costume.pieces.filter((piece) => piece.visible).length;
   if (costume.conceptArt) return <div className="costume-mini-preview concept" aria-label={`${costume.name} concept art`}>
     <img src={`${import.meta.env.BASE_URL}${costume.conceptArt}`} alt="" />
-    <span>{visibleCount} active pieces Â· {costume.bones.length} bones</span>
+    <span>{visibleCount} active pieces · {costume.bones.length} bones</span>
   </div>;
   return <div className={`costume-mini-preview ${skeleton ? "skeleton" : "teddy"}`} aria-label={`${costume.name} rig preview`}>
     <div className="costume-preview-ear left" /><div className="costume-preview-ear right" />
@@ -142,6 +143,13 @@ function CostumeEditor({
     setDraft(next);
     setDeletePending(false);
   };
+  const makeSkeleton = () => {
+    const next = duplicateCostume(cuteSkeletonStarter);
+    next.name = "Cute Skeleton";
+    setSelectedId(next.id);
+    setDraft(next);
+    setDeletePending(false);
+  };
   const save = () => {
     if (!draft || !draft.name.trim()) return;
     const next = { ...draft, name: draft.name.trim(), updatedAt: new Date().toISOString() };
@@ -185,13 +193,14 @@ function CostumeEditor({
     }
   };
 
-  if (!draft) return <div className="studio-empty"><Sparkles size={24} /><strong>Make the first costume</strong><button type="button" className="command-button primary compact" onClick={makeCostume}><Plus size={14} /> Make Costume</button></div>;
+  if (!draft) return <div className="studio-empty"><Sparkles size={24} /><strong>Make the first costume</strong><button type="button" className="command-button primary compact" onClick={makeCostume}><Plus size={14} /> Make Costume</button><button type="button" className="command-button secondary compact" onClick={makeSkeleton}><Bone size={14} /> Cute skeleton starter</button></div>;
   const isLoaded = effects.costumeEnabled && effects.costumeId === draft.id;
   const isSaved = studio.costumes.some((item) => item.id === draft.id);
 
   return <div className="costume-editor-grid">
     <aside className="costume-library" aria-label="Costume library">
       <header><strong>Costume library</strong><button type="button" className="icon-button" title="Make Costume" onClick={makeCostume}><Plus size={15} /></button></header>
+      <button type="button" className="command-button secondary compact" onClick={makeSkeleton}><Bone size={14} /> Cute skeleton starter</button>
       <div>{studio.costumes.map((costume) => <button type="button" key={costume.id} className={costume.id === draft.id ? "active" : ""} onClick={() => chooseCostume(costume.id)}><span>{costume.name}</span><small>{costume.starter ? "Starter" : "Custom"}</small></button>)}</div>
       <label className="command-button secondary compact studio-import-button"><FileUp size={14} /> Import<input ref={importRef} type="file" accept="application/json,.json" onChange={(event) => void importFile(event.target.files?.[0])} /></label>
       {importError && <p className="studio-inline-error" role="alert">{importError}</p>}
@@ -211,7 +220,7 @@ function CostumeEditor({
           <select aria-label={`${item.name} role`} value={item.role} onChange={(event) => setDraft({ ...draft, pieces: draft.pieces.map((piece) => piece.id === item.id ? { ...piece, role: event.target.value as CostumeArtPiece["role"] } : piece) })}>{PIECE_ROLES.map((role) => <option key={role} value={role}>{role.replace(/-/g, " ")}</option>)}</select>
           <select aria-label={`${item.name} anchor`} value={item.anchor} onChange={(event) => setDraft({ ...draft, pieces: draft.pieces.map((piece) => piece.id === item.id ? { ...piece, anchor: event.target.value as TrackingAnchorPoint } : piece) })}>{TRACKING_ANCHORS.map((anchor) => <option key={anchor.id} value={anchor.id}>{anchor.label}</option>)}</select>
           <select aria-label={`${item.name} bone`} value={item.boneId ?? ""} onChange={(event) => setDraft({ ...draft, pieces: draft.pieces.map((piece) => piece.id === item.id ? { ...piece, boneId: event.target.value || undefined } : piece) })}><option value="">No bone</option>{draft.bones.map((bone) => <option key={bone.id} value={bone.id}>{bone.name}</option>)}</select>
-          <input type="color" aria-label={`${item.name} color`} value={item.color} onChange={(event) => setDraft({ ...draft, pieces: draft.pieces.map((piece) => piece.id === item.id ? { ...piece, color: event.target.value } : piece) })} />
+          <input type="color" aria-label={`${item.name} color`} disabled={Boolean(item.sprite)} title={item.sprite ? "Painted sprite colors are part of the artwork" : undefined} value={item.color} onChange={(event) => setDraft({ ...draft, pieces: draft.pieces.map((piece) => piece.id === item.id ? { ...piece, color: event.target.value } : piece) })} />
           <button type="button" className="icon-button danger-icon" title={`Remove ${item.name}`} onClick={() => setDraft({ ...draft, pieces: draft.pieces.filter((piece) => piece.id !== item.id) })}><Trash2 size={13} /></button>
         </div>)}</div>
       </div>
@@ -219,7 +228,7 @@ function CostumeEditor({
         <button type="button" className="command-button secondary compact" onClick={makeCostume}><Plus size={14} /> Make Costume</button>
         <button type="button" className="command-button secondary compact" onClick={duplicate}><ClipboardCopy size={14} /> Duplicate</button>
         <button type="button" className="command-button secondary compact" onClick={() => downloadCostume(draft)}><Download size={14} /> Export</button>
-        <button type="button" className="command-button secondary compact" onClick={load}><Eye size={14} /> {isLoaded ? "Reload" : "Load"}</button>
+        <button type="button" className="command-button secondary compact" onClick={load} disabled={!isSaved || JSON.stringify(draft) !== JSON.stringify(selected)} title={!isSaved || JSON.stringify(draft) !== JSON.stringify(selected) ? "Save your changes before loading the preview" : "Use this saved costume in the camera preview"}><Eye size={14} /> {isLoaded ? "Reload" : "Load"}</button>
         <button type="button" className="command-button primary compact" onClick={save} disabled={!draft.name.trim()}><Save size={14} /> Save</button>
         <button type="button" className="command-button danger compact" onClick={() => setDeletePending(true)}><Trash2 size={14} /> Delete</button>
       </footer>

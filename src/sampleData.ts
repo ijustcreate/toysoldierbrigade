@@ -788,7 +788,7 @@ export const initialState: LanternState = {
     frameBorderWidth: 0,
     usingCamera: true,
     source: "camera",
-    frame: { x: 24, y: 13, width: 65, height: 80, crop: { scale: 1.4, x: 6, y: -34 }, maskShape: "rectangle", rotation: -1, mirrorX: false },
+    frame: { x: 24, y: 13, width: 65, height: 80, fitMode: "fit", crop: { scale: 1, x: 0, y: 0 }, maskShape: "rectangle", rotation: 0, mirrorX: false },
     chromaKey: { enabled: false, color: "#18a558", similarity: 0.34, smoothness: 0.12, spill: 0.18 },
     effects: { background: "original", backgroundColor: "#173f5f", backgroundGradientStart: "#0f4c5c", backgroundGradientEnd: "#7439a8", blur: 18, segmentationThreshold: 0.42, segmentationFeather: 0.18, accessory: "none", glassesEnabled: false, glassesStyle: "classic", partyHatEnabled: false, hatEnabled: false, hatStyle: "party", wizardSpringiness: .56, wizardDamping: .7, faceTracking: false, puppetPreview: false, trackingDebug: false, trackedPointsOverlay: false, trackingCameraUnderlay: false, costumeEnabled: false, costumeId: "costume-talking-teddy" }
   },

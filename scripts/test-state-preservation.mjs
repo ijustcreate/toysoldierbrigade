@@ -51,6 +51,14 @@ try {
   assert.deepEqual(roundTripped.boardPrograms, JSON.parse(JSON.stringify(customized.boardPrograms)), "shared serialization must preserve authored copy, typography, spacing, and geometry");
   assert.deepEqual(roundTripped.schedules, JSON.parse(JSON.stringify(customized.schedules)), "shared serialization must preserve schedules");
 
+  const remainingDisplay = structuredClone(normalized);
+  remainingDisplay.screens = { "display-3": { ...normalized.screens["display-1"], id: "display-3", label: "Remaining museum display" } };
+  remainingDisplay.schedules = [];
+  const remainingNormalized = normalizeState(remainingDisplay);
+  assert.deepEqual(Object.keys(remainingNormalized.screens), ["display-3"], "deleting the original displays must not recreate defaults on reload");
+  assert.equal(remainingNormalized.screens["display-3"].label, "Remaining museum display");
+  assert.deepEqual(JSON.parse(JSON.stringify(remainingNormalized.boardPrograms)), JSON.parse(JSON.stringify(normalized.boardPrograms)), "display removal never replaces saved board designs");
+
   if (process.env.LANTERN_STATE_FIXTURE) {
     const payload = JSON.parse(await readFile(process.env.LANTERN_STATE_FIXTURE, "utf8"));
     const fixtureState = payload.state ?? payload;

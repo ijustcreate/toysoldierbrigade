@@ -186,7 +186,7 @@ export function normalizeBroadcastComposition(live: LivePresentation): LivePrese
     frameBorderWidth: frameStyle.thickness,
     frame: {
       ...live.frame,
-      fitMode: live.frame.fitMode === "fit" ? "fit" : "fill",
+      fitMode: live.frame.fitMode === "fill" ? "fill" : "fit",
       cropEdges: normalizeCropEdges(live.frame.cropEdges)
     }
   };

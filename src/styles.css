@@ -1287,7 +1287,7 @@ h2 {
 :is(.blip-preview-frame, .schedule-preview-surface) .blip-countdown { width: 52px; }
 :is(.blip-preview-frame, .schedule-preview-surface) .blip-countdown strong { font-size: 22px; }
 :is(.blip-preview-frame, .schedule-preview-surface) .blip-countdown span { margin-top: 3px; font-size: 5px; }
-.scheduled-broadcast-video { position: absolute; inset: 0; z-index: 48; width: 100%; height: 100%; object-fit: cover; background: #000; }
+.scheduled-broadcast-video { position: absolute; inset: 0; z-index: 48; width: 100%; height: 100%; object-fit: contain; background: #000; }
 
 .display-picker {
   min-width: min(100%, 360px);
@@ -11197,12 +11197,12 @@ body.theme-light {
     transform: translateY(-50%);
   }
   .mobile-board-page-rail input { width: 100%; height: 100%; margin: 0; writing-mode: vertical-lr; direction: rtl; accent-color: var(--accent); cursor: pointer; }
-  .direct-board-canvas.portrait {
+  .direct-board-stage > .direct-board-canvas.portrait {
     width: min(320px, calc(100vw - 48px));
     height: auto;
     aspect-ratio: 9 / 16;
   }
-  .direct-board-canvas.landscape {
+  .direct-board-stage > .direct-board-canvas.landscape {
     width: min(620px, calc(100vw - 48px));
     height: auto;
     aspect-ratio: 16 / 9;
@@ -15276,8 +15276,8 @@ body.theme-light {
     margin: 18px 24px;
     touch-action: none;
   }
-  .direct-board-canvas.portrait { width: min(320px, calc(100% - 48px)); max-width: calc(100% - 48px); }
-  .direct-board-canvas.landscape { width: min(620px, calc(100% - 48px)); max-width: calc(100% - 48px); }
+  .direct-board-stage > .direct-board-canvas.portrait { width: min(320px, calc(100% - 48px)); max-width: calc(100% - 48px); }
+  .direct-board-stage > .direct-board-canvas.landscape { width: min(620px, calc(100% - 48px)); max-width: calc(100% - 48px); }
   .direct-board-stage .editable-board-text {
     font-size: max(16px, var(--panel-font-size, 16px));
     -webkit-text-size-adjust: 100%;

@@ -20,6 +20,8 @@ export async function checkBoardDesigns(page, start = 0, end = 22) {
   });
   const ids = await page.evaluate(([start, end]) => JSON.parse(localStorage.getItem("project-lantern-state-v1")).boardPrograms.slice(start, end).map((board) => board.id), [start, end]);
   const results = [];
+  const previousViewport = page.viewportSize() ?? await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+  try {
   for (const id of ids) {
     const { orientation, before } = await page.evaluate((id) => {
       const state = JSON.parse(localStorage.getItem("project-lantern-state-v1"));
@@ -60,6 +62,10 @@ export async function checkBoardDesigns(page, start = 0, end = 22) {
     result.savedBoardUnchanged = before === after;
     await canvas.screenshot({ path: `output/playwright/${id}.png` });
     results.push(result);
+  }
+  } finally {
+    // Do not leave the review window at the last board's 4K test dimensions.
+    await page.setViewportSize(previousViewport);
   }
   await writeFile(`output/playwright/v2-checks-${start}-${end}.json`, JSON.stringify(results, null, 2));
   return results.map(({ id, donors, failures, fittedFonts, savedBoardUnchanged }) => ({ id, donors, failures, fittedFonts, savedBoardUnchanged }));

@@ -50,7 +50,7 @@ function extensionPoint(frame: TrackingRenderFrame, anchor: TrackingAnchorPoint)
       const neck = extensions.neck ?? frame.body?.neck;
       const left = frame.body?.leftShoulder;
       const right = frame.body?.rightShoulder;
-      if (neck && left && right) return { x: (left.x + right.x + neck.x) / 3, y: (left.y + right.y) / 3 + Math.abs(left.x - right.x) * .22 };
+      if (left && right) return { x: (left.x + right.x) / 2, y: (left.y + right.y) / 2 + Math.hypot(left.x - right.x, left.y - right.y) * .4 };
       return neck;
     }
     default: return undefined;
@@ -119,6 +119,28 @@ function rigRotation(
   return parentRotation + (springMotion + hingeMotion) * bone.weight;
 }
 
+const spriteImages = new Map<string, HTMLImageElement>();
+const sortedPieces = new WeakMap<CostumeDefinition, CostumeArtPiece[]>();
+
+function spriteImage(source: string) {
+  let image = spriteImages.get(source);
+  if (!image && typeof Image !== "undefined" && /^assets\/[\w./-]+\.png$/.test(source) && !source.includes("..")) {
+    if (spriteImages.size >= 32) spriteImages.delete(spriteImages.keys().next().value!);
+    image = new Image();
+    image.decoding = "async";
+    image.src = `${import.meta.env.BASE_URL}${source}`;
+    spriteImages.set(source, image);
+  }
+  return image?.complete && image.naturalWidth > 0 ? image : undefined;
+}
+
+function drawSprite(context: CanvasRenderingContext2D, image: HTMLImageElement, sprite: NonNullable<CostumeArtPiece["sprite"]>, width: number, height: number) {
+  context.save();
+  if (sprite.flipX) context.scale(-1, 1);
+  context.drawImage(image, ...sprite.rect, -width * sprite.pivotX, -height * sprite.pivotY, width, height);
+  context.restore();
+}
+
 function drawPiece(
   context: CanvasRenderingContext2D,
   frame: TrackingRenderFrame,
@@ -141,6 +163,38 @@ function drawPiece(
   context.rotate((piece.rotation + rigRotation(costume, piece.boneId, frame.nowMs, mouthOpen)) * Math.PI / 180);
   if (bone) context.globalAlpha = .5 + bone.weight * .5;
   context.lineJoin = "round";
+
+  const image = piece.sprite && spriteImage(piece.sprite.source);
+  if (image && piece.sprite) {
+    if (piece.role === "forearm") {
+      const arm = piece.side === "left" ? frame.body?.leftArm : frame.body?.rightArm;
+      const elbow = pointInCanvas(arm?.elbow, frame.width, frame.height);
+      const wrist = pointInCanvas(arm?.hand, frame.width, frame.height);
+      context.restore();
+      // Hide unobserved limbs instead of leaving a floating bone at the shoulder.
+      if (!wrist) return;
+      const joints = elbow ? [{ x, y }, elbow, wrist] : [{ x, y }, wrist];
+      for (let i = 1; i < joints.length; i++) {
+        const a = joints[i - 1], b = joints[i];
+        context.save();
+        context.translate((a.x + b.x) / 2, (a.y + b.y) / 2);
+        context.rotate(Math.atan2(b.y - a.y, b.x - a.x) - Math.PI / 2);
+        drawSprite(context, image, piece.sprite, unit * piece.sprite.width, Math.hypot(b.x - a.x, b.y - a.y));
+        context.restore();
+      }
+      return;
+    }
+    // Face art turns with the eye line; jaw motion still follows its own anchor.
+    if (frame.face && !["hand", "body"].includes(piece.role)) {
+      const left = pointInCanvas(frame.face.landmarks[33], frame.width, frame.height);
+      const right = pointInCanvas(frame.face.landmarks[263], frame.width, frame.height);
+      if (left && right) context.rotate(Math.atan2(right.y - left.y, right.x - left.x));
+    }
+    const eyeScale = piece.role === "eye" ? Math.max(.08, eyeOpen) : 1;
+    drawSprite(context, image, piece.sprite, unit * piece.sprite.width, unit * piece.sprite.height * eyeScale);
+    context.restore();
+    return;
+  }
 
   switch (piece.role) {
     case "head-backplate":
@@ -301,9 +355,10 @@ export function renderCostumeOverlay(
   const upperMouth = resolveAnchor(frame, "mouth-upper", calibration);
   const lowerMouth = resolveAnchor(frame, "mouth-lower", calibration);
   const mouthOpen = Math.min(1, Math.max(0, distance(upperMouth, lowerMouth) / Math.max(1, faceScale * .48)));
-  costume.pieces
-    .filter((piece) => piece.visible)
-    .slice()
-    .sort((left, right) => left.zIndex - right.zIndex)
-    .forEach((piece) => drawPiece(context, frame, costume, piece, calibration, faceScale, mouthOpen));
+  let pieces = sortedPieces.get(costume);
+  if (!pieces) {
+    pieces = costume.pieces.filter(piece => piece.visible).slice().sort((a, b) => a.zIndex - b.zIndex);
+    sortedPieces.set(costume, pieces);
+  }
+  pieces.forEach((piece) => drawPiece(context, frame, costume, piece, calibration, faceScale, mouthOpen));
 }

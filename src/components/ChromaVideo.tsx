@@ -22,7 +22,9 @@ import {
   type TrackingRuntimeStatus
 } from "../trackingRuntime";
 import { createWizardHatRig, drawTrackedGlasses, drawTrackedHandProp, drawTrackedHat } from "../trackingEffects";
-import { getVisionFileset, getVisionModule, visionBaseOptions, warmVisionResources } from "../visionResources";
+import { getVisionFileset, getVisionModule, getVisionModelAsset, visionBaseOptions } from "../visionResources";
+import { broadcastProcessingSize } from "../broadcastVideoFraming";
+import { keyChromaPixels, PersonMaskSmoother } from "../videoMatting";
 
 export interface ChromaVideoProps {
   stream: MediaStream | null;
@@ -62,8 +64,6 @@ const OUTPUT_WIDTH = 640;
 const OUTPUT_HEIGHT = 360;
 // A little more source detail helps the selfie model preserve thin fingers and
 // hair. Keep the working canvas small enough that segmentation remains realtime.
-const INFERENCE_WIDTH = 320;
-const INFERENCE_HEIGHT = 180;
 const SEGMENT_INTERVAL_MS = 1000 / 10;
 const BODY_INTERVAL_MS = 1000 / 15;
 const MOUTH_ANALYSIS_INTERVAL_MS = 1000 / 10;
@@ -74,12 +74,6 @@ const IDLE_FACE_SCAN_INTERVAL_MS = 100;
 const STABLE_BODY_INTERVAL_MS = 1000 / 4;
 const IDLE_BODY_SCAN_INTERVAL_MS = 1_500;
 
-function hexRgb(value: string) {
-  const hex = value.replace("#", "");
-  const normalized = hex.length === 3 ? hex.split("").map((part) => part + part).join("") : hex;
-  return [0, 2, 4].map((offset) => Number.parseInt(normalized.slice(offset, offset + 2), 16) / 255);
-}
-
 function drawScreenlessGradient(context: CanvasRenderingContext2D, width: number, height: number, start: string, end: string) {
   const gradient = context.createLinearGradient(0, 0, width, height);
   gradient.addColorStop(0, start);
@@ -88,7 +82,7 @@ function drawScreenlessGradient(context: CanvasRenderingContext2D, width: number
   context.fillRect(0, 0, width, height);
 }
 
-export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill", className, onTrackingStatus, onMediaSurfaceChange, renderTrackedOverlay, preserveVideoUnderDiagnostics = false, renderToCanvas = false }: ChromaVideoProps) {
+export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fit", className, onTrackingStatus, onMediaSurfaceChange, renderTrackedOverlay, preserveVideoUnderDiagnostics = false, renderToCanvas = false }: ChromaVideoProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const settingsRef = useRef({ chromaKey, effects, crop });
@@ -97,6 +91,7 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
   const trackedOverlayRendererRef = useRef(renderTrackedOverlay);
   const [aiStatus, setAiStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [trackingPhase, setTrackingPhase] = useState<TrackingRuntimePhase>("idle");
+  const [effectAttempt, setEffectAttempt] = useState(0);
   settingsRef.current = { chromaKey, effects, crop };
   trackingStatusCallbackRef.current = onTrackingStatus;
   trackedOverlayRendererRef.current = renderTrackedOverlay;
@@ -160,14 +155,6 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
   }, [stream]);
 
   useEffect(() => {
-    if (!stream || faceEffectsActive) return;
-    // Warm the module, WASM, and face model after camera startup. This uses the
-    // browser HTTP cache and never blocks the normal camera preview.
-    const timer = window.setTimeout(() => void warmVisionResources(["face"]), 700);
-    return () => window.clearTimeout(timer);
-  }, [stream, faceEffectsActive]);
-
-  useEffect(() => {
     if (!effects.backgroundImage) {
       replacementImageRef.current = null;
       return;
@@ -184,13 +171,22 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
   useEffect(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!processingActive || !video || !canvas) {
+    if (!stream || !processingActive || !video || !canvas) {
       setTrackingPhase("idle");
       trackingStatusCallbackRef.current?.({ phase: "idle", renderedFps: 0, targetFps: 60, adaptiveFps: 60, faceAnchorHeld: false });
       return;
     }
     setAiStatus(aiBackgroundActive ? "loading" : "idle");
     if (faceEffectsActive) setTrackingPhase("detecting");
+
+    // Match decoded source geometry, including phone orientation changes.
+    // These dimensions are shared by all effect and landmark drawing paths.
+    let OUTPUT_WIDTH = 640;
+    let OUTPUT_HEIGHT = 360;
+    let sourceWidth = 0;
+    let sourceHeight = 0;
+    let INFERENCE_WIDTH = 320;
+    let INFERENCE_HEIGHT = 180;
 
     // This canvas is also sampled by the 3D board texture. Explicit alpha is
     // essential: the "Remove" result must leave the donor board visible.
@@ -215,14 +211,19 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
     if (!context || !sourceContext || !inferenceContext || !foregroundContext || !maskContext) return;
 
     let animationFrame = 0;
+    let videoFrameCallback = 0;
     let disposed = false;
     let segmenter: ImageSegmenter | null = null;
     let faceLandmarker: FaceLandmarker | null = null;
     let handLandmarker: HandLandmarker | null = null;
     let poseLandmarker: PoseLandmarker | null = null;
-    let personMaskIndex = 15;
+    let personMaskIndex = 0;
     let maskReady = false;
-    let smoothedMask: Float32Array | null = null;
+    let maskSmoother: PersonMaskSmoother | null = null;
+    let maskImage: ImageData | null = null;
+    let lastMaskAt = -Infinity;
+    let segmentRetryAt = 0;
+    let segmentDurationMs = 0;
     let landmarks: TrackingPoint[] | null = null;
     let poseLandmarks: TrackingPoint[] | null = null;
     let handLandmarks: TrackingPoint[][] = [];
@@ -276,7 +277,7 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
     const initializeFaceTracking = async () => {
       if (!faceEffectsActive) return;
       try {
-        const [visionModule, vision] = await Promise.all([getVisionModule(), getVisionFileset()]);
+        const [visionModule, vision] = await Promise.all([getVisionModule(), getVisionFileset(), getVisionModelAsset("face")]);
         const faceOptions = {
           runningMode: "VIDEO" as const,
           numFaces: 1,
@@ -334,7 +335,7 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
     const initializeSegmentation = async () => {
       if (!aiBackgroundActive) return;
       try {
-        const [visionModule, vision] = await Promise.all([getVisionModule(), getVisionFileset()]);
+        const [visionModule, vision] = await Promise.all([getVisionModule(), getVisionFileset(), getVisionModelAsset("segmentation")]);
         const nextSegmenter = await createWithFallback("segmentation", (baseOptions) => visionModule.ImageSegmenter.createFromOptions(vision, {
           baseOptions,
           runningMode: "VIDEO",
@@ -358,39 +359,20 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
     void initializeFaceTracking();
     void initializeSegmentation();
 
-    const updatePersonMask = (confidence: Float32Array, width: number, height: number) => {
+    const updatePersonMask = (confidence: Float32Array, width: number, height: number, now: number) => {
       if (maskCanvas.width !== width || maskCanvas.height !== height) {
         maskCanvas.width = width;
         maskCanvas.height = height;
-        smoothedMask = null;
+        maskSmoother = null;
       }
-      if (!smoothedMask || smoothedMask.length !== confidence.length) {
-        smoothedMask = new Float32Array(confidence);
+      if (!maskSmoother) {
+        maskSmoother = new PersonMaskSmoother(width * height);
+        maskImage = new ImageData(maskSmoother.rgba, width, height);
       }
-
       const { segmentationThreshold, segmentationFeather } = settingsRef.current.effects;
-      const lower = Math.max(0.02, segmentationThreshold - segmentationFeather / 2);
-      const upper = Math.min(0.98, segmentationThreshold + segmentationFeather / 2);
-      const range = Math.max(0.01, upper - lower);
-      const image = maskContext.createImageData(width, height);
-      for (let index = 0; index < confidence.length; index += 1) {
-        const previous = smoothedMask[index];
-        // Let large changes (hands/fingers moving) catch up quickly, while
-        // retaining stronger smoothing for nearly-static pixels. A fixed
-        // response makes moving fingers visibly trail behind the source frame.
-        const delta = Math.abs(confidence[index] - previous);
-        const response = delta > 0.08 ? 0.82 : 0.58;
-        const next = previous + (confidence[index] - previous) * response;
-        smoothedMask[index] = next;
-        const normalized = Math.max(0, Math.min(1, (next - lower) / range));
-        const alpha = normalized * normalized * (3 - 2 * normalized);
-        const offset = index * 4;
-        image.data[offset] = 255;
-        image.data[offset + 1] = 255;
-        image.data[offset + 2] = 255;
-        image.data[offset + 3] = Math.round(alpha * 255);
-      }
-      maskContext.putImageData(image, 0, 0);
+      maskSmoother.update(confidence, segmentationThreshold, segmentationFeather, now - lastMaskAt);
+      maskContext.putImageData(maskImage!, 0, 0);
+      lastMaskAt = now;
       maskReady = true;
     };
 
@@ -400,13 +382,41 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
         const { effects: currentEffects, chromaKey: currentChroma } = settingsRef.current;
         const currentRuntimeEffects = currentEffects as RuntimeEffectsSettings;
 
+        if (sourceWidth !== video.videoWidth || sourceHeight !== video.videoHeight) {
+          sourceWidth = video.videoWidth;
+          sourceHeight = video.videoHeight;
+          const size = broadcastProcessingSize(sourceWidth, sourceHeight);
+          OUTPUT_WIDTH = size.width;
+          OUTPUT_HEIGHT = size.height;
+          for (const surface of [canvas, source, foreground]) {
+            surface.width = OUTPUT_WIDTH;
+            surface.height = OUTPUT_HEIGHT;
+          }
+          INFERENCE_WIDTH = Math.max(1, Math.floor(OUTPUT_WIDTH / 2));
+          INFERENCE_HEIGHT = Math.max(1, Math.floor(OUTPUT_HEIGHT / 2));
+          inference.width = INFERENCE_WIDTH;
+          inference.height = INFERENCE_HEIGHT;
+          maskReady = false;
+          maskSmoother = null;
+          landmarks = poseLandmarks = null;
+          handLandmarks = [];
+          trackedHands = [];
+          lastPoseNose = undefined;
+          poseTranslation = { x: 0, y: 0 };
+          eyeState = { leftEyeOpen: 1, rightEyeOpen: 1 };
+          faceHeld = false;
+          lastOcclusionAt = -Infinity;
+          lastOcclusionConfidence = 0;
+          experimentalMouth = undefined;
+        }
+
         sourceContext.globalCompositeOperation = "source-over";
         sourceContext.filter = "none";
         sourceContext.clearRect(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
         // Framing belongs to the shared CSS transform applied to both the raw
         // video and processed canvas below. Cropping here as well made effects
         // square the zoom and double the pan whenever processing was enabled.
-        drawCoverMedia(sourceContext, video, OUTPUT_WIDTH, OUTPUT_HEIGHT, video.videoWidth, video.videoHeight);
+        sourceContext.drawImage(video, 0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT);
 
         const adaptiveFps = performanceMonitor.getAdaptiveFps();
         const faceNearEdge = Boolean(landmarks && [1, 10, 152, 234, 454].some((index) => {
@@ -416,7 +426,7 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
         const stableFace = Boolean(landmarks && !faceHeld && !faceNearEdge && recentFaceMotion < .006 && poseHeadMotion < .006 && now - lastFaceSeenAt < 220);
         const freshVideoFrame = Math.abs(video.currentTime - lastVideoTime) > .0005;
         if (freshVideoFrame) lastVideoTime = video.currentTime;
-        const shouldSegment = segmenter && freshVideoFrame && now - lastSegmentAt >= SEGMENT_INTERVAL_MS;
+        const shouldSegment = segmenter && freshVideoFrame && now >= segmentRetryAt && now - lastSegmentAt >= Math.max(SEGMENT_INTERVAL_MS, Math.min(250, segmentDurationMs * 4));
         // Rendering stays smooth, while the models run only for new camera
         // frames. Centered, settled faces use a lighter cadence; an empty view
         // is rescanned within a second so a new guest is found promptly.
@@ -431,12 +441,22 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
 
         if (shouldSegment && segmenter) {
           lastSegmentAt = now;
-          segmenter.segmentForVideo(inference, now, (result) => {
-            const masks = result.confidenceMasks;
-            if (!masks?.length) return;
-            const mask = masks[Math.min(personMaskIndex, masks.length - 1)];
-            updatePersonMask(mask.getAsFloat32Array(), mask.width, mask.height);
-          });
+          const started = performance.now();
+          try {
+            segmenter.segmentForVideo(inference, now, (result) => {
+              const masks = result.confidenceMasks;
+              if (!masks?.length) return;
+              const mask = masks[Math.min(personMaskIndex, masks.length - 1)];
+              updatePersonMask(mask.getAsFloat32Array(), mask.width, mask.height, now);
+            });
+            segmentDurationMs += (performance.now() - started - segmentDurationMs) * .25;
+            setAiStatus("ready");
+          } catch {
+            maskReady = false;
+            maskSmoother = null;
+            segmentRetryAt = now + 1000;
+            setAiStatus("error");
+          }
         }
 
         if (shouldTrackFace || shouldTrackBody) {
@@ -447,7 +467,8 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
               if (handLandmarker) {
                 const handResult = handLandmarker.detectForVideo(inference, now);
                 if (handResult.landmarks.length) {
-                  handLandmarks = handResult.landmarks.map((hand, index) => smoothTrackingPoints(handLandmarks[index] ?? null, hand));
+                  handLandmarks = deriveTrackedHands(handResult.landmarks, handResult.handedness).map(hand =>
+                    smoothTrackingPoints(hand.side === "unknown" ? null : trackedHands.find(previous => previous.side === hand.side)?.landmarks ?? null, hand.landmarks));
                   trackedHands = handMotionTracker.update(deriveTrackedHands(handLandmarks, handResult.handedness), now);
                   lastHandsSeenAt = now;
                   handsWereSeen = true;
@@ -484,7 +505,7 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
               const detected = result.faceLandmarks[0] ?? null;
               if (detected) {
                 recentFaceMotion = landmarkMotion(landmarks, detected);
-                landmarks = smoothTrackingPoints(landmarks, detected, faceHeld ? 0.82 : 1);
+                landmarks = smoothTrackingPoints(landmarks, detected, faceHeld ? 1.5 : 1, now - lastFaceSeenAt);
                 eyeState = deriveEyeOpenness(landmarks, result.faceBlendshapes[0]?.categories, eyeState);
                 lastFaceSeenAt = now;
                 faceHeld = false;
@@ -515,6 +536,7 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
                 });
                 if (faceHeld && poseHeadMotion > 0 && poseHeadMotion <= 0.04) {
                   landmarks = translateTrackingPoints(landmarks, poseTranslation.x, poseTranslation.y);
+                  poseTranslation = { x: 0, y: 0 };
                 } else if (!faceHeld) {
                   landmarks = null;
                   experimentalMouth = undefined;
@@ -634,18 +656,30 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
       }
       animationFrame = window.requestAnimationFrame(tick);
     };
-    animationFrame = window.requestAnimationFrame(tick);
+    // Decode-driven callbacks avoid copying/keying the same camera frame twice.
+    // rAF remains a fallback for browsers without requestVideoFrameCallback.
+    const onVideoFrame = (now: number) => {
+      if (disposed) return;
+      if (shouldRenderTrackingFrame(now, lastRenderedAt, performanceMonitor.getAdaptiveFps())) {
+        lastRenderedAt = now;
+        render(now);
+      }
+      videoFrameCallback = video.requestVideoFrameCallback(onVideoFrame);
+    };
+    if (typeof video.requestVideoFrameCallback === "function") videoFrameCallback = video.requestVideoFrameCallback(onVideoFrame);
+    else animationFrame = window.requestAnimationFrame(tick);
 
     return () => {
       disposed = true;
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      if (videoFrameCallback) video.cancelVideoFrameCallback(videoFrameCallback);
       segmenter?.close();
       faceLandmarker?.close();
       handLandmarker?.close();
       poseLandmarker?.close();
       if (faceEffectsActive) trackingStatusCallbackRef.current?.({ phase: "idle", renderedFps: 0, targetFps: 60, adaptiveFps: 60, faceAnchorHeld: false });
     };
-  }, [stream, chromaActive, aiBackgroundActive, faceEffectsActive, bodyTrackingRequested, processingActive]);
+  }, [stream, chromaActive, aiBackgroundActive, faceEffectsActive, bodyTrackingRequested, processingActive, effectAttempt]);
 
   return <><video
     ref={videoRef}
@@ -655,43 +689,18 @@ export function ChromaVideo({ stream, chromaKey, effects, crop, fitMode = "fill"
     className={processingActive ? "chroma-source" : className ?? "chroma-video"}
     style={processingActive ? undefined : cropStyle}
   />{processingActive && <canvas ref={canvasRef} width={OUTPUT_WIDTH} height={OUTPUT_HEIGHT} className={className ?? "chroma-video"} style={cropStyle} />}
-  {aiBackgroundActive && aiStatus !== "ready" && <span className={`ai-background-status ${aiStatus}`}>
+  {stream && aiBackgroundActive && aiStatus !== "ready" && <span className={`ai-background-status ${aiStatus}`} role="status">
     {aiStatus === "error" ? "Background effect unavailable" : "Preparing background effect…"}
   </span>}
-  {faceEffectsActive && (trackingPhase === "warming" || trackingPhase === "detecting" || trackingPhase === "error") && <span className={`ai-background-status face-tracking-status ${trackingPhase}`} style={aiBackgroundActive && aiStatus !== "ready" ? { bottom: 40 } : undefined} role="status" aria-live="polite">
+  {stream && faceEffectsActive && (trackingPhase === "warming" || trackingPhase === "detecting" || trackingPhase === "error") && <span className={`ai-background-status face-tracking-status ${trackingPhase}`} style={aiBackgroundActive && aiStatus !== "ready" ? { bottom: 40 } : undefined} role="status" aria-live="polite">
     {trackingPhase === "error" ? "Face tracking unavailable" : "Detecting face…"}
-  </span>}</>;
+  </span>}
+  {stream && (aiBackgroundActive && aiStatus === "error" || faceEffectsActive && trackingPhase === "error") && <button type="button" className="ai-background-status effect-retry" style={{ bottom: 68, pointerEvents: "auto" }} onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setEffectAttempt(attempt => attempt + 1); }}>Retry effects</button>}</>;
 }
 
 function applyChromaKey(context: CanvasRenderingContext2D, width: number, height: number, chromaKey: ChromaKeySettings) {
   const image = context.getImageData(0, 0, width, height);
-  const pixels = image.data;
-  const [keyR, keyG, keyB] = hexRgb(chromaKey.color);
-  const keyCb = -0.168736 * keyR - 0.331264 * keyG + 0.5 * keyB;
-  const keyCr = 0.5 * keyR - 0.418688 * keyG - 0.081312 * keyB;
-  const threshold = Math.max(0.015, chromaKey.similarity * 0.5);
-  const feather = Math.max(0.008, chromaKey.smoothness * 0.45);
-  const thresholdSquared = threshold * threshold;
-  const outerSquared = (threshold + feather) * (threshold + feather);
-  const distanceRange = Math.max(0.0001, outerSquared - thresholdSquared);
-
-  for (let index = 0; index < pixels.length; index += 4) {
-    const red = pixels[index] / 255;
-    const green = pixels[index + 1] / 255;
-    const blue = pixels[index + 2] / 255;
-    const cb = -0.168736 * red - 0.331264 * green + 0.5 * blue;
-    const cr = 0.5 * red - 0.418688 * green - 0.081312 * blue;
-    const deltaCb = cb - keyCb;
-    const deltaCr = cr - keyCr;
-    const distanceSquared = deltaCb * deltaCb + deltaCr * deltaCr;
-    const normalized = Math.max(0, Math.min(1, (distanceSquared - thresholdSquared) / distanceRange));
-    const alpha = normalized * normalized * (3 - 2 * normalized);
-    pixels[index + 3] = Math.round(pixels[index + 3] * alpha);
-    if (chromaKey.spill > 0 && alpha < 1) {
-      const spill = (1 - alpha) * chromaKey.spill;
-      pixels[index + 1] = Math.round(pixels[index + 1] * (1 - spill) + ((pixels[index] + pixels[index + 2]) / 2) * spill);
-    }
-  }
+  keyChromaPixels(image.data, chromaKey);
   context.putImageData(image, 0, 0);
 }
 
@@ -700,14 +709,6 @@ function drawCover(context: CanvasRenderingContext2D, image: HTMLImageElement, w
   const drawWidth = image.naturalWidth * scale;
   const drawHeight = image.naturalHeight * scale;
   context.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
-}
-
-/** Draw a camera frame without ever stretching portrait video into landscape. */
-function drawCoverMedia(context: CanvasRenderingContext2D, media: CanvasImageSource, width: number, height: number, sourceWidth: number, sourceHeight: number) {
-  const scale = Math.max(width / sourceWidth, height / sourceHeight);
-  const drawWidth = sourceWidth * scale;
-  const drawHeight = sourceHeight * scale;
-  context.drawImage(media, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
 }
 
 function point(landmarks: TrackingPoint[], index: number, transform: PointTransform) {
