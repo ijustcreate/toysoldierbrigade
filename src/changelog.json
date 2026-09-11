@@ -1,5 +1,69 @@
 [
   {
+    "id": "DEV-0570",
+    "title": "Normalize multi-person donors to ampersands",
+    "summary": "Converted multi-person donor names to structured fields with & as the joiner and regenerated canonical names while preserving all board and donor-list membership data.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 3:04 PM",
+    "areas": [
+      "Donor migration",
+      "Donor names",
+      "Board safety"
+    ],
+    "files": [
+      "src/host/lanternHost.ts"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; npm run test:donor-roster-membership; git diff --check"
+  },
+  {
+    "id": "DEV-0569",
+    "title": "Backfill structured donor names",
+    "summary": "Populate missing first, last, additional-person, and joiner fields from existing donor names during normalization, while keeping the canonical display name synchronized.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 3:01 PM",
+    "areas": [
+      "Donor migration",
+      "Donor editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/donorName.ts",
+      "src/host/lanternHost.ts"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
+    "id": "DEV-0568",
+    "title": "Use structured donor names everywhere",
+    "summary": "Synchronize each donor's stored display name from structured first, last, and additional-person name fields during state normalization, preventing stale legacy names from appearing in donor lists and displays.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 2:58 PM",
+    "areas": [
+      "Donor data normalization",
+      "Donor lists",
+      "Board displays"
+    ],
+    "files": [
+      "src/host/lanternHost.ts"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
+    "id": "DEV-0567",
+    "title": "Make additional donor names removable",
+    "summary": "Added remove controls for extra donor people in the edit modal and new-donor wizard, and only show the join-names selector when an additional person exists.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 2:56 PM",
+    "areas": [
+      "Donor editor",
+      "Donor setup"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0566",
     "title": "Restore recognition board app entry",
     "summary": "Replaced the root migration interstitial with the Vite application shell so the deployed site loads the recognition-board app.",

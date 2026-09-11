@@ -1,6 +1,7 @@
 import { createSharedSaveQueue } from "../sharedSaveQueue";
 import { ANNOUNCEMENT_LAYOUT_CONTENT_VERSION, BOARD_LIBRARY_CLEANUP_CONTENT_VERSION, BRIGADE_DONOR_STATUS_CORRECTION_CONTENT_VERSION, brigadeAnnouncements, brigadeBlips, brigadeBoardPrograms, CONFIRMED_DONOR_ROSTER_CONTENT_VERSION, confirmedGeneralDonors, DONOR_ROSTER_BOARDS_CONTENT_VERSION, generousDonorBoardPrograms, initialState, legacyBoardPrograms, legacyDonors, LEGACY_DONOR_STARS_CONTENT_VERSION, LEGACY_DONOR_TAGS_CONTENT_VERSION, LEGACY_STAR_LAYER_CONTENT_VERSION, LEGACY_STAR_RECOVERY_CONTENT_VERSION, LANTERN_CONTENT_VERSION, QUESTIONING_TOY_SOLDIER_CONTENT_VERSION } from "../sampleData";
 import { withBrigadeOpeningPayment } from "../donorDomain";
+import { donorDisplayName, hydrateDonorNameFields } from "../donorName";
 import { appendMissingPhase3Content, migratePhase3Schedules, phase3Announcements, PHASE3_CONTENT_VERSION, replacePhase3Announcements } from "../phase3Schedule";
 import type { Announcement, BoardDonorPresentation, BoardOpenOwner, BoardPanel, Donor, GivingProgram, HostMessage, LanternState, LiveSource, ScheduleEntry, ScreenId, TargetScreen } from "../types";
 import { normalizeVisitorMessageRotation, normalizeVisitorMessages } from "../visitorMessages";
@@ -1967,8 +1968,17 @@ export function normalizeState(state: LanternState): LanternState {
         customIconImage: _customIconImage,
         ...profile
       } = legacyDonor;
+      const hydratedName = hydrateDonorNameFields(migratedDonor);
+      const normalizedNameFields = hydratedName.people?.length
+        ? { ...hydratedName, multiDonorJoiner: "&" as const }
+        : hydratedName;
+      const hydratedDonor = { ...migratedDonor, ...normalizedNameFields };
       return {
         ...profile,
+        // Structured name fields are authoritative. Keep the denormalized name
+        // in sync so older list and display surfaces cannot show stale text.
+        ...normalizedNameFields,
+        name: donorDisplayName(hydratedDonor),
         tags: (donor.tags ?? []).filter((tag) => tag.trim().toLocaleLowerCase() !== "unrestricted support"),
         donationDate: pledgeOnly || amountUnknown ? undefined : donor.donationDate ?? donor.since,
         basicInfo: donor.basicInfo ?? donor.subtext ?? donor.note,

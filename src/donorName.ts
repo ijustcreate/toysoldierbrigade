@@ -9,6 +9,33 @@ export function donorDisplayName(donor: Donor): string {
   return names.join(` ${donor.multiDonorJoiner ?? "and"} `) || donor.name;
 }
 
+export function hydrateDonorNameFields(donor: Donor): Pick<Donor, "firstName" | "middleName" | "lastName" | "people" | "multiDonorJoiner"> {
+  if (donor.firstName || donor.lastName || donor.people?.length) {
+    return {
+      firstName: donor.firstName,
+      middleName: donor.middleName,
+      lastName: donor.lastName,
+      people: donor.people,
+      multiDonorJoiner: donor.multiDonorJoiner
+    };
+  }
+  const legacyPeople = parseLegacyPeople(donor.name);
+  if (legacyPeople.length) {
+    return {
+      firstName: legacyPeople[0].firstName,
+      middleName: legacyPeople[0].middleName,
+      lastName: legacyPeople[0].lastName,
+      people: legacyPeople.slice(1),
+      multiDonorJoiner: /\s*&\s*/.test(donor.name) ? "&" : "and"
+    };
+  }
+  const words = donor.name.trim().split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return { firstName: words.slice(0, -1).join(" "), lastName: words[words.length - 1] };
+  }
+  return {};
+}
+
 function parseLegacyPeople(value: string): Array<{ firstName: string; middleName?: string; lastName: string }> {
   const parts = value.split(/\s*(?:&|\band\b)\s*/i).map((part) => part.trim()).filter(Boolean);
   if (parts.length < 2) {
