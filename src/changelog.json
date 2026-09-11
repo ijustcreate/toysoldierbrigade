@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0542",
+    "title": "Repair V2 background framing and add museum logo",
+    "summary": "Use portrait artwork on portrait V2 boards, keep landscape artwork on landscape boards, normalize generated crops to centered full scale, and place the existing bundled Children's Museum logo as a contained top mark.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:39 AM",
+    "areas": [
+      "Board design",
+      "Backgrounds",
+      "Branding"
+    ],
+    "files": [
+      "scripts/board-design-v2.mjs",
+      "scripts/test-board-design-v2.mjs",
+      "src/changelog.json"
+    ],
+    "tests": "node scripts/test-board-design-v2.mjs; npm run build"
+  },
+  {
     "id": "DEV-0541",
     "title": "Add cute skeleton rig starter assets",
     "summary": "Add an opt-in transparent parts atlas and sprite-backed cute skeleton starter for the Effect Studio without changing authored costumes.",

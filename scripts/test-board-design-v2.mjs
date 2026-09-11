@@ -21,6 +21,15 @@ for (const board of boards) {
   assert.equal(board.active, false, "new designs remain unscheduled review drafts");
   assert.equal(board.donorScrollEnabled, false);
   assert.ok(board.backgroundImage);
+  const logo = board.panels.find((panel) => panel.type === "image" && panel.imageUrl === "/assets/childrens-museum-stockton.png");
+  assert.ok(logo, `${board.id} includes the museum logo`);
+  assert.equal(logo.imageFit, "contain");
+  assert.equal(board.backgroundCrop.scale, 1);
+  assert.equal(board.backgroundCrop.x, 50);
+  assert.equal(board.backgroundCrop.y, 50);
+  assert.equal(board.backgroundCrop.rotation, 0);
+  if (board.palette === "legacy-navy" && board.orientation === "Portrait") assert.ok(board.backgroundImage.endsWith("toy-soldier-navy-portrait-v2.png"), `${board.id} uses portrait art`);
+  if (board.palette === "legacy-navy" && board.orientation === "Landscape") assert.ok(board.backgroundImage.endsWith("toy-soldier-navy-landscape-v2.png"), `${board.id} uses landscape art`);
   assert.equal(new Set(board.panels.map((panel) => panel.id)).size, board.panels.length);
   for (const panel of board.panels) {
     assert.ok(["text", "donors", "image"].includes(panel.type), "no legacy multi-field text boxes");
