@@ -48,6 +48,15 @@ function parseLegacyPeople(value: string): Array<{ firstName: string; middleName
 }
 
 export function donorSortKey(donor: Donor, sort: "first-name" | "last-name"): string {
-  if (sort === "first-name") return (donor.firstName || donor.name).toLocaleLowerCase();
-  return (donor.lastName || donor.name).toLocaleLowerCase();
+  const fields = hydrateDonorNameFields(donor);
+  const names = [
+    { firstName: fields.firstName ?? "", lastName: fields.lastName ?? "" },
+    ...(fields.people ?? []).map((person) => ({ firstName: person.firstName, lastName: person.lastName }))
+  ].filter((name) => name.firstName || name.lastName);
+  if (!names.length) return donor.name.trim().toLocaleLowerCase();
+  return names
+    .map((name) => (sort === "first-name" ? name.firstName : name.lastName).trim())
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase() || donor.name.trim().toLocaleLowerCase();
 }

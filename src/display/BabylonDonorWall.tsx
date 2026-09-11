@@ -179,7 +179,7 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
       renderWindow.cancelAnimationFrame(resizeFrame);
       resizeFrame = renderWindow.requestAnimationFrame(redraw);
     };
-    prepareBackgroundMedia(screen, scheduleRedraw);
+    prepareBackgroundMedia(effectiveBackgroundScreen(screen, activeProgram), scheduleRedraw);
     prepareBoardPanelImages(state, scheduleRedraw);
     renderWindow.addEventListener("resize", scheduleRedraw);
     if (renderWindow.ResizeObserver) {
@@ -336,9 +336,10 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
 
     let redrawPanel: (animationTime?: number) => void = () => undefined;
     let disposed = false;
-    prepareBackgroundMedia(screen, () => redrawPanel());
+    const effectiveBackground = effectiveBackgroundScreen(screen, activeProgram);
+    prepareBackgroundMedia(effectiveBackground, () => redrawPanel());
     prepareBoardPanelImages(state, () => redrawPanel());
-    const animatedBackground = screen.backgroundMode === "image" && Boolean(screen.backgroundImage) && (screen.backgroundMediaType === "video" || screen.backgroundMediaAnimated);
+    const animatedBackground = effectiveBackground.backgroundMode === "image" && Boolean(effectiveBackground.backgroundImage) && (effectiveBackground.backgroundMediaType === "video" || effectiveBackground.backgroundMediaAnimated);
     const donorScrollEnabled = activeProgram?.panels?.length
       ? activeProgram.donorScrollEnabled === true
       : activeProgram?.donorScrollEnabled ?? screen.donorScrollEnabled ?? false;
@@ -2370,6 +2371,19 @@ function constellationPoints(width: number, height: number, isPortrait: boolean)
       height * (isPortrait ? 0.25 + t * 0.46 + wave * 0.08 : 0.28 + Math.sin(index * 0.85) * 0.16)
     ] as [number, number];
   });
+}
+
+function effectiveBackgroundScreen(screen: DisplayProfile, program?: LanternState["boardPrograms"][number]): DisplayProfile {
+  if (program?.backgroundMode !== "image" || !program.backgroundImage) return screen;
+  return {
+    ...screen,
+    backgroundMode: "image",
+    backgroundImage: program.backgroundImage,
+    backgroundMediaId: undefined,
+    backgroundMediaType: "image",
+    backgroundMediaAnimated: false,
+    backgroundCrop: program.backgroundCrop ?? screen.backgroundCrop
+  };
 }
 
 function prepareBackgroundMedia(screen: DisplayProfile, onReady: () => void) {

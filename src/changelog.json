@@ -1,5 +1,35 @@
 [
   {
+    "id": "DEV-0572",
+    "title": "Fix alphabetical donor board ordering",
+    "summary": "Use the donor cards' structured first and last name fields, including multi-person donor records, when applying board display order.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 3:19 PM",
+    "areas": [
+      "Board donor lists",
+      "Donor names"
+    ],
+    "files": [
+      "src/donorName.ts"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0571",
+    "title": "Render board backgrounds in 3D previews",
+    "summary": "Preload the active board program's background image for the Babylon and safe canvas renderers, matching the texture's actual background source and triggering redraw after load.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 3:07 PM",
+    "areas": [
+      "3D board preview",
+      "Background media"
+    ],
+    "files": [
+      "src/display/BabylonDonorWall.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0570",
     "title": "Normalize multi-person donors to ampersands",
     "summary": "Converted multi-person donor names to structured fields with & as the joiner and regenerated canonical names while preserving all board and donor-list membership data.",
