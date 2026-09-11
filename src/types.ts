@@ -841,6 +841,7 @@ export interface DisplayProfile {
   donorIconPlacement?: "left" | "both";
   /** Legacy default used when a donor has no per-display visibility setting. */
   showSubtext?: boolean;
+  roomComputerId?: string;
   roomVideoDeviceId?: string;
   roomAudioDeviceId?: string;
   roomAudioEnabled?: boolean;
@@ -915,6 +916,7 @@ export interface LanternState {
 }
 
 export type HostMessage =
+  | import("./host/roomCameraProtocol").RoomCameraMessage
   | { type: "state-update"; state: LanternState }
   | { type: "identify-screen"; screenId: ScreenId }
   | { type: "live-stop"; target: TargetScreen }

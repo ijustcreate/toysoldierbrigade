@@ -348,7 +348,7 @@
   {
     "id": "DEV-0523",
     "title": "Clarify donor list capacity",
-    "summary": "Show blank capacity, report names beyond rows × columns as cut off, and grey out those retained selections in the donor picker.",
+    "summary": "Show blank capacity, report names beyond rows Ã— columns as cut off, and grey out those retained selections in the donor picker.",
     "author": "Codex",
     "createdAt": "Sep 6, 2026, 1:51 AM",
     "areas": [
@@ -3136,7 +3136,7 @@
   {
     "id": "DEV-0350",
     "title": "Replace schedule with September plan",
-    "summary": "Replaced existing schedule content with a conflict-free Aug 25–Sep 30 rotation: two daily boards per display, messages, Blips, and gray Monday/Tuesday after-hours tests with populated date bounds.",
+    "summary": "Replaced existing schedule content with a conflict-free Aug 25â€“Sep 30 rotation: two daily boards per display, messages, Blips, and gray Monday/Tuesday after-hours tests with populated date bounds.",
     "author": "Codex",
     "createdAt": "Aug 25, 2026, 12:06 PM",
     "areas": [
@@ -3486,7 +3486,7 @@
   {
     "id": "DEV-0327",
     "title": "Open room camera during broadcasts",
-    "summary": "Active broadcasts now include a Room camera button that opens the target display’s assigned camera in a separate movable, muted monitor window.",
+    "summary": "Active broadcasts now include a Room camera button that opens the target displayâ€™s assigned camera in a separate movable, muted monitor window.",
     "author": "Codex",
     "createdAt": "Aug 23, 2026, 1:03 PM",
     "areas": [
@@ -5162,7 +5162,7 @@
   {
     "id": "DEV-0225",
     "title": "Add Brigade joke Blip creator",
-    "summary": "Replaced the Brigade page’s redundant Blip entry points with a focused joke form that saves a new joke directly to the shared Blip library.",
+    "summary": "Replaced the Brigade pageâ€™s redundant Blip entry points with a focused joke form that saves a new joke directly to the shared Blip library.",
     "author": "Codex",
     "createdAt": "Aug 18, 2026, 2:58 PM",
     "areas": [
