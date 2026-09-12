@@ -10628,15 +10628,20 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
     scheduledSoundRef.current = scheduledAnnouncement;
   }, [scheduledAnnouncement?.key]);
 
-  const toggleFullscreen = () => {
-    // The display surface is already a fixed, viewport-sized canvas. Calling
-    // the browser Fullscreen API here asks Chrome/WebView to negotiate a new
-    // output mode; on rotated TV panels that can leave the HDMI link/GPU in a
-    // bad state (green screen) and provides no layout benefit in the installed
-    // app. Keep presentation mode entirely inside the existing viewport.
-    setIsFullscreen((current) => !current);
-    setFitToScreen(true);
-    setDisplayMenu(null);
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch {
+      // Some embedded TV browsers deny fullscreen; keep the display usable.
+    } finally {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+      setFitToScreen(true);
+      setDisplayMenu(null);
+    }
   };
   const toggleDisplayMenuAt = (x: number, y: number) => {
     setDisplayMenu((current) => current ? null : {
