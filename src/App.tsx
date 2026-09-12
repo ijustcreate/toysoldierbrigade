@@ -418,6 +418,7 @@ function ControlCenter() {
   const [installHelpOpen, setInstallHelpOpen] = useState(false);
   const [appInstalled, setAppInstalled] = useState(false);
   const [bugReportOpen, setBugReportOpen] = useState(false);
+  const [bugReportKind, setBugReportKind] = useState<"bug" | "feature" | "feedback">("bug");
   const [bugCapture, setBugCapture] = useState<BugAttachment[]>([]);
   const [bugCaptureStatus, setBugCaptureStatus] = useState("");
   const [activeUserId, setActiveUserId] = useState(() => readActiveLanternUserId(loadLanternState()));
@@ -1163,7 +1164,8 @@ function ControlCenter() {
     return () => window.removeEventListener("pointerdown", sparkleAt);
   }, [portalAppearance]);
 
-  const openBugReport = async () => {
+  const openBugReport = async (kind: "bug" | "feature" | "feedback" = "bug") => {
+    setBugReportKind(kind);
     setBugReportOpen(true);
     setBugCapture([]);
     setBugCaptureStatus("Add a capture or attach files");
@@ -1541,6 +1543,7 @@ function ControlCenter() {
         onClick={() => { if (suppressBugLauncherClick.current) { suppressBugLauncherClick.current = false; return; } void openBugReport(); }}
         title="Drag to move · Click to report a bug" aria-label="Report a bug"><Bug size={19} /></button>}
       {bugReportOpen && <BugReportPanel
+        kind={bugReportKind}
         initialAttachments={bugCapture}
         captureStatus={bugCaptureStatus}
         state={state}
@@ -1651,7 +1654,8 @@ async function deleteBridgeBug(bugId: string): Promise<void> {
   await readBugResponse(await fetch(endpoint, { method: "DELETE", headers: { "Accept": "application/json" } }));
 }
 
-function BugReportPanel({ initialAttachments, captureStatus, state, view, onSaved, onClose }: {
+function BugReportPanel({ kind, initialAttachments, captureStatus, state, view, onSaved, onClose }: {
+  kind: "bug" | "feature" | "feedback";
   initialAttachments: BugAttachment[];
   captureStatus: string;
   state: LanternState;
@@ -1804,12 +1808,12 @@ function BugReportPanel({ initialAttachments, captureStatus, state, view, onSave
     <section className="bug-report-panel" style={{ left: position.x, top: position.y }} onPaste={onPaste} role="dialog" aria-modal="false" aria-labelledby="bug-report-title">
       <header className="bug-report-dragbar" onPointerDown={(event) => { drag.current = { x: event.clientX, y: event.clientY, left: position.x, top: position.y }; }}>
         <span className="bug-report-icon"><Bug size={18} /></span>
-        <div><strong id="bug-report-title">Report a bug</strong><small>{captureStatus || "Preparing evidence…"}</small></div>
+        <div><strong id="bug-report-title">{kind === "feature" ? "Request a feature" : kind === "feedback" ? "Share feedback" : "Report a bug"}</strong><small>{captureStatus || "Preparing evidence…"}</small></div>
         <button className="icon-button" onPointerDown={(event) => event.stopPropagation()} onClick={onClose} title="Close"><X size={17} /></button>
       </header>
       <div className="bug-report-body">
         <div className="bug-entered-by-note"><Users size={15} /><span>Entered by <strong>{enteredBy}</strong></span></div>
-        <label className="field"><span>Summary <b>*</b> <InfoDot text="Give this bug, piece of feedback, or idea a short, recognizable title. Say what you noticed or what you would like to improve." /></span><input autoFocus value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="What should we know or improve?" /></label>
+        <label className="field"><span>{kind === "feature" ? "Feature request" : kind === "feedback" ? "Feedback" : "Summary"} <b>*</b> <InfoDot text="Give this bug, piece of feedback, or idea a short, recognizable title. Say what you noticed or what you would like to improve." /></span><input autoFocus value={summary} onChange={(event) => setSummary(event.target.value)} placeholder={kind === "feature" ? "What would you like to add?" : kind === "feedback" ? "What feedback would you like to share?" : "What should we know or improve?"} /></label>
         <label className="field"><span>Details <InfoDot text="Use this as an information dump. Include anything that may help: context, examples, what you were trying to do, what you noticed, why it matters, relevant people or displays, possible causes, and ideas for improvement. Do not worry about organizing it perfectly." /></span><textarea value={details} onChange={(event) => setDetails(event.target.value)} placeholder="Share everything you can think of about the bug, feedback, or idea…" /></label>
         <label className="field"><span>Steps to reproduce <InfoDot text="List the exact clicks or actions that make the problem happen. Numbered steps are easiest to follow." /></span><textarea value={stepsToReproduce} onChange={(event) => setStepsToReproduce(event.target.value)} placeholder={"1. Open…\n2. Select…\n3. Click…"} /></label>
         <div className="two-col">
@@ -1833,7 +1837,7 @@ function BugReportPanel({ initialAttachments, captureStatus, state, view, onSave
         </div>
         <div className="bug-diagnostics-note"><Activity size={16} /><span>App state, version, active page, theme, board/display status, browser, viewport, screen scale, language, timezone, network state, recent client errors, and application logs are included automatically for Codex. <InfoDot text="This makes the report easier to paste into Codex and reproduce. You do not need to collect it yourself." /></span></div>
       </div>
-      <footer className="bug-report-footer"><span>{status}</span><div><button className="command-button secondary" onClick={onClose}>Cancel</button><button className="command-button primary" disabled={saving} onClick={() => void submit()}><Send size={16} /> {saving ? "Saving…" : "Save report"}</button></div></footer>
+      <footer className="bug-report-footer"><span>{status}</span><div><button className="command-button secondary" onClick={onClose}>Cancel</button><button className="command-button primary" disabled={saving} onClick={() => void submit()}><Send size={16} /> {saving ? "Saving…" : kind === "feature" ? "Send request" : kind === "feedback" ? "Send feedback" : "Save report"}</button></div></footer>
       {editingAttachment !== null && attachments[editingAttachment] && <ImageAnnotationEditor attachment={attachments[editingAttachment]} onClose={() => setEditingAttachment(null)} onSave={(dataUrl) => { setAttachments((current) => current.map((item, index) => index === editingAttachment ? { ...item, dataUrl } : item)); setEditingAttachment(null); setStatus("Annotation saved to the attachment."); }} />}
     </section>,
     document.body
@@ -1998,7 +2002,7 @@ function EvidenceViewer({ bugId, evidence, onClose }: { bugId: string; evidence:
   </section>, document.body);
 }
 
-function BugsView({ onNewBug, launcherVisible, onLauncherVisibleChange }: { onNewBug: () => void; launcherVisible: boolean; onLauncherVisibleChange: (visible: boolean) => void }) {
+function BugsView({ onNewBug, launcherVisible, onLauncherVisibleChange }: { onNewBug: (kind?: "bug" | "feature" | "feedback") => void; launcherVisible: boolean; onLauncherVisibleChange: (visible: boolean) => void }) {
   const defaultStatusFilters: BugStatus[] = ["open", "assigned-to-codex", "in-progress", "ready-for-test"];
   const initialActiveUser = currentBugUser();
   const readViewPreferences = (user: string) => {
@@ -2254,7 +2258,7 @@ Please inspect the Project Lantern workspace, reproduce this issue, implement th
   return <section className="bugs-page">
     <div className="bugs-toolbar">
       <div><h2>Bug catalogue</h2><p>Track reports from discovery through verification.</p></div>
-      <div><label className="bug-launcher-toggle"><input type="checkbox" checked={launcherVisible} onChange={(event) => onLauncherVisibleChange(event.target.checked)} /><Bug size={14} /><span>Show bug button</span></label><button className="command-button secondary" onClick={() => void exportAll()}><Download size={16} /> Export all</button><button className="command-button primary" onClick={onNewBug}><Plus size={16} /> Report bug</button></div>
+      <div><label className="bug-launcher-toggle"><input type="checkbox" checked={launcherVisible} onChange={(event) => onLauncherVisibleChange(event.target.checked)} /><Bug size={14} /><span>Show bug button</span></label><button className="command-button secondary" onClick={() => void exportAll()}><Download size={16} /> Export all</button><button className="command-button secondary" onClick={() => onNewBug("feature")}><Plus size={16} /> Request a feature</button><button className="command-button secondary" onClick={() => onNewBug("feedback")}><Plus size={16} /> Feedback</button><button className="command-button primary" onClick={() => onNewBug("bug")}><Plus size={16} /> Report bug</button></div>
     </div>
     <div className="bug-metrics"><article><Bug /><span><b>{counts.open}</b>Open</span></article><article><BadgeCheck /><span><b>{counts.testing}</b>Ready for test</span></article><article><CheckCircle2 /><span><b>{counts.closed}</b>Verified / closed</span></article></div>
     <div className="bugs-controls"><div className="bug-filter-pills" aria-label="Filter bugs by status">{statusOrder.map((value) => <button className={statusFilters.includes(value) ? "active" : ""} aria-pressed={statusFilters.includes(value)} key={value} onClick={() => toggleStatusFilter(value)}>{statusLabel(value)}</button>)}<button className={!statusFilters.length ? "active" : ""} aria-pressed={!statusFilters.length} onClick={() => setStatusFilters([])}>All</button></div><div className="bugs-view-options"><label className="bug-entered-by-filter"><Users size={14} /><span>Entered by</span><select aria-label="Filter bugs by entered by" value={enteredByFilter} onChange={(event) => setEnteredByFilter(event.target.value)}><option value="all">All users</option>{reporterUsers.map((user) => <option key={user} value={user}>{user}</option>)}</select></label><label className="bug-group-toggle"><input type="checkbox" checked={groupByStatus} onChange={(event) => setGroupByStatus(event.target.checked)} /><span>Separate by status</span></label><label>Sort <select value={sort} onChange={(event) => setSort(event.target.value as typeof sort)}><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="status">Status</option></select></label></div></div>

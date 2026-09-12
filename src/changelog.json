@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0588",
+    "title": "Restore feature and feedback entry points",
+    "summary": "Added Request a feature and Feedback buttons to the bug catalogue and made the shared report panel adapt its labels and submission wording to each request type.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:40 PM",
+    "areas": [
+      "Bug catalogue",
+      "Feedback intake"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0587",
     "title": "Warn before downloading display PC setup",
     "summary": "Added a confirmation warning explaining that the PC setup files are for dedicated display computers and may disable screen saver and sleep mode.",
