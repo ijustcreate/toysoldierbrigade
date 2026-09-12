@@ -9850,6 +9850,8 @@ function collectManagedImages(state: LanternState) {
 function BoardOrganizationEditor({ state, updateState }: { state: LanternState; updateState: (updater: (current: LanternState) => LanternState) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [newFolderError, setNewFolderError] = useState("");
+  const newFolderInputRef = useRef<HTMLInputElement | null>(null);
   const [editing, setEditing] = useState<{ kind: "board" | "folder"; id: string; value: string } | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{ kind: "board" | "folder"; id: string; name: string; boardCount: number } | null>(null);
   const folders = boardFolderOptions(state.boardPrograms, state.boardFolders ?? [], state.boardFolderRenames ?? {}, state.hiddenBoardFolders ?? []);
@@ -9895,13 +9897,18 @@ function BoardOrganizationEditor({ state, updateState }: { state: LanternState; 
   </form>;
   const addFolder = () => {
     const name = newFolderName.trim();
-    if (!name) return;
+    if (!name) {
+      setNewFolderError("Enter a folder name first.");
+      newFolderInputRef.current?.focus();
+      return;
+    }
     updateState((current) => ({
       ...current,
       boardFolders: [...new Set([...(current.boardFolders ?? []), name])],
       hiddenBoardFolders: (current.hiddenBoardFolders ?? []).filter((folder) => folder !== name)
     }));
     setNewFolderName("");
+    setNewFolderError("");
   };
   const moveBoard = (boardId: string, folder: string) => updateState((current) => ({
     ...current,
@@ -9944,7 +9951,7 @@ function BoardOrganizationEditor({ state, updateState }: { state: LanternState; 
       <ChevronDown size={20} aria-hidden="true" />
     </button>
     {expanded && <div className="board-organization-body" id="board-organization-options">
-      <div className="board-organization-add"><label className="field"><span>New folder</span><input value={newFolderName} onChange={(event) => setNewFolderName(event.target.value)} placeholder="e.g. Seasonal boards" onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addFolder(); } }} /></label><button type="button" className="command-button secondary compact" onClick={addFolder} disabled={!newFolderName.trim()}><Plus size={15} /> Add folder</button></div>
+      <div className="board-organization-add"><label className="field"><span>New folder</span><input ref={newFolderInputRef} value={newFolderName} aria-invalid={Boolean(newFolderError)} onChange={(event) => { setNewFolderName(event.target.value); setNewFolderError(""); }} placeholder="e.g. Seasonal boards" onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addFolder(); } }} />{newFolderError && <small className="field-error" role="alert">{newFolderError}</small>}</label><button type="button" className="command-button secondary compact" onClick={addFolder}><Plus size={15} /> Add folder</button></div>
       <p className="field-note">Drag a board to another folder. Use Edit beside any board or folder to rename it.</p>
       <div className="board-organization-groups">
         {folders.map((folder) => {
