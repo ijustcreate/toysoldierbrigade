@@ -1,5 +1,82 @@
 [
   {
+    "id": "DEV-0586",
+    "title": "Make display deletion durable",
+    "summary": "Confirmed display deletion now saves immediately and shared screen configuration cannot be resurrected by a stale local screen map.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:36 PM",
+    "areas": [
+      "Display management",
+      "State synchronization",
+      "Data safety"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/host/lanternHost.ts"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; npm run test:state-authority; git diff --check"
+  },
+  {
+    "id": "DEV-0585",
+    "title": "Keep optional announcement controls visible when narrow",
+    "summary": "Optional announcement enhancements now collapse and reflow within narrow composer columns, preventing image, countdown, volume, and sound controls from being clipped.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:26 PM",
+    "areas": [
+      "Announcements",
+      "Responsive UI"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0584",
+    "title": "Prevent narrow announcement controls from clipping",
+    "summary": "Responsive announcement composer controls now reflow within narrow desktop columns, keeping saved-announcement selection and actions visible.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:24 PM",
+    "areas": [
+      "Announcements",
+      "Responsive UI"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0583",
+    "title": "Use current display for announcement preview",
+    "summary": "Announcement creator previews now default to the globally selected display, so the current board assignment appears behind the announcement instead of a stale saved target.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:23 PM",
+    "areas": [
+      "Announcements",
+      "Preview"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0582",
+    "title": "Use current display for announcement preview",
+    "summary": "Announcement creator previews now default to the globally selected display, so the current board assignment appears behind the announcement instead of a stale saved target.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:22 PM",
+    "areas": [
+      "Announcements",
+      "Preview"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0581",
     "title": "Add Chrome install app flow",
     "summary": "Added a Settings button that opens Chrome's native PWA install prompt when available and a guided fallback popup otherwise; added install metadata and service worker registration.",

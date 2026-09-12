@@ -1389,7 +1389,7 @@ function ControlCenter() {
               <button type="button" className={announcementTab === "blips" ? "active" : ""} onClick={() => setAnnouncementTab("blips")}><Sparkles size={17} /><span><strong>Blip</strong><small>A brief, playful interruption—such as a quiz, joke, celebration, or visitor prompt—that appears over the current board and gets out of the way quickly.</small></span></button>
             </div>
             {announcementTab === "messages"
-              ? <AnnouncementsView state={state} updateState={updateState} toggleAnnouncement={toggleAnnouncement} />
+              ? <AnnouncementsView state={state} updateState={updateState} toggleAnnouncement={toggleAnnouncement} selectedDisplayId={selectedDisplayId} />
               : <BlipsView state={state} updateState={updateState} initialSelectedId={requestedBlipEditorId} onInitialSelectedHandled={() => setRequestedBlipEditorId(null)} onOpenSchedule={(id) => { setScheduleFocusId(id); setView("schedule"); }} />}
           </section>
         )}
@@ -1514,7 +1514,13 @@ function ControlCenter() {
         onConfirm={() => {
           const id = pendingDisplayDeleteId;
           setPendingDisplayDeleteId(null);
-          updateState((current) => removeConfiguredDisplay(current, id));
+          setState((current) => {
+            if (!statePersistenceReadyRef.current) return current;
+            const next = removeConfiguredDisplay(current, id);
+            if (next === current) return current;
+            publishState(next, { immediateShared: true });
+            return next;
+          });
           if (selectedDisplayId === id) { setOpenAssignedRoomCamera(false); setDisplayEditorOpen(false); }
         }}
       />}
@@ -5591,11 +5597,13 @@ function MediaCropEditor({
 function AnnouncementsView({
   state,
   updateState,
-  toggleAnnouncement
+  toggleAnnouncement,
+  selectedDisplayId
 }: {
   state: LanternState;
   updateState: (updater: (current: LanternState) => LanternState) => void;
   toggleAnnouncement: () => void;
+  selectedDisplayId: ScreenId;
 }) {
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(() => state.savedAnnouncements.some((item) => item.id === state.announcement.id) ? state.announcement.id : null);
   const [scheduleAnnouncementId, setScheduleAnnouncementId] = useState<string | null>(null);
@@ -5612,8 +5620,12 @@ function AnnouncementsView({
   const [scheduleRecurrence, setScheduleRecurrence] = useState<"once" | "weekly">("once");
   const [scheduleDays, setScheduleDays] = useState<number[]>([new Date().getDay()]);
   const [scheduleHasEndDate, setScheduleHasEndDate] = useState(false);
-  const [previewScreenId, setPreviewScreenId] = useState<ScreenId>(() => state.announcement.target === "all" ? firstDisplayId(state) : state.announcement.target);
+  const [previewScreenId, setPreviewScreenId] = useState<ScreenId>(selectedDisplayId);
   const [saveStatus, setSaveStatus] = useState<"saved" | "unsaved">("saved");
+
+  useEffect(() => {
+    if (state.screens[selectedDisplayId]) setPreviewScreenId(selectedDisplayId);
+  }, [selectedDisplayId, state.screens]);
 
   useEffect(() => {
     const openVisitorSchedule = (event: Event) => {

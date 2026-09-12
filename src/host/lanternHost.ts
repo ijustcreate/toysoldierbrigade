@@ -925,7 +925,9 @@ export function mergeSharedLanternState(local: LanternState, shared: LanternStat
       costumes: preserveCollection(local.effectStudio.costumes, shared.effectStudio.costumes, "Costumes", report),
       calibrationProfiles: preserveCollection(local.effectStudio.calibrationProfiles, shared.effectStudio.calibrationProfiles, "Calibration profiles", report)
     },
-    screens: { ...shared.screens, ...local.screens }
+    // Display configuration is shared infrastructure. A stale browser screen
+    // map must not resurrect a display that was removed from the shared copy.
+    screens: shared.screens
   };
   if (report.conflicts.length || report.preserved.length) writeDataProtectionReport(report);
   return normalizeState(merged);

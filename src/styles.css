@@ -11571,6 +11571,26 @@ body.theme-light {
   .recording-panel { grid-template-columns: 1fr; }
 }
 
+/* Announcement controls must reflow inside a narrow composer column. The
+   page can still be desktop-sized while the two-column deck leaves only a
+   few hundred pixels for the composer. */
+@media (max-width: 1120px) {
+  .announcement-form-fixed .panel-heading { align-items: start; }
+  .composer-header-actions { flex-wrap: wrap; }
+  .composer-header-actions .command-button { min-width: 0; }
+  .saved-announcement-picker { grid-template-columns: minmax(0, 1fr) auto; }
+  .saved-announcement-picker > span { grid-column: 1; }
+  .saved-announcement-picker > small { grid-column: 2; }
+  .saved-announcement-picker > select { grid-column: 1 / -1; grid-row: 2; }
+  .saved-announcement-picker .announcement-library-actions { grid-column: 1 / -1; grid-row: 3; justify-content: flex-end; flex-wrap: wrap; min-width: 0; }
+  .announcement-color-row,
+  .announcement-timer-controls,
+  .announcement-sfx-controls,
+  .announcement-form .sound-pickers { grid-template-columns: minmax(0, 1fr); }
+  .announcement-sfx-controls .slider-field { grid-template-columns: minmax(0, 1fr) auto; }
+  .announcement-add-image { justify-self: stretch; justify-content: center; }
+}
+
 @media (max-width: 760px) {
   .saved-announcement-picker { grid-template-columns: minmax(0, 1fr) auto; }
   .saved-announcement-picker > select { grid-column: 1 / -1; grid-row: 2; }
