@@ -1510,6 +1510,27 @@ h2 {
   gap: 12px;
 }
 
+.donor-name-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.donor-additional-name-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+@media (max-width: 760px) {
+  .donor-name-row,
+  .donor-additional-name-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .donor-additional-name-row .icon-button {
+    justify-self: start;
+  }
+}
+
 .form-panel {
   display: grid;
   gap: 14px;

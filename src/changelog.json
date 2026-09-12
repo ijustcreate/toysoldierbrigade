@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0589",
+    "title": "Align donor name fields in one row",
+    "summary": "Reworked donor editor name rows so first, middle, and last fields stay together and additional-person removal stays inline, with responsive stacking on narrow screens.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:42 PM",
+    "areas": [
+      "Donor editor",
+      "Name entry layout"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0588",
     "title": "Restore feature and feedback entry points",
     "summary": "Added Request a feature and Feedback buttons to the bug catalogue and made the shared report panel adapt its labels and submission wording to each request type.",
