@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0597",
+    "title": "Improve dashboard status contrast",
+    "summary": "Improved Light-theme contrast for display connection, closed, and unscheduled status pills so dashboard text is easier to read.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:54 PM",
+    "areas": [
+      "Dashboard",
+      "Light theme",
+      "Accessibility"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0596",
     "title": "Clarify Add folder validation",
     "summary": "The Board organization Add folder action now remains clickable and focuses the New folder field with an inline validation message when no name has been entered.",

@@ -12536,6 +12536,21 @@ body.theme-light {
   color: #176c7c;
   background: #e7f5f7;
 }
+.theme-light .dashboard-display-heading .dashboard-display-presence.open {
+  border-color: rgba(20, 108, 74, .28);
+  color: #146c4a;
+  background: #e6f6ed;
+}
+.theme-light .dashboard-display-heading .dashboard-display-presence.closed {
+  border-color: rgba(89, 101, 122, .24);
+  color: #59657a;
+  background: #edf1f6;
+}
+.theme-light .dashboard-display-heading .dashboard-assignment-pill.unscheduled {
+  border-color: rgba(154, 93, 12, .28);
+  color: #87530d;
+  background: #fff3dc;
+}
 .theme-light .dashboard-display-summary span {
   border-color: rgba(45, 64, 94, .12);
   color: #5f6c82;
