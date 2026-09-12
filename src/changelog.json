@@ -1,5 +1,86 @@
 [
   {
+    "id": "DEV-0577",
+    "title": "Add Lantern PC setup guide",
+    "summary": "Added a browser-based setup presentation covering installation, launcher behavior, recovery, power settings, portrait orientation, and safety boundaries, with a Setup guide button beside the PC setup files download.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:03 PM",
+    "areas": [
+      "Settings",
+      "PC setup",
+      "Documentation"
+    ],
+    "files": [
+      "src/App.tsx",
+      "public/pc-setup/setup-guide.html"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0576",
+    "title": "Frame the broadcast pop-out preview",
+    "summary": "The broadcast pop-out preview now applies the existing configurable frame color and thickness, with rounded 18px corners and clipped video content.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:01 PM",
+    "areas": [
+      "Broadcast",
+      "Pop-out preview",
+      "Frame styling"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0575",
+    "title": "De-emphasize announcement action on Schedule",
+    "summary": "The Schedule page Add announcement action now uses the neutral secondary styling instead of appearing highlighted by default.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:59 PM",
+    "areas": [
+      "Schedule",
+      "Announcements",
+      "Visual hierarchy"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0574",
+    "title": "Keep schedule color picker above board dropdown",
+    "summary": "Raise the schedule color-control stacking context while its color popover is open, keeping the palette visible and interactive when the nearby board selector is expanded.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:57 PM",
+    "areas": [
+      "Schedule",
+      "Color picker",
+      "Layering"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0573",
+    "title": "Keep Board Editor responsive while editing",
+    "summary": "Debounced inline board text commits and skipped unchanged values so dense donor-list editing does not trigger a whole-canvas render on every keystroke; blur still flushes the final text.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 8:56 PM",
+    "areas": [
+      "Board Editor",
+      "Inline editing",
+      "Performance"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; bug workflow BUG-0426"
+  },
+  {
     "id": "DEV-0572",
     "title": "Fix alphabetical donor board ordering",
     "summary": "Use the donor cards' structured first and last name fields, including multi-person donor records, when applying board display order.",

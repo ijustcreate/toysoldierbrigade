@@ -11148,6 +11148,7 @@ body.theme-light {
 .schedule-color-swatch { display: grid; gap: 4px; color: var(--muted); font-size: 9px; font-weight: 700; }
 .schedule-color-swatch input { width: 34px; height: 34px; padding: 3px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); cursor: pointer; }
 .schedule-color-control { position: relative; display: grid; gap: 4px; color: var(--muted); font-size: 9px; font-weight: 700; }
+.schedule-color-control:has(.schedule-color-picker) { z-index: 30; }
 .schedule-color-trigger { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; color: var(--text); background: var(--panel); cursor: pointer; }
 .schedule-color-trigger i { width: 18px; height: 18px; flex: 0 0 auto; border: 1px solid rgba(255,255,255,.45); border-radius: 5px; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
 .schedule-color-trigger span { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9px; }

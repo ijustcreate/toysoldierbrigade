@@ -5151,6 +5151,8 @@ function AutoFitBoardContent({ className, children, fitOneLine = false, fontSize
 
 function EditableBoardText({ value, onCommit, className = "", animation, multiline = false, normalizeDonorLines = false }: { value: string; onCommit: (value: string) => void; className?: string; animation?: BoardDonorPresentation["animation"]; multiline?: boolean; /** Donor rows have a deliberate name-line layout; ordinary text panels must retain their authored line breaks. */ normalizeDonorLines?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  const pendingCommitRef = useRef<string | null>(null);
+  const commitTimerRef = useRef<number | null>(null);
   const text = multiline && normalizeDonorLines ? splitDonorNameLines(value).join("\n") : value;
   const normalize = (rawValue: string) => {
     const updatedText = rawValue.replace(/\u00a0/g, " ");
@@ -5159,6 +5161,26 @@ function EditableBoardText({ value, onCommit, className = "", animation, multili
     const authoredText = lines.filter((line) => line.length > 0).join("\n");
     return normalizeDonorLines ? splitDonorNameLines(authoredText).join("\n") : authoredText;
   };
+  const scheduleCommit = (nextValue: string) => {
+    pendingCommitRef.current = nextValue;
+    if (commitTimerRef.current !== null) window.clearTimeout(commitTimerRef.current);
+    commitTimerRef.current = window.setTimeout(() => {
+      commitTimerRef.current = null;
+      const pending = pendingCommitRef.current;
+      pendingCommitRef.current = null;
+      if (pending !== null && pending !== text) onCommit(pending);
+    }, 120);
+  };
+  const flushCommit = (rawValue: string) => {
+    if (commitTimerRef.current !== null) window.clearTimeout(commitTimerRef.current);
+    commitTimerRef.current = null;
+    pendingCommitRef.current = null;
+    const nextValue = normalize(rawValue);
+    if (nextValue !== text) onCommit(nextValue);
+  };
+  useEffect(() => () => {
+    if (commitTimerRef.current !== null) window.clearTimeout(commitTimerRef.current);
+  }, []);
   useLayoutEffect(() => {
     const element = ref.current;
     // The browser edits contentEditable descendants directly. Keeping React
@@ -5166,7 +5188,7 @@ function EditableBoardText({ value, onCommit, className = "", animation, multili
     // inserting nodes the browser has already changed while the user types.
     if (element && document.activeElement !== element && element.textContent !== text) element.textContent = text;
   }, [text]);
-  return <div ref={ref} className={`editable-board-text${multiline ? " multiline-donor-name" : ""} ${className}`} contentEditable suppressContentEditableWarning role="textbox" tabIndex={0} onFocus={(event) => { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(event.currentTarget); selection?.removeAllRanges(); selection?.addRange(range); }} onInput={(event) => onCommit(normalize(event.currentTarget.innerText))} onBlur={(event) => onCommit(normalize(event.currentTarget.innerText))} onKeyDown={(event) => { if (event.key === "Enter" && !multiline) { event.preventDefault(); event.currentTarget.blur(); } }} />;
+  return <div ref={ref} className={`editable-board-text${multiline ? " multiline-donor-name" : ""} ${className}`} contentEditable suppressContentEditableWarning role="textbox" tabIndex={0} onFocus={(event) => { const selection = window.getSelection(); const range = document.createRange(); range.selectNodeContents(event.currentTarget); selection?.removeAllRanges(); selection?.addRange(range); }} onInput={(event) => scheduleCommit(normalize(event.currentTarget.innerText))} onBlur={(event) => flushCommit(event.currentTarget.innerText)} onKeyDown={(event) => { if (event.key === "Enter" && !multiline) { event.preventDefault(); event.currentTarget.blur(); } }} />;
 }
 
 function LegacyThemeStudio({
@@ -7401,7 +7423,7 @@ function LivePreviewPanel({
             <div><span className={state.live.active ? "live-indicator active" : "live-indicator"} /> <strong>Broadcast / Stream</strong><small>{labelForTarget(state.live.target)}</small></div>
             <div className="live-preview-popout-actions"><button type="button" className={popoutBoardVisible ? "popout-board-toggle active" : "popout-board-toggle"} aria-pressed={popoutBoardVisible} title={popoutBoardVisible ? "Hide current live board" : "Show current live board"} onClick={() => setPopoutBoardVisible((visible) => !visible)}><Eye size={15} /> <span>{popoutBoardVisible ? "Board on" : "Board off"}</span></button><button type="button" className="icon-button" onClick={() => previewWindow.close()} title="Close preview"><X size={18} /></button></div>
           </header>
-          <div className={`live-popout-grid ${popoutScreens.length > 1 ? "multiple" : "single"}`}>
+          <div className={`live-popout-grid ${popoutScreens.length > 1 ? "multiple" : "single"}`} style={{ ...frameSurfaceStyle(state.live), borderRadius: 18, overflow: "hidden" }}>
             {popoutScreens.map((screen) => <DirectLiveStage
               key={screen.id}
               state={state}
@@ -9166,7 +9188,7 @@ function ScheduleCalendarView({
         <label className="calendar-selector"><Monitor size={14} /><select aria-label="Display filter" value={displayFilter} onChange={(event) => setDisplayFilter(event.target.value as TargetScreen)}><option value="all">All Displays</option>{Object.values(state.screens).map((screen) => <option key={screen.id} value={screen.id}>{screen.label} ({screen.orientation})</option>)}</select></label>
         <div className="schedule-create-actions">
           <button type="button" className="command-button secondary compact" title="Add board" aria-label="Add board" onClick={() => addEntry("board")}><LayoutDashboard size={16} /><span>Board</span></button>
-          <button type="button" className="command-button primary compact" title="Add announcement" aria-label="Add announcement" onClick={() => addEntry("announcement")}><Megaphone size={16} /><span>Announcement</span></button>
+          <button type="button" className="command-button secondary compact" title="Add announcement" aria-label="Add announcement" onClick={() => addEntry("announcement")}><Megaphone size={16} /><span>Announcement</span></button>
           <button type="button" className="command-button secondary compact" title="Add Blip" aria-label="Add Blip" onClick={() => addEntry("blip")}><Sparkles size={16} /><span>Blip</span></button>
           <button type="button" className="command-button secondary compact" title="Add broadcast" aria-label="Add broadcast" onClick={() => addEntry("broadcast")}><Radio size={16} /><span>Broadcast</span></button>
         </div>
@@ -9583,6 +9605,9 @@ function RecognitionSettingsView({ state, updateState, appearance, onAppearanceC
         </div>
         <a className="command-button primary" href={`${import.meta.env.BASE_URL}pc-setup/lantern-pc-display-setup.zip`} download="lantern-pc-display-setup.zip" title="Download Windows mini PC setup files">
           <Save size={16} /> <span>PC setup files</span>
+        </a>
+        <a className="command-button secondary" href={`${import.meta.env.BASE_URL}pc-setup/setup-guide.html`} target="_blank" rel="noreferrer" title="Open the Lantern display PC setup guide">
+          <BookOpen size={16} /> <span>Setup guide</span>
         </a>
       </header>
       <section className="appearance-settings" aria-labelledby="appearance-heading">
