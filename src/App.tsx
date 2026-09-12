@@ -1804,18 +1804,54 @@ function BugReportPanel({ kind, initialAttachments, captureStatus, state, view, 
     } finally { setSaving(false); }
   };
 
+  const copy = kind === "bug"
+    ? {
+      iconLabel: "Report a bug",
+      subtitle: "Add a capture or attach files",
+      summaryLabel: "Summary",
+      summaryPlaceholder: "What went wrong?",
+      summaryHelp: "Give the problem a short, recognizable title.",
+      detailsLabel: "What happened?",
+      detailsPlaceholder: "Tell us what you were trying to do and what happened instead…",
+      detailsHelp: "Include any context that may help someone reproduce the problem.",
+      submitLabel: "Save report"
+    }
+    : kind === "feature"
+      ? {
+        iconLabel: "Request a feature",
+        subtitle: "Describe the idea you would like to see",
+        summaryLabel: "Feature request",
+        summaryPlaceholder: "What would you like to add?",
+        summaryHelp: "Give the idea a short, recognizable title.",
+        detailsLabel: "Tell us more",
+        detailsPlaceholder: "Describe how this would work and what it would help you do…",
+        detailsHelp: "Share the use case, examples, or anything that would make the idea useful.",
+        submitLabel: "Send request"
+      }
+      : {
+        iconLabel: "Share feedback",
+        subtitle: "Tell us what is working or what could be better",
+        summaryLabel: "Feedback",
+        summaryPlaceholder: "What would you like us to know?",
+        summaryHelp: "Give your feedback a short, recognizable title.",
+        detailsLabel: "Your feedback",
+        detailsPlaceholder: "Share what you noticed, liked, disliked, or would improve…",
+        detailsHelp: "Include examples or context so we understand the experience from your perspective.",
+        submitLabel: "Send feedback"
+      };
+
   return createPortal(
     <section className="bug-report-panel" style={{ left: position.x, top: position.y }} onPaste={onPaste} role="dialog" aria-modal="false" aria-labelledby="bug-report-title">
       <header className="bug-report-dragbar" onPointerDown={(event) => { drag.current = { x: event.clientX, y: event.clientY, left: position.x, top: position.y }; }}>
         <span className="bug-report-icon"><Bug size={18} /></span>
-        <div><strong id="bug-report-title">{kind === "feature" ? "Request a feature" : kind === "feedback" ? "Share feedback" : "Report a bug"}</strong><small>{captureStatus || "Preparing evidence…"}</small></div>
+        <div><strong id="bug-report-title">{copy.iconLabel}</strong><small>{captureStatus || copy.subtitle}</small></div>
         <button className="icon-button" onPointerDown={(event) => event.stopPropagation()} onClick={onClose} title="Close"><X size={17} /></button>
       </header>
       <div className="bug-report-body">
         <div className="bug-entered-by-note"><Users size={15} /><span>Entered by <strong>{enteredBy}</strong></span></div>
-        <label className="field"><span>{kind === "feature" ? "Feature request" : kind === "feedback" ? "Feedback" : "Summary"} <b>*</b> <InfoDot text="Give this bug, piece of feedback, or idea a short, recognizable title. Say what you noticed or what you would like to improve." /></span><input autoFocus value={summary} onChange={(event) => setSummary(event.target.value)} placeholder={kind === "feature" ? "What would you like to add?" : kind === "feedback" ? "What feedback would you like to share?" : "What should we know or improve?"} /></label>
-        <label className="field"><span>Details <InfoDot text="Use this as an information dump. Include anything that may help: context, examples, what you were trying to do, what you noticed, why it matters, relevant people or displays, possible causes, and ideas for improvement. Do not worry about organizing it perfectly." /></span><textarea value={details} onChange={(event) => setDetails(event.target.value)} placeholder="Share everything you can think of about the bug, feedback, or idea…" /></label>
-        <label className="field"><span>Steps to reproduce <InfoDot text="List the exact clicks or actions that make the problem happen. Numbered steps are easiest to follow." /></span><textarea value={stepsToReproduce} onChange={(event) => setStepsToReproduce(event.target.value)} placeholder={"1. Open…\n2. Select…\n3. Click…"} /></label>
+        <label className="field"><span>{copy.summaryLabel} <b>*</b> <InfoDot text={copy.summaryHelp} /></span><input autoFocus value={summary} onChange={(event) => setSummary(event.target.value)} placeholder={copy.summaryPlaceholder} /></label>
+        <label className="field"><span>{copy.detailsLabel} <InfoDot text={copy.detailsHelp} /></span><textarea value={details} onChange={(event) => setDetails(event.target.value)} placeholder={copy.detailsPlaceholder} /></label>
+        {kind === "bug" && <><label className="field"><span>Steps to reproduce <InfoDot text="List the exact clicks or actions that make the problem happen. Numbered steps are easiest to follow." /></span><textarea value={stepsToReproduce} onChange={(event) => setStepsToReproduce(event.target.value)} placeholder={"1. Open…\n2. Select…\n3. Click…"} /></label>
         <div className="two-col">
           <label className="field"><span>Expected result</span><textarea value={expectedResult} onChange={(event) => setExpectedResult(event.target.value)} placeholder="What should have happened?" /></label>
           <label className="field"><span>Actual result</span><textarea value={actualResult} onChange={(event) => setActualResult(event.target.value)} placeholder="What happened instead?" /></label>
@@ -1825,6 +1861,7 @@ function BugReportPanel({ kind, initialAttachments, captureStatus, state, view, 
           <label className="field"><span>Impact</span><select value={impact} onChange={(event) => setImpact(event.target.value)}><option value="low">Minor inconvenience</option><option value="medium">Work is slowed down</option><option value="high">Cannot complete the task</option><option value="critical">Live display or data is at risk</option></select></label>
         </div>
         <label className="field"><span>Tips on how to fix <InfoDot text="Optional: share anything that may help investigate, such as when the problem started, a possible cause, or a workaround you found. It is completely fine to leave this blank." /></span><textarea value={fixTips} onChange={(event) => setFixTips(event.target.value)} placeholder="Optional clues, suspected cause, or suggested solution" /></label>
+        </>}
         <BugTagInput
           tags={tags}
           available={[...state.recognitionSettings.tags, ...knownBugTags]}
@@ -1837,7 +1874,7 @@ function BugReportPanel({ kind, initialAttachments, captureStatus, state, view, 
         </div>
         <div className="bug-diagnostics-note"><Activity size={16} /><span>App state, version, active page, theme, board/display status, browser, viewport, screen scale, language, timezone, network state, recent client errors, and application logs are included automatically for Codex. <InfoDot text="This makes the report easier to paste into Codex and reproduce. You do not need to collect it yourself." /></span></div>
       </div>
-      <footer className="bug-report-footer"><span>{status}</span><div><button className="command-button secondary" onClick={onClose}>Cancel</button><button className="command-button primary" disabled={saving} onClick={() => void submit()}><Send size={16} /> {saving ? "Saving…" : kind === "feature" ? "Send request" : kind === "feedback" ? "Send feedback" : "Save report"}</button></div></footer>
+      <footer className="bug-report-footer"><span>{status}</span><div><button className="command-button secondary" onClick={onClose}>Cancel</button><button className="command-button primary" disabled={saving} onClick={() => void submit()}><Send size={16} /> {saving ? "Saving…" : copy.submitLabel}</button></div></footer>
       {editingAttachment !== null && attachments[editingAttachment] && <ImageAnnotationEditor attachment={attachments[editingAttachment]} onClose={() => setEditingAttachment(null)} onSave={(dataUrl) => { setAttachments((current) => current.map((item, index) => index === editingAttachment ? { ...item, dataUrl } : item)); setEditingAttachment(null); setStatus("Annotation saved to the attachment."); }} />}
     </section>,
     document.body

@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0600",
+    "title": "Clarify feedback modal flows",
+    "summary": "Use type-specific headings, guidance, and fields in the feedback modal so bugs, feature requests, and general feedback each collect the right information.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 11:21 PM",
+    "areas": [
+      "Feedback modal",
+      "Bug reporting"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0599",
     "title": "Allow multiple donor group filters",
     "summary": "Donor group pills now toggle independently, so Explore and Play can be selected together; the group dropdown remains available as a single-group shortcut.",
