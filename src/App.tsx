@@ -6757,10 +6757,11 @@ function LivePreviewPanel({
   }, []);
 
   useEffect(() => {
+    const handleDeviceChange = () => { void refreshMediaDevices(); };
     refreshMediaDevices();
-    navigator.mediaDevices?.addEventListener("devicechange", refreshMediaDevices);
+    navigator.mediaDevices?.addEventListener("devicechange", handleDeviceChange);
     return () => {
-      navigator.mediaDevices?.removeEventListener("devicechange", refreshMediaDevices);
+      navigator.mediaDevices?.removeEventListener("devicechange", handleDeviceChange);
       const previewLease = previewLeaseRef.current;
       previewLease?.release();
       previewLeaseRef.current = null;

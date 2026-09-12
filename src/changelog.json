@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0594",
+    "title": "Repair camera refresh event wiring",
+    "summary": "Wrapped the permission-aware camera refresh in a stable no-argument devicechange listener so production builds pass and hot-plugged devices continue refreshing.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:50 PM",
+    "areas": [
+      "Broadcast studio",
+      "Camera devices"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0593",
     "title": "Add development features visibility toggle",
     "summary": "Added a persistent Settings toggle for experimental costume, rig editor, and calibration tools; these tools are hidden by default until enabled.",
