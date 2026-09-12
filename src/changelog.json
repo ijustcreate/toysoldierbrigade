@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0605",
+    "title": "Prevent green TV display in presentation mode",
+    "summary": "TV presentation no longer invokes browser fullscreen, avoiding HDMI/GPU renegotiation that can turn rotated displays green; the existing TV launcher remains responsible for startup fullscreen.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 9:47 AM",
+    "areas": [
+      "TV display",
+      "Presentation",
+      "Display reliability"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0604",
     "title": "Fix TV borderless presentation",
     "summary": "The TV presentation control now enters and exits browser fullscreen so the display can present without browser borders.",

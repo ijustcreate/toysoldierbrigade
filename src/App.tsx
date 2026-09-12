@@ -10628,20 +10628,14 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
     scheduledSoundRef.current = scheduledAnnouncement;
   }, [scheduledAnnouncement?.key]);
 
-  const toggleFullscreen = async () => {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
-      }
-    } catch {
-      // Some embedded TV browsers deny fullscreen; keep the display usable.
-    } finally {
-      setIsFullscreen(Boolean(document.fullscreenElement));
-      setFitToScreen(true);
-      setDisplayMenu(null);
-    }
+  const toggleFullscreen = () => {
+    // Do not invoke the browser Fullscreen API here. On rotated TV panels it
+    // can renegotiate the HDMI/GPU output and leave the physical display
+    // green. The TV launcher owns startup fullscreen; this control only
+    // changes the in-page presentation state and fit behavior.
+    setIsFullscreen((current) => !current);
+    setFitToScreen(true);
+    setDisplayMenu(null);
   };
   const toggleDisplayMenuAt = (x: number, y: number) => {
     setDisplayMenu((current) => current ? null : {
