@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0610",
+    "title": "Harden portrait TV fullscreen rendering",
+    "summary": "The dedicated Windows display launcher now bypasses Chrome DirectComposition and forces sRGB output to prevent solid-green fullscreen failures on incompatible portrait HDMI displays; setup guidance includes a controlled on-TV test and recovery steps.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:14 AM",
+    "areas": [
+      "TV display",
+      "Windows setup"
+    ],
+    "files": [
+      "public/pc-setup/Launch-LanternDisplay.ps1",
+      "public/pc-setup/README-PC-SETUP.md",
+      "public/pc-setup/setup-guide.html",
+      "public/pc-setup/lantern-pc-display-setup.zip"
+    ],
+    "tests": "PowerShell parser validation; ZIP content and compatibility-flag verification; npm run build"
+  },
+  {
     "id": "DEV-0609",
     "title": "Launch true edge-to-edge TV kiosk",
     "summary": "The live display control now hands presentation to a trusted Windows launcher that covers Chrome and the taskbar in kiosk mode without using the green-screen browser Fullscreen API. Setup registers the launcher and repairs reused non-kiosk profile windows.",

@@ -38,6 +38,13 @@ function Start-LanternKiosk {
   Start-Process -FilePath $chromePath -ArgumentList @(
     "--kiosk",
     "--start-fullscreen",
+    # Keep this dedicated TV session on Chrome's conventional Windows
+    # composition path. Some rotated HDMI displays render a solid green frame
+    # when Chrome promotes a fullscreen surface through DirectComposition.
+    "--disable-direct-composition",
+    # Prevent fullscreen from negotiating an unexpected HDR/YUV color profile
+    # with a display whose EDID differs from ordinary desktop monitors.
+    "--force-color-profile=srgb",
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-session-crashed-bubble",

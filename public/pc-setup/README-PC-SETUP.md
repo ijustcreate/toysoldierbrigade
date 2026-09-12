@@ -7,7 +7,7 @@ This package prepares a fresh Windows 11 mini PC to run one assigned museum reco
 1. Asks for the hosted site URL, display ID, and monitor orientation. Use the display ID shown in the Lantern control center, such as `display-1`.
 2. Finds the installed Google Chrome executable and saves the assigned display URL.
 3. Copies the display launcher to `C:\ProgramData\LanternDisplay`.
-4. Creates a full-screen Chrome launcher using a separate browser profile, so the display does not reuse a staff member's normal Chrome tabs or profile.
+4. Creates a full-screen Chrome launcher using a separate browser profile, so the display does not reuse a staff member's normal Chrome tabs or profile. The launcher uses a conventional Windows composition path and sRGB output to avoid solid-green fullscreen failures on some portrait HDMI displays.
 5. Creates `Lantern Display.lnk` on the desktop for manual recovery and `Lantern Display Setup.lnk` to change the assignment later.
 6. Registers the local `lantern-display:` launcher so the hosted site's **Present on TV** control can reopen the dedicated display in true kiosk mode.
 7. Registers a Windows task that starts the player whenever the configured Windows account signs in.
@@ -30,6 +30,8 @@ For unattended recovery after a reboot or power outage, Windows must sign in to 
 The setup is designed for a PC that remains powered on or sleeps. A Windows task can wake a sleeping PC only when wake timers are allowed by the power plan and hardware. If the PC is fully shut down, open BIOS/UEFI and look for one of these names: **Power On By RTC**, **Resume By Alarm**, **Wake on RTC**, or **Restore AC Power Loss**. Configure the daily 5:00 AM power-on and choose **Power On** after AC loss if the firmware offers it. Firmware menus vary by manufacturer; verify this on the delivered mini PC before mounting it.
 
 For portrait displays, set Windows **Settings > System > Display > Display orientation** to **Portrait**. Leave the Lantern mount setting at `none`; do not rotate the screen in both Windows and the player.
+
+After installing on a TV that previously turned green, open the desktop **Lantern Display** shortcut and leave it running for at least two minutes. Confirm that the board reaches all four edges, the taskbar and Chrome controls remain hidden, and the screen does not turn green. Press `Alt+F4` to leave kiosk mode. If the physical TV turns green, press `Win+Ctrl+Shift+B` once to reset the Windows graphics driver, then record the Windows resolution, refresh rate, HDR setting, mini-PC model, and TV model before changing other settings.
 
 ## Recovery and maintenance
 
