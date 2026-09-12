@@ -10631,7 +10631,23 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
     scheduledSoundRef.current = scheduledAnnouncement;
   }, [scheduledAnnouncement?.key]);
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
+    if (isTauri()) {
+      // Native display windows can cover the Windows taskbar without asking
+      // the browser/webview to renegotiate the HDMI output mode.
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        const nextFullscreen = !isFullscreen;
+        await getCurrentWindow().setFullscreen(nextFullscreen);
+        setIsFullscreen(nextFullscreen);
+      } catch {
+        // Keep the display usable if the native host denies the transition.
+      }
+      setFitToScreen(true);
+      setDisplayMenu(null);
+      return;
+    }
+
     if (safePresentation) {
       // The safe presentation popup is script-opened, so it can close itself
       // without asking the browser to renegotiate the rotated TV output.

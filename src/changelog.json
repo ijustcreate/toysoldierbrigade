@@ -1,5 +1,39 @@
 [
   {
+    "id": "DEV-0608",
+    "title": "Cover taskbar with safe native TV fullscreen",
+    "summary": "Desktop-host TV displays now use native window fullscreen to extend the board to the screen edge and cover the taskbar without browser fullscreen HDMI renegotiation.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 9:58 AM",
+    "areas": [
+      "TV display",
+      "Presentation",
+      "Display reliability",
+      "Native host"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0607",
+    "title": "Cover taskbar with safe native TV fullscreen",
+    "summary": "Desktop-host TV displays now use native window fullscreen to extend the board to the screen edge and cover the taskbar without browser fullscreen HDMI renegotiation.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 9:58 AM",
+    "areas": [
+      "TV display",
+      "Presentation",
+      "Display reliability",
+      "Native host"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0606",
     "title": "Add safe borderless presentation window",
     "summary": "Preserve the TV presentation feature with a display-sized popup and no browser Fullscreen API call, avoiding the rotated-display green-screen failure.",
