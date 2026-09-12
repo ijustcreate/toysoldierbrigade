@@ -9649,7 +9649,7 @@ function RecognitionSettingsView({ state, updateState, appearance, onAppearanceC
           <h1>Control Center setup</h1>
           <p>Prepare a Windows 11 mini PC to run an assigned museum display.</p>
         </div>
-        <a className="command-button primary" href={`${import.meta.env.BASE_URL}pc-setup/lantern-pc-display-setup.zip`} download="lantern-pc-display-setup.zip" title="Download Windows mini PC setup files">
+        <a className="command-button primary" href={`${import.meta.env.BASE_URL}pc-setup/lantern-pc-display-setup.zip`} download="lantern-pc-display-setup.zip" title="Download Windows mini PC setup files" onClick={(event) => { if (!window.confirm("Warning: these setup files are intended for a dedicated museum display computer, not a personal-use computer. They can disable the screen saver and sleep mode so the display stays on. Continue downloading?")) event.preventDefault(); }}>
           <Save size={16} /> <span>PC setup files</span>
         </a>
         <a className="command-button secondary" href={`${import.meta.env.BASE_URL}pc-setup/setup-guide.html`} target="_blank" rel="noreferrer" title="Open the Lantern display PC setup guide">

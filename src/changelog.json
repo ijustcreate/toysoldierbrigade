@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0587",
+    "title": "Warn before downloading display PC setup",
+    "summary": "Added a confirmation warning explaining that the PC setup files are for dedicated display computers and may disable screen saver and sleep mode.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:38 PM",
+    "areas": [
+      "Control Center setup",
+      "PC installation safety"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0586",
     "title": "Make display deletion durable",
     "summary": "Confirmed display deletion now saves immediately and shared screen configuration cannot be resurrected by a stale local screen map.",
