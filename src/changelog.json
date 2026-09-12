@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0598",
+    "title": "Keep calendar grab bars behind text",
+    "summary": "Adjusted calendar resize-handle stacking so white grab bars stay behind event names and times, including short event nodes.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:56 PM",
+    "areas": [
+      "Schedule calendar",
+      "Event readability"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0597",
     "title": "Improve dashboard status contrast",
     "summary": "Improved Light-theme contrast for display connection, closed, and unscheduled status pills so dashboard text is easier to read.",
