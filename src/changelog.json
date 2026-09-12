@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0603",
+    "title": "Add feedback type switching",
+    "summary": "Allow the floating feedback modal to switch between bug, feature request, and feedback forms, with a data-loss warning before changing a populated form.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 11:30 PM",
+    "areas": [
+      "Feedback modal",
+      "Bug reporting"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0602",
     "title": "Fix announcement preview editing handles",
     "summary": "Keep announcement popup resize handles visible during physical editing and make headline/message text boxes reliably adjustable.",

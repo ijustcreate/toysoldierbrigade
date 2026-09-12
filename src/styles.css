@@ -3831,6 +3831,10 @@ body,
 .bug-report-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; color: #ffacb8; background: rgba(207,69,91,.18); }
 .bug-report-dragbar strong, .bug-report-dragbar small { display: block; }
 .bug-report-dragbar strong { font-size: 14px; }.bug-report-dragbar small { margin-top: 3px; color: #8ea2af; font-size: 10px; }
+.bug-report-kind-switcher { display: flex; gap: 4px; margin-top: 8px; }
+.bug-report-kind-switcher button { min-height: 24px; padding: 0 8px; border: 1px solid rgba(143, 153, 205, .28); border-radius: 6px; color: #aeb9d0; background: rgba(9, 16, 35, .62); font: inherit; font-size: 9px; font-weight: 800; cursor: pointer; }
+.bug-report-kind-switcher button:hover { border-color: rgba(116, 220, 226, .65); color: #efffff; }
+.bug-report-kind-switcher button.active { border-color: #68d9e7; color: #fff; background: linear-gradient(135deg, #3389c8, #4e61c8); box-shadow: 0 4px 10px rgba(35, 105, 178, .3); }
 .bug-report-body { display: grid; gap: 12px; overflow: auto; padding: 16px; }
 .bug-report-body textarea { min-height: 70px; resize: vertical; }
 .bug-report-body .field b { color: #ff879b; }

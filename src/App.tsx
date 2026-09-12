@@ -1654,7 +1654,7 @@ async function deleteBridgeBug(bugId: string): Promise<void> {
   await readBugResponse(await fetch(endpoint, { method: "DELETE", headers: { "Accept": "application/json" } }));
 }
 
-function BugReportPanel({ kind, initialAttachments, captureStatus, state, view, onSaved, onClose }: {
+function BugReportPanel({ kind: initialKind, initialAttachments, captureStatus, state, view, onSaved, onClose }: {
   kind: "bug" | "feature" | "feedback";
   initialAttachments: BugAttachment[];
   captureStatus: string;
@@ -1664,6 +1664,7 @@ function BugReportPanel({ kind, initialAttachments, captureStatus, state, view, 
   onClose: () => void;
 }) {
   const [attachments, setAttachments] = useState<BugAttachment[]>(initialAttachments);
+  const [kind, setKind] = useState<"bug" | "feature" | "feedback">(initialKind);
   const [summary, setSummary] = useState("");
   const [details, setDetails] = useState("");
   const [fixTips, setFixTips] = useState("");
@@ -1804,6 +1805,22 @@ function BugReportPanel({ kind, initialAttachments, captureStatus, state, view, 
     } finally { setSaving(false); }
   };
 
+  const hasEnteredReportData = Boolean(summary.trim() || details.trim() || fixTips.trim() || stepsToReproduce.trim() || expectedResult.trim() || actualResult.trim() || tags.length || attachments.length);
+  const switchKind = (nextKind: "bug" | "feature" | "feedback") => {
+    if (nextKind === kind) return;
+    if (hasEnteredReportData && !window.confirm("Switching feedback types will clear everything entered in this form. You can switch if you started in the wrong form, but your current entries will be lost. Continue?")) return;
+    setSummary("");
+    setDetails("");
+    setFixTips("");
+    setStepsToReproduce("");
+    setExpectedResult("");
+    setActualResult("");
+    setTags([]);
+    setAttachments([]);
+    setKind(nextKind);
+    setStatus("");
+  };
+
   const copy = kind === "bug"
     ? {
       iconLabel: "Report a bug",
@@ -1844,7 +1861,7 @@ function BugReportPanel({ kind, initialAttachments, captureStatus, state, view, 
     <section className="bug-report-panel" style={{ left: position.x, top: position.y }} onPaste={onPaste} role="dialog" aria-modal="false" aria-labelledby="bug-report-title">
       <header className="bug-report-dragbar" onPointerDown={(event) => { drag.current = { x: event.clientX, y: event.clientY, left: position.x, top: position.y }; }}>
         <span className="bug-report-icon"><Bug size={18} /></span>
-        <div><strong id="bug-report-title">{copy.iconLabel}</strong><small>{captureStatus || copy.subtitle}</small></div>
+        <div><strong id="bug-report-title">{copy.iconLabel}</strong><small>{captureStatus || copy.subtitle}</small><div className="bug-report-kind-switcher" role="tablist" aria-label="Feedback type"><button type="button" role="tab" aria-selected={kind === "bug"} className={kind === "bug" ? "active" : ""} onPointerDown={(event) => event.stopPropagation()} onClick={() => switchKind("bug")}>Bug</button><button type="button" role="tab" aria-selected={kind === "feature"} className={kind === "feature" ? "active" : ""} onPointerDown={(event) => event.stopPropagation()} onClick={() => switchKind("feature")}>Feature request</button><button type="button" role="tab" aria-selected={kind === "feedback"} className={kind === "feedback" ? "active" : ""} onPointerDown={(event) => event.stopPropagation()} onClick={() => switchKind("feedback")}>Feedback</button></div></div>
         <button className="icon-button" onPointerDown={(event) => event.stopPropagation()} onClick={onClose} title="Close"><X size={17} /></button>
       </header>
       <div className="bug-report-body">
