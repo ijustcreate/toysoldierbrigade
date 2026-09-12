@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0601",
+    "title": "Unify feedback launcher button emphasis",
+    "summary": "Apply the highlighted blue action style to Request a feature, Feedback, and Report bug so the entry points are visually grouped.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 11:24 PM",
+    "areas": [
+      "Feedback launcher",
+      "Bug reporting"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0600",
     "title": "Clarify feedback modal flows",
     "summary": "Use type-specific headings, guidance, and fields in the feedback modal so bugs, feature requests, and general feedback each collect the right information.",
