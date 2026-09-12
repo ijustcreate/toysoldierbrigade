@@ -1,5 +1,76 @@
 [
   {
+    "id": "DEV-0581",
+    "title": "Add Chrome install app flow",
+    "summary": "Added a Settings button that opens Chrome's native PWA install prompt when available and a guided fallback popup otherwise; added install metadata and service worker registration.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:20 PM",
+    "areas": [
+      "Settings",
+      "PWA onboarding"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/main.tsx",
+      "index.html",
+      "public/manifest.webmanifest",
+      "public/sw.js"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0580",
+    "title": "Add Chrome install app flow",
+    "summary": "Added a Settings button that opens Chrome's native PWA install prompt when available and a guided fallback popup otherwise; added install metadata and service worker registration.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:19 PM",
+    "areas": [
+      "Settings",
+      "PWA onboarding"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/main.tsx",
+      "index.html",
+      "public/manifest.webmanifest",
+      "public/sw.js"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0579",
+    "title": "Prevent dashboard display header clipping",
+    "summary": "Responsive dashboard display headers now wrap their status pills and actions safely, with flexible sizing and a full-width action row on narrow screens.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:16 PM",
+    "areas": [
+      "Dashboard",
+      "Responsive layout",
+      "Display cards"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0578",
+    "title": "Add image library previews",
+    "summary": "Image library thumbnails now open a full-size preview modal with an X close button and backdrop dismissal.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:09 PM",
+    "areas": [
+      "Site media",
+      "Image library",
+      "Preview"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0577",
     "title": "Add Lantern PC setup guide",
     "summary": "Added a browser-based setup presentation covering installation, launcher behavior, recovery, power settings, portrait orientation, and safety boundaries, with a Setup guide button beside the PC setup files download.",

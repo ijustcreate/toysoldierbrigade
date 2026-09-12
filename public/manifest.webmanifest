@@ -1,0 +1,13 @@
+{
+  "name": "Project Lantern",
+  "short_name": "Lantern",
+  "start_url": "./#/dashboard",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#081524",
+  "theme_color": "#081524",
+  "description": "Children's Museum of Stockton display control center.",
+  "icons": [
+    { "src": "./apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

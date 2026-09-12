@@ -414,6 +414,9 @@ function ControlCenter() {
   const [videoStatus, setVideoStatus] = useState("Idle");
   const [donorSetupOpen, setDonorSetupOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<(Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> }) | null>(null);
+  const [installHelpOpen, setInstallHelpOpen] = useState(false);
+  const [appInstalled, setAppInstalled] = useState(false);
   const [bugReportOpen, setBugReportOpen] = useState(false);
   const [bugCapture, setBugCapture] = useState<BugAttachment[]>([]);
   const [bugCaptureStatus, setBugCaptureStatus] = useState("");
@@ -456,6 +459,33 @@ function ControlCenter() {
   const portalAppearance = activePreferences?.theme ?? state.recognitionSettings.appearance;
   const activeVisitorMessage = state.visitorMessages.find((message) => message.id === state.visitorMessageRotation.currentId)
     ?? state.visitorMessages.find((message) => message.active);
+
+  useEffect(() => {
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+    setAppInstalled(standalone);
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> });
+    };
+    const handleAppInstalled = () => { setAppInstalled(true); setInstallPrompt(null); };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleAppInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (appInstalled) return;
+    if (!installPrompt) {
+      setInstallHelpOpen(true);
+      return;
+    }
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
 
   useEffect(() => {
     const handleSharedStatePersistence = (event: Event) => {
@@ -1462,7 +1492,7 @@ function ControlCenter() {
           localStorage.setItem("project-lantern-bug-launcher-visible", String(visible));
           if (visible) window.requestAnimationFrame(resetBugLauncherPosition);
         }} />}
-        {view === "settings" && <RecognitionSettingsView state={state} updateState={updateState} appearance={portalAppearance} onAppearanceChange={changePortalAppearance} onAddDisplay={addDisplay} onPullSiteChanges={pullLatestSiteChanges} siteSyncAvailable={canReadSharedLanternState()} siteSyncing={siteSyncing} siteSyncStatus={siteSyncStatus} />}
+        {view === "settings" && <RecognitionSettingsView state={state} updateState={updateState} appearance={portalAppearance} onAppearanceChange={changePortalAppearance} onAddDisplay={addDisplay} onPullSiteChanges={pullLatestSiteChanges} siteSyncAvailable={canReadSharedLanternState()} siteSyncing={siteSyncing} siteSyncStatus={siteSyncStatus} onInstallApp={installApp} appInstalled={appInstalled} installHelpOpen={installHelpOpen} setInstallHelpOpen={setInstallHelpOpen} />}
         {showIdeas && <IdeasDrawer page={view} open={ideasOpen} onToggle={() => setIdeasOpen((current) => !current)} />}
       </main>
       {helpOpen && <HelpCenterModal onClose={() => setHelpOpen(false)} />}
@@ -9570,7 +9600,7 @@ function entryOccursOnDate(entry: ScheduleEntry, date: Date) {
 function scheduleTargetsConflict(left: TargetScreen, right: TargetScreen) { return left === "all" || right === "all" || left === right; }
 function clamp(value: number, min: number, max: number) { return Math.min(max, Math.max(min, value)); }
 
-function RecognitionSettingsView({ state, updateState, appearance, onAppearanceChange, onAddDisplay, onPullSiteChanges, siteSyncAvailable, siteSyncing, siteSyncStatus }: {
+function RecognitionSettingsView({ state, updateState, appearance, onAppearanceChange, onAddDisplay, onPullSiteChanges, siteSyncAvailable, siteSyncing, siteSyncStatus, onInstallApp, appInstalled, installHelpOpen, setInstallHelpOpen }: {
   state: LanternState;
   updateState: (updater: (current: LanternState) => LanternState) => void;
   appearance: LanternState["recognitionSettings"]["appearance"];
@@ -9580,6 +9610,10 @@ function RecognitionSettingsView({ state, updateState, appearance, onAppearanceC
   siteSyncAvailable: boolean;
   siteSyncing: boolean;
   siteSyncStatus: string;
+  onInstallApp: () => Promise<void>;
+  appInstalled: boolean;
+  installHelpOpen: boolean;
+  setInstallHelpOpen: (open: boolean) => void;
 }) {
   const [vocabularyExpanded, setVocabularyExpanded] = useState(true);
   const changeVocabulary = (kind: "tiers" | "categories" | "tags", next: string[], previous?: string, replacement?: string) => {
@@ -9609,7 +9643,11 @@ function RecognitionSettingsView({ state, updateState, appearance, onAppearanceC
         <a className="command-button secondary" href={`${import.meta.env.BASE_URL}pc-setup/setup-guide.html`} target="_blank" rel="noreferrer" title="Open the Lantern display PC setup guide">
           <BookOpen size={16} /> <span>Setup guide</span>
         </a>
+        <button type="button" className="command-button secondary" onClick={() => void onInstallApp()} disabled={appInstalled} title={appInstalled ? "Project Lantern is already installed" : "Install Project Lantern as a Chrome app"}>
+          <Download size={16} /> <span>{appInstalled ? "App installed" : "Install app"}</span>
+        </button>
       </header>
+      {installHelpOpen && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setInstallHelpOpen(false); }}><section className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="install-help-title"><div className="editor-modal-head"><div><p className="eyebrow">Chrome setup</p><h2 id="install-help-title">Install Project Lantern</h2></div><button type="button" className="icon-button" title="Close" onClick={() => setInstallHelpOpen(false)}><X size={18} /></button></div><p>Chrome cannot open the install prompt automatically right now, but you can start it from the browser menu:</p><ol><li>Open the Chrome menu with the <strong>⋮</strong> button.</li><li>Choose <strong>Cast, save, and share</strong>.</li><li>Select <strong>Install page as app…</strong> and confirm.</li></ol><p className="field-note">If that option is missing, stay on this HTTPS page for a moment, reload once, and try again. Chrome only offers installation when the site is eligible.</p><div className="editor-modal-actions"><button type="button" className="command-button primary" onClick={() => setInstallHelpOpen(false)}>Got it</button></div></section></div>}
       <section className="appearance-settings" aria-labelledby="appearance-heading">
         <div>
           <p className="eyebrow">Site appearance</p>
@@ -9678,6 +9716,7 @@ function ImageLibraryManager({ state, updateState }: { state: LanternState; upda
   const [uploading, setUploading] = useState(false);
   const [viewMode, setViewMode] = useState<"thumbnails" | "details" | "names">("details");
   const [sortBy, setSortBy] = useState<"name" | "usage">("name");
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
   const images = useMemo(() => collectManagedImages(state), [state]);
   const visibleImages = useMemo(() => [...images].sort((left, right) => sortBy === "usage"
     ? right.uses.length - left.uses.length || left.name.localeCompare(right.name)
@@ -9728,7 +9767,7 @@ function ImageLibraryManager({ state, updateState }: { state: LanternState; upda
       <div className="image-library-toolbar"><p className="field-note image-library-note">Added images are saved in this library and can be selected later from the Board Editor.</p><div className="image-library-browser-controls"><label>Sort <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}><option value="name">Name</option><option value="usage">Usage</option></select></label><div className="segmented image-library-view-controls" role="group" aria-label="Image library view"><button type="button" className={viewMode === "thumbnails" ? "selected" : ""} onClick={() => setViewMode("thumbnails")}>Thumbnails</button><button type="button" className={viewMode === "details" ? "selected" : ""} onClick={() => setViewMode("details")}>Details</button><button type="button" className={viewMode === "names" ? "selected" : ""} onClick={() => setViewMode("names")}>Names</button></div></div></div>
       <section className="settings-donor-images"><header><div><p className="eyebrow">Recognition media</p><h3>Donor images</h3></div><span>{donorImages.length} saved</span></header>{donorImages.length ? <div>{donorImages.map((image) => <article key={image.id}><img src={resolveProjectAssetUrl(image.url)} alt={image.name} /><span><strong>{image.donorName}</strong><small>{image.name} · {image.orientation}</small></span></article>)}</div> : <p className="field-note">Images added from a donor profile appear here.</p>}</section>
       {images.length ? <div className={`image-library-browser ${viewMode}`}>{visibleImages.map((image) => <article className="image-library-item" key={image.url}>
-        <img src={resolveProjectAssetUrl(image.url)} alt="" />
+        <button type="button" className="image-library-preview-trigger" onClick={() => setPreviewImage(image)} title={`Preview ${image.name}`} aria-label={`Preview ${image.name}`}><img src={resolveProjectAssetUrl(image.url)} alt="" /></button>
         <div className="image-library-item-details"><strong>{image.name}</strong><small>{image.uses.length ? `Used by ${image.uses.join(", ")}` : "Saved in library — not yet in use"}</small><small className="image-library-file-type">Image file · {image.uses.length} {image.uses.length === 1 ? "use" : "uses"}</small></div>
         <span className="image-library-actions">
           <button type="button" className="command-button secondary compact" onClick={() => { setRenaming(image.url); setName(image.name); }} title="Rename image"><Pencil size={14} /> Rename</button>
@@ -9738,6 +9777,7 @@ function ImageLibraryManager({ state, updateState }: { state: LanternState; upda
         {renaming === image.url && <form className="image-library-rename" onSubmit={(event) => { event.preventDefault(); saveName(image.url); }}><input autoFocus value={name} onChange={(event) => setName(event.target.value)} aria-label="Image name" /><button type="submit" className="command-button primary compact">Save name</button><button type="button" className="command-button secondary compact" onClick={() => setRenaming(null)}>Cancel</button></form>}
       </article>)}</div> : <p className="field-note">No images are currently in use. Add an image to a board, message, or Blip and it will appear here.</p>}
     </div>}
+    {previewImage && createPortal(<div className="modal-backdrop image-preview-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setPreviewImage(null)}><section className="image-preview-modal" role="dialog" aria-modal="true" aria-label={`Preview ${previewImage.name}`}><button type="button" className="icon-button image-preview-close" onClick={() => setPreviewImage(null)} title="Close image preview" aria-label="Close image preview"><X size={20} /></button><img src={resolveProjectAssetUrl(previewImage.url)} alt={previewImage.name} /><p>{previewImage.name}</p></section></div>, document.body)}
   </section>;
 }
 
