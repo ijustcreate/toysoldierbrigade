@@ -1,5 +1,35 @@
 [
   {
+    "id": "DEV-0592",
+    "title": "Refresh attached broadcast cameras",
+    "summary": "The Broadcast / Stream camera and microphone refresh controls now request camera permission when needed and re-enumerate devices, allowing newly connected cameras to appear without requiring microphone access.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:46 PM",
+    "areas": [
+      "Broadcast studio",
+      "Camera devices"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
+    "id": "DEV-0591",
+    "title": "Save canonical donor names",
+    "summary": "Save edited donors using the structured first, middle, last, and additional-person fields so donor lists stop showing stale legacy names.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:44 PM",
+    "areas": [
+      "Donor editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0590",
     "title": "Save canonical donor names",
     "summary": "Save edited donors using the structured first, middle, last, and additional-person fields so donor lists stop showing stale legacy names.",

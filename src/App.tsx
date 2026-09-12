@@ -6652,8 +6652,24 @@ function LivePreviewPanel({
   const sourceRecordingUrlRef = useRef<string | null>(null);
   const recordingMenuRef = useRef<HTMLDivElement | null>(null);
   const broadcastSessionRef = useRef(0);
-  const refreshMediaDevices = useCallback(() => {
-    void navigator.mediaDevices?.enumerateDevices().then(setDevices).catch(() => setDevices([]));
+  const refreshMediaDevices = useCallback(async (requestCameraPermission = false) => {
+    if (!navigator.mediaDevices) {
+      setDevices([]);
+      return;
+    }
+    try {
+      if (requestCameraPermission && navigator.mediaDevices.getUserMedia) {
+        const permissionStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        permissionStream.getTracks().forEach((track) => track.stop());
+      }
+      setDevices(await navigator.mediaDevices.enumerateDevices());
+    } catch {
+      try {
+        setDevices(await navigator.mediaDevices.enumerateDevices());
+      } catch {
+        setDevices([]);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -7601,8 +7617,8 @@ function LivePreviewPanel({
           <LabeledSelect label="Recording" info="Saved local video used for preview, pop-out, and live output." value={selectedRecordingId} options={recordings.map((recording) => recording.id)} optionLabels={recordingSourceLabels} disabled={recordingActive || recordingLibraryLoading || !recordings.length} onChange={(recordingId) => { patchLive({ recordingId }); void startPreview("recording", recordingId); }} />
           <div className="recording-source-audio"><Volume2 size={17} /><span><strong>Recording audio</strong><small>{selectedSourceRecording ? "Uses the audio embedded in the selected file." : recordingLibraryLoading ? "Loading saved recordings…" : "Record a video to make it available here."}</small></span></div>
         </> : <>
-          <div className="camera-device-select"><LabeledSelect label="Camera" info={recordingActive ? "Camera selection is locked while recording." : "Camera used for preview and live mode."} value={state.live.videoDeviceId ?? ""} options={cameraOptions.options} optionLabels={cameraOptions.labels} disabled={recordingActive} onChange={(value) => patchLive({ videoDeviceId: value || undefined })} /><button type="button" className="icon-button camera-device-refresh" title="Refresh camera and microphone list" aria-label="Refresh camera and microphone list" disabled={recordingActive} onClick={refreshMediaDevices}><RotateCcw size={15} /></button></div>
-          <div className="camera-device-select"><LabeledSelect label="Microphone" info={recordingActive ? "Microphone selection is locked while recording." : "Microphone used for live mode when the browser allows it."} value={state.live.audioDeviceId ?? ""} options={micOptions.options} optionLabels={micOptions.labels} disabled={recordingActive} onChange={(value) => patchLive({ audioDeviceId: value || undefined })} /><button type="button" className="icon-button camera-device-refresh" title="Refresh camera and microphone list" aria-label="Refresh camera and microphone list" disabled={recordingActive} onClick={refreshMediaDevices}><RotateCcw size={15} /></button></div>
+          <div className="camera-device-select"><LabeledSelect label="Camera" info={recordingActive ? "Camera selection is locked while recording." : "Camera used for preview and live mode."} value={state.live.videoDeviceId ?? ""} options={cameraOptions.options} optionLabels={cameraOptions.labels} disabled={recordingActive} onChange={(value) => patchLive({ videoDeviceId: value || undefined })} /><button type="button" className="icon-button camera-device-refresh" title="Refresh camera and microphone list (allow camera access if prompted)" aria-label="Refresh camera and microphone list" disabled={recordingActive} onClick={() => void refreshMediaDevices(true)}><RotateCcw size={15} /></button></div>
+          <div className="camera-device-select"><LabeledSelect label="Microphone" info={recordingActive ? "Microphone selection is locked while recording." : "Microphone used for live mode when the browser allows it."} value={state.live.audioDeviceId ?? ""} options={micOptions.options} optionLabels={micOptions.labels} disabled={recordingActive} onChange={(value) => patchLive({ audioDeviceId: value || undefined })} /><button type="button" className="icon-button camera-device-refresh" title="Refresh camera and microphone list (allow camera access if prompted)" aria-label="Refresh camera and microphone list" disabled={recordingActive} onClick={() => void refreshMediaDevices(true)}><RotateCcw size={15} /></button></div>
         </>}
       </div>
       <section className={previewError || popupBlocked ? "source-connection-card error" : previewStream ? "source-connection-card ready" : "source-connection-card"}>
