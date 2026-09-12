@@ -1,3 +1,7 @@
+param(
+  [switch]$Once
+)
+
 $ErrorActionPreference = "Continue"
 $configPath = Join-Path $PSScriptRoot "config.json"
 if (-not (Test-Path $configPath)) { exit 1 }
@@ -13,20 +17,40 @@ function Get-LanternChrome {
   }
 }
 
-while ($true) {
-  $existing = @(Get-LanternChrome)
-  if ($existing.Count -eq 0) {
-    Start-Process -FilePath $chromePath -ArgumentList @(
-      "--kiosk",
-      "--start-fullscreen",
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--disable-session-crashed-bubble",
-      "--disable-pinch",
-      "--overscroll-history-navigation=0",
-      "--user-data-dir=$profile",
-      $url
-    ) | Out-Null
+function Get-LanternKioskChrome {
+  @(Get-LanternChrome) | Where-Object {
+    [string]$_.CommandLine -match '(?i)(^|\s)--kiosk(?:\s|$)'
   }
+}
+
+function Start-LanternKiosk {
+  $profileProcesses = @(Get-LanternChrome)
+  $kioskProcesses = @(Get-LanternKioskChrome)
+  if ($kioskProcesses.Count -gt 0) { return }
+
+  # Chrome reuses an existing process for the same profile and silently ignores
+  # new kiosk flags. Close only this dedicated Lantern profile before relaunching.
+  foreach ($process in $profileProcesses) {
+    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+  if ($profileProcesses.Count -gt 0) { Start-Sleep -Milliseconds 800 }
+
+  Start-Process -FilePath $chromePath -ArgumentList @(
+    "--kiosk",
+    "--start-fullscreen",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-session-crashed-bubble",
+    "--disable-background-mode",
+    "--disable-pinch",
+    "--overscroll-history-navigation=0",
+    "--user-data-dir=$profile",
+    $url
+  ) | Out-Null
+}
+
+while ($true) {
+  Start-LanternKiosk
+  if ($Once) { break }
   Start-Sleep -Seconds ([Math]::Max(5, $delay))
 }

@@ -77,14 +77,25 @@ $taskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopI
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $signInTrigger -Settings $taskSettings -User $env:USERNAME -RunLevel Highest -Force | Out-Null
 Register-ScheduledTask -TaskName $morningTaskName -Action $action -Trigger $morningTrigger -Settings $taskSettings -User $env:USERNAME -RunLevel Highest -Force | Out-Null
 
+# Allow the hosted display page to hand edge-to-edge presentation off to the
+# trusted local launcher. The protocol ignores web-supplied URLs and always uses
+# the display assignment saved in config.json.
+$protocolRoot = "HKLM:\Software\Classes\lantern-display"
+New-Item -Path $protocolRoot -Force | Out-Null
+Set-Item -Path $protocolRoot -Value "URL:Lantern Display Protocol"
+New-ItemProperty -Path $protocolRoot -Name "URL Protocol" -Value "" -PropertyType String -Force | Out-Null
+$protocolCommand = "PowerShell.exe -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$launchScript`" -Once"
+New-Item -Path (Join-Path $protocolRoot "shell\open\command") -Force | Out-Null
+Set-Item -Path (Join-Path $protocolRoot "shell\open\command") -Value $protocolCommand
+
 # Keep the wired display awake while the mini PC has AC power.
 powercfg.exe /change monitor-timeout-ac 0 | Out-Null
 powercfg.exe /change standby-timeout-ac 0 | Out-Null
 powercfg.exe /change hibernate-timeout-ac 0 | Out-Null
 
 $desktop = [Environment]::GetFolderPath("Desktop")
-$chromeArgs = "--kiosk --start-fullscreen --no-first-run --no-default-browser-check --disable-session-crashed-bubble --disable-pinch --overscroll-history-navigation=0 --user-data-dir=`"$($config.UserDataDir)`" `"$launchUrl`""
-New-DesktopShortcut (Join-Path $desktop "Lantern Display.lnk") $chromePath $chromeArgs "Open the assigned Lantern recognition display in full screen."
+$launcherArgs = "-NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$launchScript`" -Once"
+New-DesktopShortcut (Join-Path $desktop "Lantern Display.lnk") "PowerShell.exe" $launcherArgs "Open the assigned Lantern recognition display edge to edge."
 New-DesktopShortcut (Join-Path $desktop "Lantern Display Setup.lnk") "PowerShell.exe" "-NoLogo -NoProfile -ExecutionPolicy Bypass -File `"$installDir\Setup-LanternDisplay.ps1`"" "Change the assigned Lantern display or monitor orientation."
 Set-Content (Join-Path $installDir "Display-URL.txt") $launchUrl -Encoding UTF8
 

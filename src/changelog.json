@@ -1,5 +1,27 @@
 [
   {
+    "id": "DEV-0609",
+    "title": "Launch true edge-to-edge TV kiosk",
+    "summary": "The live display control now hands presentation to a trusted Windows launcher that covers Chrome and the taskbar in kiosk mode without using the green-screen browser Fullscreen API. Setup registers the launcher and repairs reused non-kiosk profile windows.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:06 AM",
+    "areas": [
+      "TV display",
+      "Presentation",
+      "Windows setup",
+      "Display reliability"
+    ],
+    "files": [
+      "src/App.tsx",
+      "public/pc-setup/Launch-LanternDisplay.ps1",
+      "public/pc-setup/Setup-LanternDisplay.ps1",
+      "public/pc-setup/README-PC-SETUP.md",
+      "public/pc-setup/setup-guide.html",
+      "public/pc-setup/lantern-pc-display-setup.zip"
+    ],
+    "tests": "PowerShell parser validation; npm run build; setup ZIP content listing"
+  },
+  {
     "id": "DEV-0608",
     "title": "Cover taskbar with safe native TV fullscreen",
     "summary": "Desktop-host TV displays now use native window fullscreen to extend the board to the screen edge and cover the taskbar without browser fullscreen HDMI renegotiation.",

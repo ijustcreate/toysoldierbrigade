@@ -9,10 +9,11 @@ This package prepares a fresh Windows 11 mini PC to run one assigned museum reco
 3. Copies the display launcher to `C:\ProgramData\LanternDisplay`.
 4. Creates a full-screen Chrome launcher using a separate browser profile, so the display does not reuse a staff member's normal Chrome tabs or profile.
 5. Creates `Lantern Display.lnk` on the desktop for manual recovery and `Lantern Display Setup.lnk` to change the assignment later.
-6. Registers a Windows task that starts the player whenever the configured Windows account signs in.
-7. Registers a second Windows task that performs a recovery check every day at 5:00 AM. If Chrome was closed, the player starts again.
-8. Runs a small watchdog that reopens Chrome if it crashes or is closed.
-9. Sets the AC monitor, sleep, and hibernate timers to never expire so the attached display stays available while the PC has power.
+6. Registers the local `lantern-display:` launcher so the hosted site's **Present on TV** control can reopen the dedicated display in true kiosk mode.
+7. Registers a Windows task that starts the player whenever the configured Windows account signs in.
+8. Registers a second Windows task that performs a recovery check every day at 5:00 AM. If Chrome was closed, the player starts again.
+9. Runs a small watchdog that reopens Chrome if it crashes or is closed. If Chrome reused the dedicated profile without kiosk mode, the launcher closes only that profile and reopens it correctly.
+10. Sets the AC monitor, sleep, and hibernate timers to never expire so the attached display stays available while the PC has power.
 
 The package does not change museum board content, enable remote access, store a Windows password, or turn the TV on and off. The display page itself requests the browser Screen Wake Lock when supported, but Windows and the TV's own power settings still need to be tested on site.
 
