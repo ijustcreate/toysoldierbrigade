@@ -19,7 +19,10 @@ function Get-LanternChrome {
 
 function Get-LanternKioskChrome {
   @(Get-LanternChrome) | Where-Object {
-    [string]$_.CommandLine -match '(?i)(^|\s)--kiosk(?:\s|$)'
+    $commandLine = [string]$_.CommandLine
+    $commandLine -match '(?i)(^|\s)--kiosk(?:\s|$)' -and
+      $commandLine -match '(?i)(^|\s)--disable-direct-composition(?:\s|$)' -and
+      $commandLine -match '(?i)(^|\s)--force-color-profile=srgb(?:\s|$)'
   }
 }
 
@@ -29,7 +32,8 @@ function Start-LanternKiosk {
   if ($kioskProcesses.Count -gt 0) { return }
 
   # Chrome reuses an existing process for the same profile and silently ignores
-  # new kiosk flags. Close only this dedicated Lantern profile before relaunching.
+  # new kiosk flags. Close only this dedicated Lantern profile before relaunching,
+  # including an older kiosk session that lacks the TV compatibility switches.
   foreach ($process in $profileProcesses) {
     Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
   }

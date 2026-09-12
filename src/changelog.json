@@ -1,5 +1,22 @@
 [
   {
+    "id": "DEV-0611",
+    "title": "Replace outdated TV kiosk sessions",
+    "summary": "The Lantern launcher now recognizes whether an existing kiosk includes the portrait-TV graphics compatibility settings and automatically replaces older sessions that do not, ensuring an on-site retest actually uses the corrected rendering path.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:16 AM",
+    "areas": [
+      "TV display",
+      "Windows setup"
+    ],
+    "files": [
+      "public/pc-setup/Launch-LanternDisplay.ps1",
+      "public/pc-setup/README-PC-SETUP.md",
+      "public/pc-setup/lantern-pc-display-setup.zip"
+    ],
+    "tests": "PowerShell parser validation; packaged launcher compatibility-flag verification; git diff --check"
+  },
+  {
     "id": "DEV-0610",
     "title": "Harden portrait TV fullscreen rendering",
     "summary": "The dedicated Windows display launcher now bypasses Chrome DirectComposition and forces sRGB output to prevent solid-green fullscreen failures on incompatible portrait HDMI displays; setup guidance includes a controlled on-TV test and recovery steps.",
