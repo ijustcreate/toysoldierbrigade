@@ -2778,7 +2778,7 @@ function DonorsView({
   const [reorderMode, setReorderMode] = useState(false);
   const [reorderTooltip, setReorderTooltip] = useState<{ left: number; top: number; text: string } | null>(null);
   const [tagFilter, setTagFilter] = useState("all");
-  const [groupFilter, setGroupFilter] = useState("all");
+  const [groupFilters, setGroupFilters] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState<"manual" | "az" | "za">(
     () => state.userPreferences.find((preferences) => preferences.userId === activeUserId)?.donorSort ?? "manual"
@@ -2824,7 +2824,7 @@ function DonorsView({
   const [groupPillsOverflow, setGroupPillsOverflow] = useState(false);
   const allTags = Array.from(new Set([...state.recognitionSettings.tags, ...state.donors.flatMap((donor) => donor.tags ?? [])])).sort();
   const visibleDonors = donors
-    .filter((donor) => (tagFilter === "all" || donor.tags?.includes(tagFilter)) && (groupFilter === "all" || donor.groupId === groupFilter) && (typeFilter === "all" || donor.donationType === typeFilter))
+    .filter((donor) => (tagFilter === "all" || donor.tags?.includes(tagFilter)) && (!groupFilters.length || groupFilters.includes(donor.groupId ?? "")) && (typeFilter === "all" || donor.donationType === typeFilter))
     .sort((a, b) => sortOrder === "manual" ? 0 : a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) * (sortOrder === "az" ? 1 : -1));
   // Kept solely for the legacy footer markup, which is hidden below; rows are no longer paginated.
   const pageDonors = visibleDonors;
@@ -3108,7 +3108,7 @@ function DonorsView({
     });
     setQuery("");
     setTagFilter("all");
-    setGroupFilter("all");
+    setGroupFilters([]);
     setTypeFilter("all");
     setCreatedDonorName(donor.name);
     closeDonorSetup();
@@ -3123,7 +3123,7 @@ function DonorsView({
         </div>
         <div className="donor-filter-row">
           <select className="toolbar-select" value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}><option value="all">All tags</option>{allTags.map((tag) => <option key={tag}>{tag}</option>)}</select>
-          <select className="toolbar-select" aria-label="Filter by donor group" value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}><option value="all">Groups</option>{state.donorGroups.map((group) => <option value={group.id} key={group.id}>{group.name}</option>)}</select>
+          <select className="toolbar-select" aria-label="Filter by donor group" value={groupFilters.length === 1 ? groupFilters[0] : "all"} onChange={(event) => setGroupFilters(event.target.value === "all" ? [] : [event.target.value])}><option value="all">All groups</option>{state.donorGroups.map((group) => <option value={group.id} key={group.id}>{group.name}</option>)}</select>
           <select className="toolbar-select" aria-label="Filter by donation type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All types</option>{["Cash", "In-kind", "Sponsorship", "Legacy", "Volunteer"].map((type) => <option key={type}>{type}</option>)}</select>
           <select className="toolbar-select" aria-label="Sort donors" value={sortOrder} onChange={(event) => setDonorSort(event.target.value as typeof sortOrder)} title="Choose how donor names are ordered"><option value="manual">Manual</option><option value="az">Name A–Z</option><option value="za">Name Z–A</option></select>
         </div>
@@ -3139,7 +3139,7 @@ function DonorsView({
 
       <div className={`donor-group-scroller${groupPillsOverflow ? " has-overflow" : ""}`}>
         {groupPillsOverflow && <button type="button" className="donor-group-nudge" onClick={() => nudgeGroupPills(-1)} aria-label="Show earlier donor groups"><ChevronLeft size={16} /></button>}
-        <div className="donor-groups-row" ref={donorGroupRef} onScroll={updateGroupPillsOverflow}><button className={groupFilter === "all" ? "group-chip selected" : "group-chip"} onClick={() => setGroupFilter("all")}>All donors <b>{state.donors.length}</b></button>{state.donorGroups.map((group) => <button className={groupFilter === group.id ? "group-chip selected" : "group-chip"} style={{ "--group-color": group.color } as React.CSSProperties} key={group.id} onClick={() => setGroupFilter(group.id)}>{group.name} <b>{state.donors.filter((donor) => donor.groupId === group.id).length}</b></button>)}<button className="group-chip add" onClick={() => setGroupPromptOpen(true)}><Plus size={14} /> New group</button></div>
+        <div className="donor-groups-row" ref={donorGroupRef} onScroll={updateGroupPillsOverflow}><button className={!groupFilters.length ? "group-chip selected" : "group-chip"} onClick={() => setGroupFilters([])}>All donors <b>{state.donors.length}</b></button>{state.donorGroups.map((group) => <button className={groupFilters.includes(group.id) ? "group-chip selected" : "group-chip"} aria-pressed={groupFilters.includes(group.id)} style={{ "--group-color": group.color } as React.CSSProperties} key={group.id} onClick={() => setGroupFilters((current) => current.includes(group.id) ? current.filter((id) => id !== group.id) : [...current, group.id])}>{group.name} <b>{state.donors.filter((donor) => donor.groupId === group.id).length}</b></button>)}<button className="group-chip add" onClick={() => setGroupPromptOpen(true)}><Plus size={14} /> New group</button></div>
         {groupPillsOverflow && <button type="button" className="donor-group-nudge" onClick={() => nudgeGroupPills(1)} aria-label="Show more donor groups"><ChevronRight size={16} /></button>}
       </div>
 
