@@ -2988,7 +2988,7 @@ function DonorsView({
       const selectedBoardIds = new Set(currentListOptions.filter((option) => selectedListIds.has(option.id)).map((option) => option.boardId));
       const retainedBoardIds = (draft.boardIds ?? []).filter((boardId) => !listBoardIds.has(boardId));
       const boardIds = new Set([...retainedBoardIds, ...selectedBoardIds]);
-      const savedDonor = { ...draft, boardIds: [...boardIds] };
+      const savedDonor = { ...draft, name: donorDisplayName(draft), boardIds: [...boardIds] };
       return {
         ...current,
         donors: current.donors.map((donor) => (donor.id === draft.id ? savedDonor : donor)),

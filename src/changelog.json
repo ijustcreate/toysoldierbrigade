@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0590",
+    "title": "Save canonical donor names",
+    "summary": "Save edited donors using the structured first, middle, last, and additional-person fields so donor lists stop showing stale legacy names.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:44 PM",
+    "areas": [
+      "Donor editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0589",
     "title": "Align donor name fields in one row",
     "summary": "Reworked donor editor name rows so first, middle, and last fields stay together and additional-person removal stays inline, with responsive stacking on narrow screens.",
