@@ -10449,14 +10449,16 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
   const [liveMediaNotice, setLiveMediaNotice] = useState<string | null>(null);
   const [identify, setIdentify] = useState(false);
   const [fitToScreen, setFitToScreen] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(Boolean(document.fullscreenElement));
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [displayMenu, setDisplayMenu] = useState<{ x: number; y: number } | null>(null);
   const [scheduleNow, setScheduleNow] = useState(() => new Date());
+  const presentationWindowRef = useRef<Window | null>(null);
   const scheduledSoundRef = useRef<ResolvedScheduledAnnouncement | null>(null);
   const blipSoundKeyRef = useRef("");
   const identifyTimerRef = useRef<number | null>(null);
   const displayRouteOptions = new URLSearchParams(window.location.hash.split("?")[1] ?? "");
   const tvMode = displayRouteOptions.get("tv") === "1";
+  const safePresentation = displayRouteOptions.get("presentation") === "1";
   const requestedMount = displayRouteOptions.get("mount");
   const routeMountRotation: TvMountRotation | undefined = requestedMount === "none" || requestedMount === "clockwise" || requestedMount === "counterclockwise" ? requestedMount : undefined;
   const storedScreen = state.screens[screenId] ?? Object.values(state.screens)[0];
@@ -10516,10 +10518,11 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
   }), [screenId]);
 
   useEffect(() => {
-    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    const onFullscreenChange = () => setIsFullscreen(safePresentation || Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", onFullscreenChange);
+    onFullscreenChange();
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
+  }, [safePresentation]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setScheduleNow(new Date()), 1000);
@@ -10629,11 +10632,49 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
   }, [scheduledAnnouncement?.key]);
 
   const toggleFullscreen = () => {
+    if (safePresentation) {
+      // The safe presentation popup is script-opened, so it can close itself
+      // without asking the browser to renegotiate the rotated TV output.
+      if (window.opener && !window.opener.closed) {
+        window.close();
+        return;
+      }
+      setIsFullscreen(false);
+      setDisplayMenu(null);
+      return;
+    }
+
     // Do not invoke the browser Fullscreen API here. On rotated TV panels it
     // can renegotiate the HDMI/GPU output and leave the physical display
-    // green. The TV launcher owns startup fullscreen; this control only
-    // changes the in-page presentation state and fit behavior.
-    setIsFullscreen((current) => !current);
+    // green. A trusted popup removes browser chrome where Chrome permits it;
+    // the TV launcher remains the authoritative kiosk/fullscreen path.
+    const existingPopup = presentationWindowRef.current;
+    if (existingPopup && !existingPopup.closed) {
+      existingPopup.focus();
+      setDisplayMenu(null);
+      return;
+    }
+    const [hashPath, hashQuery = ""] = window.location.hash.split("?");
+    const params = new URLSearchParams(hashQuery);
+    params.set("presentation", "1");
+    const presentationUrl = `${window.location.pathname}${window.location.search}${hashPath}?${params.toString()}`;
+    const width = Math.max(320, window.screen.availWidth || window.screen.width);
+    const height = Math.max(240, window.screen.availHeight || window.screen.height);
+    const popup = window.open(
+      presentationUrl,
+      `lantern-presentation-${screenId}`,
+      `popup=yes,width=${width},height=${height},left=${window.screenX},top=${window.screenY},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`
+    );
+    if (popup) {
+      presentationWindowRef.current = popup;
+      popup.addEventListener("beforeunload", () => {
+        if (presentationWindowRef.current === popup) presentationWindowRef.current = null;
+      }, { once: true });
+      popup.focus();
+    } else {
+      // Popup blockers must not prevent the board from staying usable.
+      setIsFullscreen(true);
+    }
     setFitToScreen(true);
     setDisplayMenu(null);
   };
