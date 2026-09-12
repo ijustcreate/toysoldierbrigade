@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0602",
+    "title": "Fix announcement preview editing handles",
+    "summary": "Keep announcement popup resize handles visible during physical editing and make headline/message text boxes reliably adjustable.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 11:28 PM",
+    "areas": [
+      "Announcements",
+      "Message preview",
+      "Physical editing"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0601",
     "title": "Unify feedback launcher button emphasis",
     "summary": "Apply the highlighted blue action style to Request a feature, Feedback, and Report bug so the entry points are visually grouped.",
