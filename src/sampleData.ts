@@ -728,7 +728,8 @@ export const initialState: LanternState = {
     tiers: ["Explore", "Play"],
     categories: ["Giving Society", "Family", "Individual", "Corporate", "Community", "Legacy"],
     tags: ["Toy Soldier Brigade", "Class of 2026", "Explore Level", "Play Level", "Five-year pledge", "Legacy"],
-    appearance: "warm"
+    appearance: "warm",
+    showDevelopmentFeatures: false
   },
   theme: {
     material: "Deep Navy Enamel",

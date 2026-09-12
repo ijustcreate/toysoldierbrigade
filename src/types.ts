@@ -418,6 +418,7 @@ export interface RecognitionSettings {
   categories: string[];
   tags: string[];
   appearance: PortalAppearance;
+  showDevelopmentFeatures: boolean;
 }
 
 export interface Announcement {

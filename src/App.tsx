@@ -7754,7 +7754,7 @@ function LivePreviewPanel({
           {state.live.effects.handProp && state.live.effects.handProp !== "none" && <div className="accessory-options hand-prop-hand"><span>Holding hand</span>{(["left", "right"] as const).map((hand) => <button type="button" key={hand} className={(state.live.effects.handPropHand ?? "right") === hand ? "selected" : ""} onClick={() => patchLive({ effects: { ...state.live.effects, handPropHand: hand } })}>{hand === "left" ? "Left" : "Right"}</button>)}</div>}
           {state.live.effects.hatEnabled && state.live.effects.hatStyle === "wizard" && <div className="two-col wizard-rig-controls"><Slider label="Wizard springiness" info="How eagerly the three linked hat segments follow head movement." value={Math.round((state.live.effects.wizardSpringiness ?? .56) * 100)} min={0} max={100} onChange={(value) => patchLive({ effects: { ...state.live.effects, wizardSpringiness: value / 100 } })} /><Slider label="Wizard damping" info="How quickly the floppy tip settles after movement." value={Math.round((state.live.effects.wizardDamping ?? .7) * 100)} min={0} max={100} onChange={(value) => patchLive({ effects: { ...state.live.effects, wizardDamping: value / 100 } })} /></div>}
         </section>
-        <details className="experimental-tracking-tools">
+        {state.recognitionSettings.showDevelopmentFeatures && <details className="experimental-tracking-tools">
         <summary>Tracking calibration & advanced tools<span>Under construction · full puppets deferred</span></summary>
         <EffectStudio
           studio={state.effectStudio}
@@ -7765,7 +7765,7 @@ function LivePreviewPanel({
           onStudioChange={(effectStudio) => updateState((current) => ({ ...current, effectStudio }))}
           onEffectsChange={(effects) => patchLive({ effects })}
         />
-        </details>
+        </details>}
       </div>}
       </aside>
       </div>
@@ -9699,6 +9699,24 @@ function RecognitionSettingsView({ state, updateState, appearance, onAppearanceC
             <option value="contrast">High contrast — Maximum distinction</option>
             <option value="sparkle">Sparkle Unicorn — Neon rainbow magic</option>
           </select>
+        </label>
+      </section>
+      <section className="appearance-settings" aria-labelledby="development-features-heading">
+        <div>
+          <p className="eyebrow">Advanced setup</p>
+          <h2 id="development-features-heading">Development features</h2>
+          <span>Show experimental costume, rig editor, and calibration tools in Broadcast / Stream.</span>
+        </div>
+        <label className="switch-row">
+          <input
+            type="checkbox"
+            checked={state.recognitionSettings.showDevelopmentFeatures}
+            onChange={(event) => updateState((current) => ({
+              ...current,
+              recognitionSettings: { ...current.recognitionSettings, showDevelopmentFeatures: event.target.checked }
+            }))}
+          />
+          <span>Show development features</span>
         </label>
       </section>
       <section className="appearance-settings" aria-labelledby="display-setup-heading">

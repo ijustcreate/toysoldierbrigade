@@ -2007,7 +2007,8 @@ export function normalizeState(state: LanternState): LanternState {
         .sort(),
       appearance: ["dark", "light", "ocean", "warm", "contrast", "sparkle", "children"].includes(state.recognitionSettings?.appearance ?? "")
         ? state.recognitionSettings.appearance
-        : "dark"
+        : "dark",
+      showDevelopmentFeatures: state.recognitionSettings?.showDevelopmentFeatures === true
     },
     announcement: needsLegacyContentMigration && state.announcement && isKnownDemoAnnouncement(state.announcement)
       ? { ...initialState.announcement, active: false }

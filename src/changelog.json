@@ -1,5 +1,24 @@
 [
   {
+    "id": "DEV-0593",
+    "title": "Add development features visibility toggle",
+    "summary": "Added a persistent Settings toggle for experimental costume, rig editor, and calibration tools; these tools are hidden by default until enabled.",
+    "author": "Codex",
+    "createdAt": "Sep 11, 2026, 9:48 PM",
+    "areas": [
+      "Settings",
+      "Development features",
+      "Broadcast studio"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/types.ts",
+      "src/sampleData.ts",
+      "src/host/lanternHost.ts"
+    ],
+    "tests": "npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0592",
     "title": "Refresh attached broadcast cameras",
     "summary": "The Broadcast / Stream camera and microphone refresh controls now request camera permission when needed and re-enumerate devices, allowing newly connected cameras to appear without requiring microphone access.",
