@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0636",
+    "title": "Remove Element font control",
+    "summary": "Removed the duplicate Typography font selector so font selection remains in Donor presentation.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:35 PM",
+    "areas": [
+      "Board editor",
+      "Typography"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0635",
     "title": "Open font menus upward everywhere",
     "summary": "All board font selectors now share the upward-opening font-preview menu, keeping the full list visible without covering controls below.",
