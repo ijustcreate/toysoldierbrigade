@@ -8048,6 +8048,9 @@ textarea:focus-visible,
 .font-picker-options button { display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 5px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .font-picker-options button:hover, .font-picker-options button[aria-selected="true"] { background: var(--accent); color: white; }
 .inspector-block > .field:has(.font-picker) { display: none; }
+.board-panel-inspector:has(.font-picker[open]),
+.board-panel-inspector:has(.font-picker[open]) .inspector-details,
+.board-panel-inspector:has(.font-picker[open]) .inspector-block { overflow: visible; }
 
 .panel-donor-star { min-width: 0; min-height: 0; padding: 0; overflow: visible; }
 .direct-star-donor { position: relative; width: 100%; height: 100%; min-width: 0; min-height: 0; }
