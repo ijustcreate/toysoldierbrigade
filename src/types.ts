@@ -52,6 +52,7 @@ export interface Donor {
   acknowledgementPreference?: "Public recognition" | "Anonymous" | "No mail" | "No solicitation";
   relationshipManager?: string;
   generalDonationFund?: string;
+  generalDonationDetails?: string;
   subtext?: string;
   /** Images managed from the donor profile. */
   images?: Array<{ id: string; url: string; name: string; orientation: "portrait" | "landscape" | "square" }>;

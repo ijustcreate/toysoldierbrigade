@@ -1,5 +1,112 @@
 [
   {
+    "id": "DEV-0618",
+    "title": "Use grouped board and list picker in Edit donor",
+    "summary": "Replaced native selects with a searchable folder-grouped picker showing board names, donor list titles or Untitled List, orientation, and inclusion status.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:23 PM",
+    "areas": [
+      "Donors",
+      "Board picker"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; npm run test:donor-roster-membership; git diff --check"
+  },
+  {
+    "id": "DEV-0617",
+    "title": "Simplify Edit donor information and pledge forms",
+    "summary": "Grouped contact fields, added collapsible additional information, renamed Museum contact, simplified acknowledgement choices, added general donation details, and removed redundant pledge controls and summaries.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:20 PM",
+    "areas": [
+      "Donors"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "src/types.ts"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
+    "id": "DEV-0616",
+    "title": "Limit Donor filters to the approved set",
+    "summary": "The Donors page now shows only All donors, Explore, Play, Toy Soldier Brigade, and Legacy filters. Unsupported group filters are no longer displayed.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 9:56 PM",
+    "areas": [
+      "Donors",
+      "Filtering"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; npm run test:donor-roster-membership"
+  },
+  {
+    "id": "DEV-0615",
+    "title": "Make Legacy donor group filter include legacy records",
+    "summary": "The Donors page now counts and filters legacy donors using their existing legacy status/category/tag metadata when the Legacy group is selected.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 9:55 PM",
+    "areas": [
+      "Donors",
+      "Filtering"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; npm run test:donor-roster-membership"
+  },
+  {
+    "id": "DEV-0614",
+    "title": "Refresh from the museum logo",
+    "summary": "Clicking the Children’s Museum logo now checks for shared updates and offers a protected Update now action instead of silently replacing local work.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 9:53 PM",
+    "areas": [
+      "Control center",
+      "Shared state sync"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0613",
+    "title": "Refresh from the museum logo",
+    "summary": "Clicking the Children’s Museum logo now checks for shared updates and offers a protected Update now action instead of silently replacing local work.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 9:52 PM",
+    "areas": [
+      "Control center",
+      "Shared state sync"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
+    "id": "DEV-0612",
+    "title": "Start new donor lists empty",
+    "summary": "New donor-list panels in Board Editor no longer inherit the selected board's existing donor roster; existing lists remain unchanged.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 9:42 PM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0611",
     "title": "Replace outdated TV kiosk sessions",
     "summary": "The Lantern launcher now recognizes whether an existing kiosk includes the portrait-TV graphics compatibility settings and automatically replaces older sessions that do not, ensuring an on-site retest actually uses the corrected rendering path.",

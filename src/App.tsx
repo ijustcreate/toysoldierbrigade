@@ -125,6 +125,7 @@ import {
   loadDisplaySessionSnapshot,
   loadSharedLanternStateSnapshot,
   loadLanternState,
+  serializableSharedState,
   LANTERN_SHARED_STATE_EVENT,
   openDisplayWindows,
   openedBoardIds,
@@ -427,6 +428,7 @@ function ControlCenter() {
   const [newUserName, setNewUserName] = useState("");
   const [siteSyncStatus, setSiteSyncStatus] = useState("");
   const [siteSyncing, setSiteSyncing] = useState(false);
+  const [pendingSiteUpdate, setPendingSiteUpdate] = useState<{ state: LanternState; updatedAt: string | null } | null>(null);
   const [sharedStateWarning, setSharedStateWarning] = useState("");
   const [bugLauncherVisible, setBugLauncherVisible] = useState(() => localStorage.getItem("project-lantern-bug-launcher-visible") !== "false");
   const [bugLauncherPosition, setBugLauncherPosition] = useState(() => readBugLauncherPosition(currentBugUser()));
@@ -609,7 +611,6 @@ function ControlCenter() {
       setSiteSyncStatus("Site sync is not configured for this local build.");
       return;
     }
-    if (!window.confirm("Pull the latest shared site data? This replaces this computer's local working copy. Your current local changes will remain on the site only if they were already saved there.")) return;
     setSiteSyncing(true);
     setSiteSyncStatus("Checking the site copy…");
     try {
@@ -618,13 +619,36 @@ function ControlCenter() {
         setSiteSyncStatus("No shared site data is available yet.");
         return;
       }
-      const persistence = await saveLanternStateDurably(snapshot.state, { updatedAt: snapshot.updatedAt });
+      if (JSON.stringify(serializableSharedState(snapshot.state)) === JSON.stringify(serializableSharedState(state))) {
+        setPendingSiteUpdate(null);
+        setSiteSyncStatus("You’re up to date.");
+        return;
+      }
+      setPendingSiteUpdate({ state: snapshot.state, updatedAt: snapshot.updatedAt });
+      setSiteSyncStatus("There is an update available. Save your work, then choose Update now.");
+      return;
+    } catch (error) {
+      setSiteSyncStatus(error instanceof Error ? error.message : "Could not check the shared site data.");
+    } finally {
+      setSiteSyncing(false);
+    }
+  };
+
+  const applyPendingSiteUpdate = async () => {
+    if (!pendingSiteUpdate) return;
+    if (!window.confirm("Update this computer with the latest saved site data? Make sure you have saved anything you are working on first.")) return;
+    setSiteSyncing(true);
+    setSiteSyncStatus("Applying the site update…");
+    try {
+      const { state: nextState, updatedAt } = pendingSiteUpdate;
+      const persistence = await saveLanternStateDurably(nextState, { updatedAt });
       if (persistence === "failed") throw new Error("The pulled site data could not be stored on this computer.");
-      setState(snapshot.state);
+      setState(nextState);
       // Refresh local display windows without writing the pulled copy back to
       // the shared service or changing its authoritative timestamp.
-      publishState(snapshot.state, { persist: false, shared: false });
-      setSiteSyncStatus(`Pulled the site copy${snapshot.updatedAt ? ` saved ${new Date(snapshot.updatedAt).toLocaleString()}` : ""}.`);
+      publishState(nextState, { persist: false, shared: false });
+      setPendingSiteUpdate(null);
+      setSiteSyncStatus(`Updated from the site${updatedAt ? ` saved ${new Date(updatedAt).toLocaleString()}` : ""}.`);
     } catch (error) {
       setSiteSyncStatus(error instanceof Error ? error.message : "Could not pull the shared site data.");
     } finally {
@@ -1213,7 +1237,7 @@ function ControlCenter() {
     <div className={`app-shell ${portalAppearance === "warm" || portalAppearance === "sparkle" || portalAppearance === "children" ? "theme-light " : ""}theme-${portalAppearance}`}>
       <aside className="sidebar">
         <div className="sidebar-aurora" aria-hidden="true" />
-        <button className="brand-lockup" onClick={() => setView("dashboard")} title="Return to Dashboard" aria-label="Children's Museum of Stockton — return to Dashboard">
+        <button className="brand-lockup" onClick={() => { setView("dashboard"); void pullLatestSiteChanges(); }} title="Refresh and check for updates" aria-label="Children's Museum of Stockton — refresh and check for updates">
           <img className="museum-brand-image" src={`${import.meta.env.BASE_URL}assets/childrens-museum-stockton.png`} alt="Children's Museum of Stockton" />
         </button>
         <nav className="nav-list">
@@ -1266,6 +1290,7 @@ function ControlCenter() {
             <h1>{titleFor(view)}</h1>
           </div>
           <div className="topbar-actions">
+            {pendingSiteUpdate && <button type="button" className="command-button primary" onClick={() => void applyPendingSiteUpdate()} disabled={siteSyncing}><RefreshCcw size={16} /> {siteSyncing ? "Updating…" : "Update now"}</button>}
             {view === "dashboard" && (
               <div className="dashboard-quick-actions">
               <button className="header-operation-button" onClick={() => setDisplayStatusPanelOpen(true)} title="View current display status and recent delivery events">
@@ -2794,6 +2819,51 @@ function donorListContainsDonor(option: DonorListOption, donorId: string) {
   return (option.panel.donorIds === undefined ? option.board.donorIds : option.panel.donorIds).includes(donorId);
 }
 
+function DonorListPicker({ options, value, assignedIds, onChange }: { options: DonorListOption[]; value: string; assignedIds: string[]; onChange: (option: DonorListOption) => void }) {
+  const pickerRef = useRef<HTMLDetailsElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      if (!pickerRef.current?.contains(event.target as Node)) pickerRef.current?.removeAttribute("open");
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, []);
+  const listName = (option: DonorListOption) => option.panel.title?.trim() || "Untitled List";
+  const boardName = (board: DonorBoardProgram) => board.name.replace(/\s*(?:·|-)\s*(?:portrait|landscape)\s*$/i, "").trim();
+  const current = options.find((option) => option.id === value);
+  const boards = [...new Map(options.map((option) => [option.boardId, option.board])).values()];
+  const needle = search.trim().toLocaleLowerCase();
+  const groups = groupBoardPrograms(boards).map((group) => ({
+    label: group.label,
+    lists: group.programs.flatMap((board) => options.filter((option) => option.boardId === board.id))
+      .filter((option) => `${group.label} ${option.board.name} ${option.board.orientation} ${listName(option)}`.toLocaleLowerCase().includes(needle))
+  })).filter((group) => group.lists.length);
+  return <div className="field donor-board-list-picker"><span>Board / donor list</span>
+    <details className="board-picker" ref={pickerRef} onToggle={(event) => {
+      if (event.currentTarget.open) searchRef.current?.focus(); else setSearch("");
+    }} onKeyDown={(event) => {
+      if (event.key === "Escape" && pickerRef.current?.open) {
+        event.stopPropagation(); pickerRef.current.removeAttribute("open"); pickerRef.current.querySelector("summary")?.focus();
+      }
+    }}>
+      <summary aria-label={`Choose board and donor list. ${current ? `${current.board.name}, ${listName(current)}` : "No list selected"}`}>
+        <span className="board-picker-current">{current && <BoardOrientationIcon orientation={current.board.orientation} />}<span><strong>{current ? boardName(current.board) : "Choose a donor list"}</strong><small>{current ? listName(current) : "No donor lists available"}</small></span></span><ChevronDown size={16} />
+      </summary>
+      <div className="board-picker-popover">
+        <label className="board-picker-search"><Search size={15} /><span className="sr-only">Search boards, folders, or lists</span><input ref={searchRef} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search boards, folders, or lists" /></label>
+        <div className="board-picker-groups">{groups.map((group) => <section className="board-picker-group" key={group.label}>
+          <header><Folder size={14} /><strong>{group.label}</strong><span>{group.lists.length}</span></header>
+          {group.lists.map((option) => <button type="button" className={`board-picker-option${option.id === value ? " selected" : ""}`} aria-current={option.id === value ? "true" : undefined} key={option.id} onClick={() => { onChange(option); pickerRef.current?.removeAttribute("open"); pickerRef.current?.querySelector("summary")?.focus(); }}>
+            <BoardOrientationIcon orientation={option.board.orientation} /><span className="donor-picker-option-copy"><strong>{boardName(option.board)}</strong><span>{listName(option)}{assignedIds.includes(option.id) ? " · Included" : ""}</span></span><small>{option.board.orientation}</small>
+          </button>)}
+        </section>)}{!groups.length && <div className="board-picker-empty"><Search size={18} /><span>No donor lists match your search.</span></div>}</div>
+      </div>
+    </details>
+  </div>;
+}
+
 function DonorsView({
   state,
   activeUserId,
@@ -2877,8 +2947,24 @@ function DonorsView({
   const donorGroupRef = useRef<HTMLDivElement>(null);
   const [groupPillsOverflow, setGroupPillsOverflow] = useState(false);
   const allTags = Array.from(new Set([...state.recognitionSettings.tags, ...state.donors.flatMap((donor) => donor.tags ?? [])])).sort();
+  const donorFilterOptions = [
+    { id: "explore", name: "Explore" },
+    { id: "play", name: "Play" },
+    { id: "toy-soldier-brigade", name: "Toy Soldier Brigade" },
+    { id: "legacy", name: "Legacy" }
+  ];
+  const isLegacyDonor = (donor: Donor) => donor.recordStatus === "deprecated-legacy"
+    || donor.category === "Legacy"
+    || donor.tags?.some((tag) => tag.toLocaleLowerCase() === "legacy");
+  const donorMatchesGroup = (donor: Donor, filterId: string) => {
+    const values = [donor.tier, donor.category, ...(donor.tags ?? [])].filter(Boolean).map((value) => value!.toLocaleLowerCase());
+    if (filterId === "legacy") return isLegacyDonor(donor);
+    if (filterId === "toy-soldier-brigade") return values.includes("toy soldier brigade");
+    return values.some((value) => value === filterId)
+      || state.donorGroups.some((group) => group.id === donor.groupId && group.name.toLocaleLowerCase() === filterId);
+  };
   const visibleDonors = donors
-    .filter((donor) => (tagFilter === "all" || donor.tags?.includes(tagFilter)) && (!groupFilters.length || groupFilters.includes(donor.groupId ?? "")) && (typeFilter === "all" || donor.donationType === typeFilter))
+    .filter((donor) => (tagFilter === "all" || donor.tags?.includes(tagFilter)) && (!groupFilters.length || groupFilters.some((groupId) => donorMatchesGroup(donor, groupId))) && (typeFilter === "all" || donor.donationType === typeFilter))
     .sort((a, b) => sortOrder === "manual" ? 0 : a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) * (sortOrder === "az" ? 1 : -1));
   // Kept solely for the legacy footer markup, which is hidden below; rows are no longer paginated.
   const pageDonors = visibleDonors;
@@ -3177,7 +3263,7 @@ function DonorsView({
         </div>
         <div className="donor-filter-row">
           <select className="toolbar-select" value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}><option value="all">All tags</option>{allTags.map((tag) => <option key={tag}>{tag}</option>)}</select>
-          <select className="toolbar-select" aria-label="Filter by donor group" value={groupFilters.length === 1 ? groupFilters[0] : "all"} onChange={(event) => setGroupFilters(event.target.value === "all" ? [] : [event.target.value])}><option value="all">All groups</option>{state.donorGroups.map((group) => <option value={group.id} key={group.id}>{group.name}</option>)}</select>
+          <select className="toolbar-select" aria-label="Filter by donor group" value={groupFilters.length === 1 ? groupFilters[0] : "all"} onChange={(event) => setGroupFilters(event.target.value === "all" ? [] : [event.target.value])}><option value="all">All groups</option>{donorFilterOptions.map((filter) => <option value={filter.id} key={filter.id}>{filter.name}</option>)}</select>
           <select className="toolbar-select" aria-label="Filter by donation type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All types</option>{["Cash", "In-kind", "Sponsorship", "Legacy", "Volunteer"].map((type) => <option key={type}>{type}</option>)}</select>
           <select className="toolbar-select" aria-label="Sort donors" value={sortOrder} onChange={(event) => setDonorSort(event.target.value as typeof sortOrder)} title="Choose how donor names are ordered"><option value="manual">Manual</option><option value="az">Name A–Z</option><option value="za">Name Z–A</option></select>
         </div>
@@ -3193,7 +3279,7 @@ function DonorsView({
 
       <div className={`donor-group-scroller${groupPillsOverflow ? " has-overflow" : ""}`}>
         {groupPillsOverflow && <button type="button" className="donor-group-nudge" onClick={() => nudgeGroupPills(-1)} aria-label="Show earlier donor groups"><ChevronLeft size={16} /></button>}
-        <div className="donor-groups-row" ref={donorGroupRef} onScroll={updateGroupPillsOverflow}><button className={!groupFilters.length ? "group-chip selected" : "group-chip"} onClick={() => setGroupFilters([])}>All donors <b>{state.donors.length}</b></button>{state.donorGroups.map((group) => <button className={groupFilters.includes(group.id) ? "group-chip selected" : "group-chip"} aria-pressed={groupFilters.includes(group.id)} style={{ "--group-color": group.color } as React.CSSProperties} key={group.id} onClick={() => setGroupFilters((current) => current.includes(group.id) ? current.filter((id) => id !== group.id) : [...current, group.id])}>{group.name} <b>{state.donors.filter((donor) => donor.groupId === group.id).length}</b></button>)}<button className="group-chip add" onClick={() => setGroupPromptOpen(true)}><Plus size={14} /> New group</button></div>
+        <div className="donor-groups-row" ref={donorGroupRef} onScroll={updateGroupPillsOverflow}><button className={!groupFilters.length ? "group-chip selected" : "group-chip"} onClick={() => setGroupFilters([])}>All donors <b>{state.donors.length}</b></button>{donorFilterOptions.map((filter) => <button className={groupFilters.includes(filter.id) ? "group-chip selected" : "group-chip"} aria-pressed={groupFilters.includes(filter.id)} key={filter.id} onClick={() => setGroupFilters((current) => current.includes(filter.id) ? current.filter((id) => id !== filter.id) : [...current, filter.id])}>{filter.name} <b>{state.donors.filter((donor) => donorMatchesGroup(donor, filter.id)).length}</b></button>)}</div>
         {groupPillsOverflow && <button type="button" className="donor-group-nudge" onClick={() => nudgeGroupPills(1)} aria-label="Show more donor groups"><ChevronRight size={16} /></button>}
       </div>
 
@@ -3304,21 +3390,27 @@ function DonorsView({
               <button type="button" className="command-button secondary compact span-two" onClick={() => setDraft({ ...draft, people: [...(draft.people ?? []), { firstName: "", lastName: "" }] })}><Plus size={14} /> Add another person</button>
               {!!draft.people?.length && <label className="field"><span>Join names with</span><select value={draft.multiDonorJoiner ?? "and"} onChange={(event) => setDraft({ ...draft, multiDonorJoiner: event.target.value as Donor["multiDonorJoiner"] })}><option value="and">and</option><option value="&">&amp;</option></select></label>}
               <LabeledSelect label="Donor type" info="Relationship type for stewardship and reporting." value={draft.donorType ?? "Individual"} options={["Individual", "Family", "Organization", "Foundation", "Corporate", "Government", "Anonymous", "Other"]} onChange={(donorType) => setDraft({ ...draft, donorType: donorType as Donor["donorType"] })} />
-              <LabeledInput label="Organization / household" info="Optional organization, family, or household name." value={draft.organizationName ?? ""} onChange={(organizationName) => setDraft({ ...draft, organizationName })} />
-              <LabeledSelect label="Recognition category" info="Recognition category used by existing board filters." value={draft.category} options={state.recognitionSettings.categories} onChange={(category) => setDraft({ ...draft, category })} />
-              <LabeledInput label="Phone number" info="Best number for donor stewardship." value={draft.phone ?? ""} onChange={(phone) => setDraft({ ...draft, phone })} />
+              <h3 className="donor-contact-heading span-two">Contact information</h3>
               <LabeledInput label="Email" info="Email for receipts and follow-up." value={draft.email ?? ""} onChange={(email) => setDraft({ ...draft, email })} />
+              <LabeledInput label="Phone number" info="Best number for donor stewardship." value={draft.phone ?? ""} onChange={(phone) => setDraft({ ...draft, phone })} />
               <LabeledInput label="Address line 1" info="Mailing street address." value={draft.addressLine1 ?? ""} onChange={(addressLine1) => setDraft({ ...draft, addressLine1 })} />
               <LabeledInput label="Address line 2" info="Suite, apartment, or other address detail." value={draft.addressLine2 ?? ""} onChange={(addressLine2) => setDraft({ ...draft, addressLine2 })} />
+              <div className="donor-address-locality span-two">
               <LabeledInput label="City" info="Mailing city." value={draft.city ?? ""} onChange={(city) => setDraft({ ...draft, city })} />
               <LabeledInput label="State / province" info="Mailing state or province." value={draft.stateProvince ?? ""} onChange={(stateProvince) => setDraft({ ...draft, stateProvince })} />
-              <LabeledInput label="Postal code" info="ZIP or postal code." value={draft.postalCode ?? ""} onChange={(postalCode) => setDraft({ ...draft, postalCode })} />
+              <LabeledInput label="ZIP code" info="ZIP or postal code." value={draft.postalCode ?? ""} onChange={(postalCode) => setDraft({ ...draft, postalCode })} />
+              </div>
               <LabeledSelect label="Preferred contact" info="How the museum should normally contact this donor." value={draft.preferredContactMethod ?? "Email"} options={["Email", "Phone", "Mail", "None"]} onChange={(preferredContactMethod) => setDraft({ ...draft, preferredContactMethod: preferredContactMethod as Donor["preferredContactMethod"] })} />
-              <LabeledSelect label="Acknowledgement preference" info="Recognition and communication preference." value={draft.acknowledgementPreference ?? "Public recognition"} options={["Public recognition", "Anonymous", "No mail", "No solicitation"]} onChange={(acknowledgementPreference) => setDraft({ ...draft, acknowledgementPreference: acknowledgementPreference as Donor["acknowledgementPreference"] })} />
-              <LabeledInput label="Relationship manager" info="Museum staff member responsible for the relationship." value={draft.relationshipManager ?? ""} onChange={(relationshipManager) => setDraft({ ...draft, relationshipManager })} />
+              <LabeledSelect label="Acknowledgement preference" info="How the donor wishes to be recognized." value={draft.acknowledgementPreference === "No mail" || draft.acknowledgementPreference === "No solicitation" ? "" : draft.acknowledgementPreference ?? "Public recognition"} options={["", "Public recognition", "Anonymous"]} optionLabels={{ "": "Select preference" }} onChange={(acknowledgementPreference) => setDraft({ ...draft, acknowledgementPreference: (acknowledgementPreference || undefined) as Donor["acknowledgementPreference"] })} />
+              <LabeledInput label="Museum contact" info="Museum staff member responsible for the relationship." value={draft.relationshipManager ?? ""} onChange={(relationshipManager) => setDraft({ ...draft, relationshipManager })} />
+              <details className="donor-additional-info span-two">
+              <summary>Additional donor info</summary>
+              <div className="editor-form-grid">
               <label className="field span-two"><span>Donor story</span><textarea className="expanded-copy" value={draft.expandedInfo ?? ""} onChange={(event) => setDraft({ ...draft, expandedInfo: event.target.value })} placeholder="Impact story, relationship context, and stewardship notes" /></label>
               <label className="field span-two"><span>Favorite joke</span><textarea value={draft.favoriteJoke ?? ""} onChange={(event) => setDraft({ ...draft, favoriteJoke: event.target.value })} /></label>
               <label className="field span-two"><span>Favorite inspirational quote</span><textarea value={draft.favoriteQuote ?? ""} onChange={(event) => setDraft({ ...draft, favoriteQuote: event.target.value })} /></label>
+              </div>
+              </details>
             </div>}
             {editTab === "images" && <section className="donor-images-editor"><header><div><p className="eyebrow">Donor media</p><h3>Donor images</h3><span>Portrait, landscape, or square tags are detected automatically from the image dimensions.</span></div><label className="command-button primary compact image-upload-button"><Upload size={15} /> Add image<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => { void addDonorImage(event.target.files?.[0]); event.target.value = ""; }} /></label></header>{draft.images?.length ? <div className="donor-image-grid">{draft.images.map((image) => <article key={image.id}><img src={resolveProjectAssetUrl(image.url)} alt={image.name} /><div><strong>{image.name}</strong><span>{image.orientation}</span></div><button type="button" className="icon-button danger-icon" onClick={() => removeDonorImage(image.id)} aria-label={`Remove ${image.name}`} title="Remove image"><Trash2 size={15} /></button></article>)}</div> : <div className="donor-images-empty"><ImagePlus size={22} /><strong>No donor images yet</strong><span>Add a portrait or landscape image to use it throughout the recognition workspace.</span></div>}</section>}
             {editTab === "giving" && <><DonorPledgeEditor state={state} donor={draft} onChange={(nextDonor) => {
@@ -3333,14 +3425,12 @@ function DonorsView({
             }} /></>}
             {editTab === "history" && <DonationHistoryEditor donor={draft} users={state.users} activeUserId={activeUserId} onChange={(donations) => setDraft({ ...draft, donations })} />}
             {editTab === "displays" && <div className="donor-list-manager">{(() => {
-              const boardOptions = state.boardPrograms.filter((board) => availableDonorLists.some((option) => option.boardId === board.id));
               const listsOnBoard = availableDonorLists.filter((option) => option.boardId === selectedDonorBoardId);
               const selected = listsOnBoard.find((option) => option.id === selectedDonorListId) ?? listsOnBoard[0];
               const assigned = Boolean(selected && draftDonorListIds.includes(selected.id));
               return <>
                 <div className="donor-list-selector-stack">
-                  <label className="field"><span>Board</span><select value={selectedDonorBoardId} onChange={(event) => { const boardId = event.target.value; const firstList = availableDonorLists.find((option) => option.boardId === boardId); setSelectedDonorBoardId(boardId); setSelectedDonorListId(firstList?.id ?? ""); }}>{boardOptions.map((board) => <option key={board.id} value={board.id}>{board.name} · {board.orientation}</option>)}</select></label>
-                  <label className="field"><span>Donor list</span><select value={selected?.id ?? ""} onChange={(event) => setSelectedDonorListId(event.target.value)}>{listsOnBoard.map((option, index) => <option key={option.id} value={option.id}>{draftDonorListIds.includes(option.id) ? "✓ " : ""}{option.panel.title || `Donor list ${index + 1}`}</option>)}</select></label>
+                  <DonorListPicker options={availableDonorLists} value={selected?.id ?? ""} assignedIds={draftDonorListIds} onChange={(option) => { setSelectedDonorBoardId(option.boardId); setSelectedDonorListId(option.id); }} />
                   {selected && <div className={assigned ? "donor-list-assignment-status assigned" : "donor-list-assignment-status"}><strong>{assigned ? "Included in this donor list" : "Not in this donor list"}</strong><small>{assigned ? "Removing will update and save this board's roster." : "Adding will update and save this board's roster."}</small></div>}
                   {selected && <button type="button" className={assigned ? "command-button danger" : "command-button primary"} onClick={toggleSelectedDonorList}>{assigned ? <><X size={16} /> Remove donor from this donor list</> : <><Plus size={16} /> Add donor to this donor list</>}</button>}
                 </div>
@@ -3415,12 +3505,12 @@ function PledgeAmountControl({ amounts, value, onChange }: { amounts: number[]; 
 
 type PledgeTermValue = { pledgeYears?: number; pledgeOneTime?: boolean; years?: number };
 
-function PledgeTermControl({ donor, defaultYears, onChange }: { donor: PledgeTermValue; defaultYears: number; onChange: (donor: PledgeTermValue) => void }) {
+function PledgeTermControl({ donor, defaultYears, onChange, allowOneTime = true }: { donor: PledgeTermValue; defaultYears: number; onChange: (donor: PledgeTermValue) => void; allowOneTime?: boolean }) {
   const years = Math.max(1, Math.round(donor.pledgeYears ?? donor.years ?? defaultYears ?? 1));
-  const supportsOneTime = !("years" in donor);
+  const supportsOneTime = allowOneTime && !("years" in donor);
   const setYears = (next: number) => onChange({ ...donor, pledgeOneTime: false, pledgeYears: Math.max(1, Math.min(99, Math.round(next) || 1)) });
   return <div className="pledge-term-field field">
-    <span>Pledge term <InfoDot text="Use one or more years, or explicitly mark this as a one-time pledge. Zero and negative terms are never stored." /></span>
+    <span>Pledge term <InfoDot text={supportsOneTime ? "Use one or more years, or explicitly mark this as a one-time pledge." : "Number of years in the pledge commitment."} /></span>
     {supportsOneTime && <label className="switch-row pledge-one-time"><input type="checkbox" checked={donor.pledgeOneTime ?? false} onChange={(event) => onChange({ ...donor, pledgeOneTime: event.target.checked, pledgeYears: event.target.checked ? undefined : years })} /><span>One-time pledge</span></label>}
     {(!supportsOneTime || !donor.pledgeOneTime) && <div className="themed-stepper"><button type="button" onClick={() => setYears(years - 1)} disabled={years <= 1} aria-label="Reduce pledge term"><span>−</span></button><input type="text" inputMode="numeric" pattern="[0-9]*" aria-label="Pledge term in years" value={years} onChange={(event) => setYears(Number(event.target.value.replace(/\D/g, "")) || 1)} /><b>years</b><button type="button" onClick={() => setYears(years + 1)} disabled={years >= 99} aria-label="Increase pledge term"><span>+</span></button></div>}
   </div>;
@@ -3491,10 +3581,14 @@ function DonorPledgeEditor({ state, donor, onChange }: { state: LanternState; do
     <div className="pledge-editor-note"><BadgeCheck size={19} /><span><strong>A pledge is a commitment, not a received payment.</strong><small>Creating or changing a pledge never adds money to Donation History. Add a gift there only when the museum actually receives it.</small></span></div>
     <div className="editor-form-grid">
       <LabeledSelect label="Program" info="Choose General donation for ordinary gifts, volunteering, or physical contributions; choose Toy Soldier Brigade for its pledge options." value={donor.givingProgramId ?? ""} options={["", ...state.givingPrograms.filter((item) => item.active !== false || item.id === donor.givingProgramId).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)).map((item) => item.id)]} optionLabels={{ "": "General donation", ...Object.fromEntries(state.givingPrograms.map((item) => [item.id, `${item.name}${item.active === false ? " (archived)" : ""}`])) }} onChange={chooseProgram} />
-      {!program && <><LabeledSelect label="General donation type" info="What kind of support is being discussed or recognized. Confirm actual receipts in Donation History." value={donor.donationType ?? "Cash"} options={["Cash", "Volunteer", "In-kind"]} optionLabels={{ Cash: "Money", Volunteer: "Volunteering", "In-kind": "Physical donation" }} onChange={(donationType) => onChange({ ...donor, donationType: donationType as Donor["donationType"] })} /><LabeledInput label="Fund / designation" info="Optional purpose, campaign, or restricted fund for this general contribution." value={donor.generalDonationFund ?? ""} onChange={(generalDonationFund) => onChange({ ...donor, generalDonationFund })} /><LabeledInput label="Recognition year" info="Year this general donor's recognition begins." value={donor.donationDate ?? donor.since} onChange={(donationDate) => onChange({ ...donor, donationDate, since: donationDate })} /><LabeledSelect label="Recognition tier" info="Tier used by general-donor recognition boards." value={donor.tier} options={state.recognitionSettings.tiers} onChange={(tier) => onChange({ ...donor, tier })} /></>}
+      {!program && <>
+        <LabeledSelect label="General donation type" info="What kind of support is being discussed or recognized. Confirm actual receipts in Donation History." value={donor.donationType ?? "Cash"} options={["Cash", "Volunteer", "In-kind"]} optionLabels={{ Cash: "Money", Volunteer: "Volunteering", "In-kind": "Physical donation" }} onChange={(donationType) => onChange({ ...donor, donationType: donationType as Donor["donationType"] })} />
+        <LabeledInput label="Recognition year" info="Year this general donor's recognition begins." value={donor.donationDate ?? donor.since} onChange={(donationDate) => onChange({ ...donor, donationDate, since: donationDate })} />
+        <label className="field span-two"><span>Details</span><textarea value={donor.generalDonationDetails ?? ""} onChange={(event) => onChange({ ...donor, generalDonationDetails: event.target.value })} placeholder="Describe the donation" /></label>
+      </>}
       {program && <LabeledSelect label="Giving level" info="Controls the member's tier and linked level-board placement." value={donor.givingLevelId ?? ""} options={program.levels.filter((item) => item.active !== false || item.id === donor.givingLevelId).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)).map((item) => item.id)} optionLabels={Object.fromEntries(program.levels.map((item) => [item.id, `${item.name} Level${item.active === false ? " (archived)" : ""}`]))} onChange={chooseLevel} />}
       {program && <PledgeAmountControl amounts={program.levels.filter((item) => item.active !== false).map((item) => item.annualPledge)} value={donor.pledgeAnnualAmount} onChange={(pledgeAnnualAmount) => onChange({ ...donor, pledgeAnnualAmount })} />}
-      {program && <PledgeTermControl donor={donor} defaultYears={level?.years ?? 5} onChange={(term) => {
+      {program && <PledgeTermControl donor={donor} allowOneTime={false} defaultYears={level?.years ?? 5} onChange={(term) => {
         const nextDonor = { ...donor, ...term };
         const termTag = nextDonor.pledgeOneTime ? "One-time pledge" : `${nextDonor.pledgeYears ?? level?.years ?? 5}-year pledge`;
         onChange(connectedBoards({ ...nextDonor, tags: [...new Set([...(nextDonor.tags ?? []).filter((tag) => !/^(one-time|five-year|\d+-year) pledge$/i.test(tag)), termTag])] }));
@@ -3502,11 +3596,6 @@ function DonorPledgeEditor({ state, donor, onChange }: { state: LanternState; do
       {program && <LabeledInput label="Pledge start year" info="Cohort or commitment start year." value={donor.pledgeStartYear ?? program.classYear} onChange={(pledgeStartYear) => onChange({ ...donor, pledgeStartYear })} />}
       {program && <LabeledSelect label="Pledge status" info="Internal status for the multi-year commitment." value={donor.pledgeStatus ?? "Pledged"} options={["Pledged", "Active", "Fulfilled", "Paused"]} onChange={(pledgeStatus) => onChange({ ...donor, pledgeStatus: pledgeStatus as Donor["pledgeStatus"] })} />}
     </div>
-    <div className="pledge-data-map"><span><strong>Program + level</strong><small>Used for linked recognition-board eligibility.</small></span><span><strong>Annual amount + term</strong><small>Shown in the pledge summary and recognition profile.</small></span><span><strong>Received gifts</strong><small>Recorded only in Donation History for reconciliation.</small></span></div>
-    {program && <div className="pledge-summary-card">
-      <div><span>{program.classLabel}</span><strong>{program.name}</strong><small>{program.fundDesignation}</small></div>
-      <div><span>Recognition</span><strong>{level?.name ?? donor.tier} Level</strong><small>{donor.pledgeAnnualAmount ? `$${donor.pledgeAnnualAmount.toLocaleString()}/year` : "Amount not set"} · {donor.pledgeOneTime ? "One-time pledge" : `${donor.pledgeYears ?? 5} years`}</small></div>
-    </div>}
   </div>;
 }
 
@@ -3972,7 +4061,10 @@ function createBoardPanel(type: BoardPanelType, position = { x: 30, y: 35 }): Bo
     text: { id, type, title: "Add your text here", size: "standard" },
     heading: { id, type, title: "OUR GENEROUS DONORS", size: "standard" },
     "supporters-heading": { id, type, title: "Our supporters", size: "compact" },
-    donors: { id, type, title: "", size: "feature", columns: 2 },
+    // New donor lists are intentionally independent and empty. Omitting
+    // donorIds makes the renderer inherit the board-wide roster, which is
+    // useful for legacy panels but surprising when creating a new list.
+    donors: { id, type, title: "", size: "feature", columns: 2, donorIds: [] },
     message: { id, type, eyebrow: "A NOTE OF GRATITUDE", title: "Your support makes discovery possible", body: "Thank you for investing in our community.", size: "standard" },
     story: { id, type, eyebrow: "FEATURED STORY", title: "A brighter future, built together", body: "Share a short story about the impact your supporters made possible.", size: "standard" },
     footer: { id, type, title: "TOGETHER, WE MAKE A DIFFERENCE.", size: "compact" },
