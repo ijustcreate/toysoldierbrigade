@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0638",
+    "title": "Apply donor italic styling",
+    "summary": "Donor names now honor the Typography italic and bold settings in both preview and rendered board output.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:37 PM",
+    "areas": [
+      "Board editor",
+      "Donor presentation"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/display/BabylonDonorWall.tsx"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0637",
     "title": "Apply donor letter and line spacing",
     "summary": "Donor-list names now use the selected panel letter-spacing and line-height values in the editor preview and rendered board.",

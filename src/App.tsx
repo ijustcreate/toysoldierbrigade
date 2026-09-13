@@ -5284,6 +5284,8 @@ function DirectBoardDonorName({ donor, display, panel, palette, onRename }: {
       "--board-donor-letter-spacing": `${panel.letterSpacing ?? 0}px`,
       "--board-donor-line-height": panel.lineHeight ?? 1.2,
       fontFamily: `${presentation.fontFamily}, sans-serif`,
+      fontStyle: panel.fontStyle ?? "normal",
+      fontWeight: panel.fontWeight === "bold" ? 700 : 400,
       color: presentation.nameColor
     } as React.CSSProperties}
   >
