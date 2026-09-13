@@ -5267,7 +5267,7 @@ function DirectBoardDonorName({ donor, display, panel, palette, onRename }: {
   });
   const showIcon = Boolean(panel.showIcons) && presentation.recognitionIcon !== "none";
   return <div
-    className={`direct-donor-name board-highlight-${presentation.highlight} icon-${panel.recognitionIconPlacement ?? "left"}${donor.recordStatus === "deprecated-legacy" ? " deprecated-legacy" : ""}`}
+    className={`direct-donor-name board-highlight-${presentation.highlight} icon-${panel.recognitionIconPlacement === "both" ? "both" : "left"}${donor.recordStatus === "deprecated-legacy" ? " deprecated-legacy" : ""}`}
       style={{
       "--board-donor-name": presentation.nameColor,
       "--board-donor-accent": presentation.accentColor,

@@ -1,5 +1,22 @@
 [
   {
+    "id": "DEV-0629",
+    "title": "Simplify donor icon placement controls",
+    "summary": "Removed the donor icon position dropdown and above/below choices. Donor lists now use the Show icons and Both sides controls.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:17 PM",
+    "areas": [
+      "Board Editor",
+      "Donor display"
+    ],
+    "files": [
+      "src/components/BoardDonorPresentationEditor.tsx",
+      "src/App.tsx",
+      "src/display/BabylonDonorWall.tsx"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0628",
     "title": "Fix donor recognition icon display",
     "summary": "Donor lists now keep names visible when recognition icons are enabled, show a concise Show icons control with a Both sides toggle, and render icons on both sides when selected.",

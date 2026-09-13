@@ -103,7 +103,6 @@ export function BoardDonorPresentationEditor({
         {(Object.keys(iconLabels) as RecognitionIcon[]).map((value) => <option value={value} key={value}>{value === "none" ? "None" : `${recognitionIconGlyph(value)}  ${iconLabels[value]}`}</option>)}
       </select>
     </label>
-    {iconsVisible && <label className="field"><span>Icon position</span><select value={iconPlacement === "both" ? "left" : iconPlacement} onChange={(event) => onIconPlacementChange(event.target.value as typeof iconPlacement)}><option value="left">Left of name</option><option value="right">Right of name</option><option value="above">Above name</option><option value="below">Below name</option></select></label>}
     <div className="board-donor-icon-toggles"><label className="switch-row"><input type="checkbox" checked={iconsVisible} onChange={(event) => onIconsVisibleChange(event.target.checked)} /><span>Show icons</span></label>{iconsVisible && <label className="switch-row"><input type="checkbox" checked={iconPlacement === "both"} onChange={(event) => onIconPlacementChange(event.target.checked ? "both" : "left")} /><span>Both sides</span></label>}</div>
 
   </div>;
