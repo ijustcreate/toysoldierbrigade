@@ -47,7 +47,7 @@ function parseLegacyPeople(value: string): Array<{ firstName: string; middleName
   return parts.map((part) => ({ firstName: part.replace(new RegExp(`\\s+${lastName}$`), "").trim(), lastName }));
 }
 
-export function donorSortKey(donor: Donor, sort: "first-name" | "last-name"): string {
+export function donorSortKey(donor: Donor, sort: "first-name" | "last-name" | "first-name-desc" | "last-name-desc"): string {
   const fields = hydrateDonorNameFields(donor);
   const names = [
     { firstName: fields.firstName ?? "", lastName: fields.lastName ?? "" },
@@ -55,7 +55,7 @@ export function donorSortKey(donor: Donor, sort: "first-name" | "last-name"): st
   ].filter((name) => name.firstName || name.lastName);
   if (!names.length) return donor.name.trim().toLocaleLowerCase();
   return names
-    .map((name) => (sort === "first-name" ? name.firstName : name.lastName).trim())
+    .map((name) => (sort.startsWith("first-name") ? name.firstName : name.lastName).trim())
     .filter(Boolean)
     .join(" ")
     .toLocaleLowerCase() || donor.name.trim().toLocaleLowerCase();

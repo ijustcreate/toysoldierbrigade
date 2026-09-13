@@ -327,7 +327,7 @@ export interface BoardPanel {
   rows?: number;
   donorIds?: string[];
   /** Ordering for this donor-list panel. */
-  donorSort?: "manual" | "first-name" | "last-name";
+  donorSort?: "manual" | "first-name" | "last-name" | "first-name-desc" | "last-name-desc";
   /** One donor positioned on an image-backed recognition star. */
   donorId?: string;
   /** Dynamically includes matching tiers from the board roster as membership changes. */

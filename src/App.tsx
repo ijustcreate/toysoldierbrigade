@@ -4149,7 +4149,7 @@ function ThemeStudio({
   const [donorSearch, setDonorSearch] = useState("");
   const [rosterLevelFilter, setRosterLevelFilter] = useState("all");
   const [rosterPledgeFilter, setRosterPledgeFilter] = useState("all");
-  const [rosterSort, setRosterSort] = useState<"name-asc" | "name-desc" | "level">("name-asc");
+  const [rosterSort, setRosterSort] = useState<"last-name-asc" | "first-name-asc" | "first-name-desc" | "last-name-desc">("last-name-asc");
   const [boardSearch, setBoardSearch] = useState("");
   const [boardEditorZoom, setBoardEditorZoom] = useState(1);
   const [boardEditorPan, setBoardEditorPan] = useState({ x: 0, y: 0 });
@@ -4172,20 +4172,31 @@ function ThemeStudio({
   const selectedDonorTierFilters = selectedPanel?.type === "donors" ? selectedPanel.donorTierFilter ?? [] : [];
   const selectedDonorListIds = selectedPanel?.type === "donors" ? selectedPanel.donorIds ?? selectedProgram?.donorIds ?? [] : [];
   const rosterPledgeTypes = [...new Set(state.donors.map((donor) => donor.donationType).filter((type): type is NonNullable<Donor["donationType"]> => Boolean(type)))].sort();
-  const rosterFacetOptions = donorRosterFacetOptions(state.donors, state.givingPrograms);
-  const filteredBoardDonors = filterDonorRoster(state.donors, state.givingPrograms, { query: donorSearch, facet: rosterLevelFilter, donationType: rosterPledgeFilter })
-    .sort((a, b) => rosterSort === "name-desc"
-      ? b.name.localeCompare(a.name)
-      : rosterSort === "level"
-        ? a.tier.localeCompare(b.tier) || a.name.localeCompare(b.name)
-        : a.name.localeCompare(b.name));
+  const rosterFacetOptions = ["Explore", "Play", "Toy Soldier Brigade", "Legacy"];
+  const donorMatchesRosterFacet = (donor: Donor, facet: string) => {
+    if (facet === "all") return true;
+    const values = [donor.tier, donor.category, ...(donor.tags ?? [])].filter(Boolean).map((value) => value!.toLocaleLowerCase());
+    if (facet === "Legacy") return donor.recordStatus === "deprecated-legacy" || values.includes("legacy");
+    if (facet === "Toy Soldier Brigade") return values.includes("toy soldier brigade");
+    return values.includes(facet.toLocaleLowerCase());
+  };
+  const filteredBoardDonors = state.donors.filter((donor) => donorSearch.trim().length === 0 || donorDisplayName(donor).toLocaleLowerCase().includes(donorSearch.trim().toLocaleLowerCase()))
+    .filter((donor) => donorMatchesRosterFacet(donor, rosterLevelFilter))
+    .filter((donor) => rosterPledgeFilter === "all" || donor.donationType === rosterPledgeFilter)
+    .sort((a, b) => {
+      const sortKey = rosterSort === "last-name-asc" ? "last-name" : rosterSort === "first-name-asc" ? "first-name" : rosterSort;
+      return donorSortKey(a, sortKey).localeCompare(donorSortKey(b, sortKey)) || a.name.localeCompare(b.name);
+    });
   const donorListRoster = selectedDonorListIds
     .map((donorId) => state.donors.find((donor) => donor.id === donorId))
     .filter((donor): donor is Donor => donor !== undefined)
     .filter((donor) => donor.active && (!selectedDonorTierFilters.length || selectedDonorTierFilters.includes(donor.tier)))
     .sort((a, b) => {
       const mode = selectedPanel?.type === "donors" ? selectedPanel.donorSort ?? "manual" : "manual";
-      return mode === "manual" ? 0 : donorSortKey(a, mode).localeCompare(donorSortKey(b, mode)) || a.name.localeCompare(b.name);
+      if (mode === "manual") return 0;
+      const sortKey = mode === "first-name" || mode === "last-name" || mode.endsWith("-desc") ? mode : "last-name";
+      const comparison = donorSortKey(a, sortKey).localeCompare(donorSortKey(b, sortKey));
+      return mode.endsWith("-desc") ? -comparison : comparison || a.name.localeCompare(b.name);
     }) ?? [];
   const donorListColumns = selectedPanel?.type === "donors" ? selectedPanel.columns ?? selectedProgram?.columns ?? 1 : 1;
   const donorListRows = selectedPanel?.type === "donors" ? selectedPanel.rows ?? Math.max(1, Math.ceil(donorListRoster.length / donorListColumns)) : 1;
@@ -4695,10 +4706,10 @@ function ThemeStudio({
                   <div className="board-roster-browser-head"><div><strong>Donors in this list</strong><small>{selectedDonorListIds.length} selected · {filteredBoardDonors.length} shown</small></div><span>Check a donor to include them</span></div>
                   <label className="board-roster-search"><Search size={15} /><span className="sr-only">Find a donor</span><input value={donorSearch} onChange={(event) => setDonorSearch(event.target.value)} placeholder="Search directly by donor name" /></label>
                   <div className="board-roster-filters" aria-label="Filter donor-list membership">
-                    <label><span>Giving level or tag</span><select value={rosterLevelFilter} onChange={(event) => setRosterLevelFilter(event.target.value)}><option value="all">All levels and tags</option>{rosterFacetOptions.map((facet) => <option key={facet} value={facet}>{facet}</option>)}</select></label>
+                    <label><span>Donor filter</span><select value={rosterLevelFilter} onChange={(event) => setRosterLevelFilter(event.target.value)}><option value="all">All donors</option>{rosterFacetOptions.map((facet) => <option key={facet} value={facet}>{facet}</option>)}</select></label>
                     <label><span>Donation / gift type</span><select value={rosterPledgeFilter} onChange={(event) => setRosterPledgeFilter(event.target.value)}><option value="all">All types</option>{rosterPledgeTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
-                    <label><span>Sort</span><select value={rosterSort} onChange={(event) => setRosterSort(event.target.value as typeof rosterSort)}><option value="name-asc">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="level">Level, then name</option></select></label>
-                    <label><span>Board display order</span><select value={selectedPanel.donorSort ?? "manual"} onChange={(event) => patchPanel(selectedPanel.id, { donorSort: event.target.value as BoardPanel["donorSort"] })}><option value="manual">User ordered</option><option value="first-name">Alphabetical by first name</option><option value="last-name">Alphabetical by last name</option></select></label>
+                    <label><span>Sort donor picker</span><select value={rosterSort} onChange={(event) => setRosterSort(event.target.value as typeof rosterSort)}><option value="last-name-asc">A–Z by last name</option><option value="first-name-asc">A–Z by first name</option><option value="first-name-desc">Z–A by first name</option><option value="last-name-desc">Z–A by last name</option></select></label>
+                    <label><span>Board display order</span><select value={selectedPanel.donorSort ?? "manual"} onChange={(event) => patchPanel(selectedPanel.id, { donorSort: event.target.value as BoardPanel["donorSort"] })}><option value="manual">User ordered</option><option value="first-name">A–Z by first name</option><option value="last-name">A–Z by last name</option><option value="first-name-desc">Z–A by first name</option><option value="last-name-desc">Z–A by last name</option></select></label>
                   </div>
                   <div className="board-donor-picker full-roster-picker">{filteredBoardDonors.map((donor) => { const selected = selectedDonorListIds.includes(donor.id); const cutOff = cutOffDonorIds.includes(donor.id); const facets = donorRosterFacets(donor, state.givingPrograms); return <label key={donor.id} className={`${selected ? "selected" : ""}${cutOff ? " cut-off" : ""}`}><input type="checkbox" checked={selected} onChange={(event) => toggleSelectedDonorListMember(donor.id, event.target.checked)} /><span><strong>{donorDisplayName(donor)}</strong><small>{facets.slice(0, 3).join(" · ") || "No giving level or tags"}{donor.donationType ? ` · ${donor.donationType}` : ""}{!donor.active ? " · Inactive" : ""}</small></span><button type="button" className="icon-button compact" onClick={(event) => { event.preventDefault(); onOpenDonor(donor.id); }} aria-label={`Edit ${donorDisplayName(donor)}`} title="Edit donor"><Pencil size={14} /></button><b>{cutOff ? "Cut off" : selected ? "Included" : "Excluded"}</b></label>; })}{!filteredBoardDonors.length && <p className="board-roster-empty">No donors match these filters. Existing selections remain unchanged.</p>}</div>
                   <p className="field-note">Search and filters only change which rows are shown. Hidden donor selections stay in this list until you explicitly remove them.</p>
@@ -10781,7 +10792,10 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
             state={state}
             screenId={screenId}
             fitToScreen={fitToScreen}
-            fitPadding={isFullscreen ? 1 : undefined}
+            // The standalone TV display is already clipped to the viewport;
+            // any containment padding here becomes a visible border on both
+            // axes when the launcher cannot report browser fullscreen.
+            fitPadding={1}
             viewMode="2d"
             announcementActive={Boolean(showAnnouncement || scheduledAnnouncement)}
           />)}

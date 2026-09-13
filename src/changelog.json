@@ -1,5 +1,38 @@
 [
   {
+    "id": "DEV-0623",
+    "title": "Align board donor selection filters and ordering",
+    "summary": "The board editor donor picker now uses the approved Donors filters and supports ascending or descending first/last-name sorting. Board display order updates immediately from the selected control.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:56 PM",
+    "areas": [
+      "Board Editor",
+      "Donors",
+      "Filtering"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/donorName.ts",
+      "src/types.ts"
+    ],
+    "tests": "npm run build; npm run test:donor-roster-membership; npm run test:state-preservation; git diff --check"
+  },
+  {
+    "id": "DEV-0622",
+    "title": "Make TV display edge-to-edge",
+    "summary": "Removed containment padding from the standalone TV display fit path so the board reaches all viewport edges.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:43 PM",
+    "areas": [
+      "TV display",
+      "Board rendering"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build"
+  },
+  {
     "id": "DEV-0621",
     "title": "Add controlled launcher refresh",
     "summary": "Added a user-confirmed Refresh app action in Settings so desktop users can reload the newest published bundle when they choose, while Pull latest site changes remains data-only.",
