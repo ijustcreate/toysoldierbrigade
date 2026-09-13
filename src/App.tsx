@@ -5157,6 +5157,7 @@ function DirectBoardCanvas({
         height: `${panel.height ?? 18}%`,
         zIndex: panel.id === selectedPanelId ? panels.length + 20 : index + 2,
         textAlign: panel.textAlign ?? "center",
+        "--board-donor-text-align": panel.textAlign ?? "center",
         fontFamily: panel.fontFamily ?? "Montserrat",
         "--panel-text-color": panel.textColor ?? (panel.type === "supporters-heading" || panel.type === "footer" ? palette.accent : panel.type === "message" || panel.type === "story" ? palette.text : palette.text),
         "--panel-font-size": `${panel.fontSize ?? (panel.type === "heading" ? 32 : panel.type === "donors" ? display.nameSize ?? 28 : 24)}px`,

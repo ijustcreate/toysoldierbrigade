@@ -502,7 +502,7 @@ button:disabled {
 
 .calendar-empty {
   padding: 20px 4px;
-  text-align: center;
+  text-align: var(--board-donor-text-align, center);
 }
 
 .schedule-legend {
@@ -15187,16 +15187,18 @@ body.theme-light {
 
 /* Names share one fitted type size per panel and retain their deliberate lines. */
 .direct-donor-name { flex-direction: column; gap: 1px; text-align: center; white-space: normal; }
+.panel-donors .direct-donor-name { text-align: var(--board-donor-text-align, center); }
 .direct-donor-name > .editable-board-text.multiline-donor-name {
   width: 100%;
   min-width: 0;
   overflow: visible;
   font-size: 1em;
   line-height: .9;
-  text-align: center;
+  text-align: var(--board-donor-text-align, center);
   white-space: normal;
 }
 .editable-board-text.multiline-donor-name { white-space: pre-line; }
+.panel-donors .typography-choice-row > .field:last-child { display: none; }
 .multiline-donor-name .donor-name-line { display: inline-block; max-width: 100%; white-space: nowrap; }
 
 /* Messages explain durable notices; Blips explain short playful moments. */

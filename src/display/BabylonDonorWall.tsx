@@ -1154,6 +1154,7 @@ function drawComposableBoard(
         });
         context.save();
         drawBoardDonorHighlight(context, presentation.highlight, x, baseline, cellWidth * 0.72, baseSize * Math.max(1, lines.length * .92) * scale, presentation.accentColor, presentation.underlineThickness, presentation.underlineOffset, presentation.underlineOpacity);
+        context.textAlign = panel.textAlign ?? "center";
         context.font = `${panel.fontStyle === "italic" ? "italic " : ""}${panel.fontWeight === "bold" ? 700 : 500} ${Math.round(baseSize * scale)}px ${presentation.fontFamily}, Inter, sans-serif`;
         drawBoardDonorName(context, donor.name, x, baseline, cellWidth * 0.88, Math.round(baseSize * scale), 7, presentation, animationTime, donor.id);
         if (panel.showIcons && presentation.recognitionIcon !== "none" && screen) drawBoardRecognitionIcons(context, left + cellWidth * column + cellWidth * 0.05, left + cellWidth * column + cellWidth * 0.95, baseline - baseSize * 0.25, presentation, screen, Math.max(7, baseSize * 0.35), panel.recognitionIconPlacement === "both" ? "both" : "left");

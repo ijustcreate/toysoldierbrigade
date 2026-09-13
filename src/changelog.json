@@ -1,5 +1,22 @@
 [
   {
+    "id": "DEV-0639",
+    "title": "Fix donor list alignment and remove text arc",
+    "summary": "Wrapped donor names now align with the donor-list text alignment choice, and Text arc is no longer shown for donor lists.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:40 PM",
+    "areas": [
+      "Board editor",
+      "Donor presentation"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css",
+      "src/display/BabylonDonorWall.tsx"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0638",
     "title": "Apply donor italic styling",
     "summary": "Donor names now honor the Typography italic and bold settings in both preview and rendered board output.",
