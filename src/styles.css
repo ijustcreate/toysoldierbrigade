@@ -8037,9 +8037,13 @@ textarea:focus-visible,
 .board-donor-underline-controls label { display: grid; gap: 3px; color: var(--muted); font-size: 8px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .board-donor-underline-controls input { width: 100%; accent-color: var(--accent); }.board-donor-underline-controls b { color: var(--text); font-size: 9px; letter-spacing: 0; text-transform: none; }
 .font-picker { position: relative; }
-.font-picker summary { display: flex; align-items: center; justify-content: space-between; min-height: 34px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); cursor: pointer; list-style: none; }
+.font-picker summary { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid rgba(222, 236, 231, 0.16); border-radius: 6px; background: rgba(7, 17, 29, 0.54); color: #edf8f5; cursor: pointer; list-style: none; }
 .font-picker summary::-webkit-details-marker { display: none; }
 .font-picker summary::after { content: "⌄"; font-family: sans-serif; color: var(--muted); }
+.theme-light .font-picker summary { border-color: rgba(47, 66, 96, .22); background: #fff; color: var(--ink); }
+.theme-warm .font-picker summary { border-color: rgba(85, 58, 42, .2); background: #fff9f2; color: #342821; }
+.theme-sparkle .font-picker summary { border-color: rgba(80, 39, 104, .18); background: #fff8ff; color: #30124f; }
+.theme-children .font-picker summary { border-color: rgba(23, 63, 97, .18); background: #fffdf5; color: #173f61; }
 .font-picker-options { position: absolute; z-index: 100; inset: auto 0 calc(100% + 4px); max-height: 420px; overflow: auto; padding: 4px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--ink); box-shadow: 0 12px 24px rgba(12, 25, 44, .28); }
 .font-picker-options button { display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 5px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .font-picker-options button:hover, .font-picker-options button[aria-selected="true"] { background: var(--accent); color: white; }

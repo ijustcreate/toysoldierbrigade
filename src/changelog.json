@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0640",
+    "title": "Match font dropdown styling",
+    "summary": "The font picker now uses the same visual control treatment as the other inspector dropdowns across supported themes.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:41 PM",
+    "areas": [
+      "Board editor",
+      "Typography"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0639",
     "title": "Fix donor list alignment and remove text arc",
     "summary": "Wrapped donor names now align with the donor-list text alignment choice, and Text arc is no longer shown for donor lists.",
