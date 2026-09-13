@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0624",
+    "title": "Remove Donors page tag filter",
+    "summary": "Removed the unused All tags dropdown from the Donors page without deleting saved donor tag metadata.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:59 PM",
+    "areas": [
+      "Donors",
+      "Filtering"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0623",
     "title": "Align board donor selection filters and ordering",
     "summary": "The board editor donor picker now uses the approved Donors filters and supports ascending or descending first/last-name sorting. Board display order updates immediately from the selected control.",

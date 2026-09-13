@@ -2901,7 +2901,6 @@ function DonorsView({
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
   const [reorderTooltip, setReorderTooltip] = useState<{ left: number; top: number; text: string } | null>(null);
-  const [tagFilter, setTagFilter] = useState("all");
   const [groupFilters, setGroupFilters] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState<"manual" | "az" | "za">(
@@ -2946,7 +2945,6 @@ function DonorsView({
   const donorListScrollFrame = useRef<number | null>(null);
   const donorGroupRef = useRef<HTMLDivElement>(null);
   const [groupPillsOverflow, setGroupPillsOverflow] = useState(false);
-  const allTags = Array.from(new Set([...state.recognitionSettings.tags, ...state.donors.flatMap((donor) => donor.tags ?? [])])).sort();
   const donorFilterOptions = [
     { id: "explore", name: "Explore" },
     { id: "play", name: "Play" },
@@ -2964,7 +2962,7 @@ function DonorsView({
       || state.donorGroups.some((group) => group.id === donor.groupId && group.name.toLocaleLowerCase() === filterId);
   };
   const visibleDonors = donors
-    .filter((donor) => (tagFilter === "all" || donor.tags?.includes(tagFilter)) && (!groupFilters.length || groupFilters.some((groupId) => donorMatchesGroup(donor, groupId))) && (typeFilter === "all" || donor.donationType === typeFilter))
+    .filter((donor) => (!groupFilters.length || groupFilters.some((groupId) => donorMatchesGroup(donor, groupId))) && (typeFilter === "all" || donor.donationType === typeFilter))
     .sort((a, b) => sortOrder === "manual" ? 0 : a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) * (sortOrder === "az" ? 1 : -1));
   // Kept solely for the legacy footer markup, which is hidden below; rows are no longer paginated.
   const pageDonors = visibleDonors;
@@ -3247,7 +3245,6 @@ function DonorsView({
       };
     });
     setQuery("");
-    setTagFilter("all");
     setGroupFilters([]);
     setTypeFilter("all");
     setCreatedDonorName(donor.name);
@@ -3262,7 +3259,6 @@ function DonorsView({
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search donors" />
         </div>
         <div className="donor-filter-row">
-          <select className="toolbar-select" value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}><option value="all">All tags</option>{allTags.map((tag) => <option key={tag}>{tag}</option>)}</select>
           <select className="toolbar-select" aria-label="Filter by donor group" value={groupFilters.length === 1 ? groupFilters[0] : "all"} onChange={(event) => setGroupFilters(event.target.value === "all" ? [] : [event.target.value])}><option value="all">All groups</option>{donorFilterOptions.map((filter) => <option value={filter.id} key={filter.id}>{filter.name}</option>)}</select>
           <select className="toolbar-select" aria-label="Filter by donation type" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}><option value="all">All types</option>{["Cash", "In-kind", "Sponsorship", "Legacy", "Volunteer"].map((type) => <option key={type}>{type}</option>)}</select>
           <select className="toolbar-select" aria-label="Sort donors" value={sortOrder} onChange={(event) => setDonorSort(event.target.value as typeof sortOrder)} title="Choose how donor names are ordered"><option value="manual">Manual</option><option value="az">Name A–Z</option><option value="za">Name Z–A</option></select>
