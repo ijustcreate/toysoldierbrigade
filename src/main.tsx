@@ -21,7 +21,20 @@ import "./styles.css";
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    void navigator.serviceWorker.register("./sw.js");
+    void navigator.serviceWorker.register("./sw.js").then((registration) => {
+      const checkForUpdate = () => void registration.update();
+      checkForUpdate();
+      window.addEventListener("focus", checkForUpdate);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") checkForUpdate();
+      });
+      window.setInterval(checkForUpdate, 15 * 60 * 1000);
+    });
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (sessionStorage.getItem("project-lantern-sw-reloaded") === "true") return;
+      sessionStorage.setItem("project-lantern-sw-reloaded", "true");
+      window.location.reload();
+    });
   });
 }
 

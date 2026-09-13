@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0620",
+    "title": "Refresh installed launcher after site deployments",
+    "summary": "Installed desktop/PWA launchers now check for a newer service-worker bundle and reload once when an update takes control. Pull latest site changes remains a separate saved-data sync.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:39 PM",
+    "areas": [
+      "Desktop launcher",
+      "Updates",
+      "Shared data"
+    ],
+    "files": [
+      "src/main.tsx"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0619",
     "title": "Start widget donor lists empty",
     "summary": "Donor lists inserted from saved widgets now begin empty instead of copying or inheriting donors.",
