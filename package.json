@@ -20,6 +20,7 @@
     "test:donor-roster-membership": "node scripts/test-donor-roster-membership.mjs",
     "changelog": "node scripts/lantern-changelog.mjs",
     "cloudflare:deploy": "wrangler deploy",
+    "package:pc-setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-pc-setup.ps1",
     "cloudflare:migrate": "wrangler d1 execute project-lantern-bugs --remote --file worker/schema.sql",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

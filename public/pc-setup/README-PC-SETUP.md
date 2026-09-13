@@ -14,6 +14,7 @@ This package prepares a fresh Windows 11 mini PC to run one assigned museum reco
 8. Registers a second Windows task that performs a recovery check every day at 5:00 AM. If Chrome was closed, the player starts again.
 9. Runs a small watchdog that reopens Chrome if it crashes or is closed. If Chrome reused the dedicated profile without kiosk mode or without the TV compatibility settings, the launcher closes only that profile and reopens it correctly.
 10. Sets the AC monitor, sleep, and hibernate timers to never expire so the attached display stays available while the PC has power.
+11. Pre-authorizes the configured Lantern site in Chrome for camera and microphone capture so the Room camera panel can detect the webcam attached to this display PC.
 
 The package does not change museum board content, enable remote access, store a Windows password, or turn the TV on and off. The display page itself requests the browser Screen Wake Lock when supported, but Windows and the TV's own power settings still need to be tested on site.
 
@@ -24,6 +25,8 @@ The package does not change museum board content, enable remote access, store a 
 3. Right-click `Setup-LanternDisplay.bat` and choose **Run as administrator**.
 4. Enter the hosted site URL, assigned display ID, and orientation when prompted.
 5. Sign in once to the Windows account that should run the display, then restart the PC to verify automatic startup.
+
+The setup can be run again over an existing installation. It updates the launcher, configuration, scheduled tasks, shortcuts, and Chrome camera/microphone authorization in place; it does not replace saved board data. After connecting a new webcam, open the display's Room camera panel and click its refresh-device button.
 
 For unattended recovery after a reboot or power outage, Windows must sign in to this dedicated display account automatically. On a dedicated, physically secured display PC, press `Win+R`, run `netplwiz`, clear **Users must enter a user name and password to use this computer**, select the display account, and enter its password. Use a standard local account dedicated to the display; do not use a staff administrator account. This setting keeps a credential on the PC, so follow the museum's IT policy. If automatic sign-in is prohibited, an operator must sign in after the PC powers on, or IT should configure an approved Windows kiosk/MDM profile.
 

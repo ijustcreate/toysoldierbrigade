@@ -1,5 +1,25 @@
 [
   {
+    "id": "DEV-0625",
+    "title": "Add Chrome camera setup to PC installer",
+    "summary": "The display PC installer now pre-authorizes the Lantern site for camera and microphone capture and can regenerate its install ZIP from current setup files.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:04 PM",
+    "areas": [
+      "PC setup",
+      "Room camera",
+      "Deployment"
+    ],
+    "files": [
+      "public/pc-setup/Setup-LanternDisplay.ps1",
+      "public/pc-setup/README-PC-SETUP.md",
+      "public/pc-setup/lantern-pc-display-setup.zip",
+      "scripts/package-pc-setup.ps1",
+      "package.json"
+    ],
+    "tests": "npm run package:pc-setup; npm run build; git diff --check"
+  },
+  {
     "id": "DEV-0624",
     "title": "Remove Donors page tag filter",
     "summary": "Removed the unused All tags dropdown from the Donors page without deleting saved donor tag metadata.",

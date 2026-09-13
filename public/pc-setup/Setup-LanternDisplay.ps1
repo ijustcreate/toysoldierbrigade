@@ -69,6 +69,16 @@ $config = [ordered]@{
   WatchdogSeconds = 15
 }
 $config | ConvertTo-Json | Set-Content (Join-Path $installDir "config.json") -Encoding UTF8
+
+# Pre-authorize the dedicated display site in Chrome so room-camera discovery
+# can enumerate the attached webcam and microphone on first use. Re-running
+# setup replaces these values for the configured site without touching board
+# data or the dedicated Chrome profile.
+$siteOrigin = ([Uri]$SiteUrl).GetLeftPart([UriPartial]::Authority)
+$chromePolicyRoot = "HKLM:\Software\Policies\Google\Chrome"
+New-Item -Path $chromePolicyRoot -Force | Out-Null
+New-ItemProperty -Path $chromePolicyRoot -Name "VideoCaptureAllowedUrls" -PropertyType MultiString -Value @($siteOrigin) -Force | Out-Null
+New-ItemProperty -Path $chromePolicyRoot -Name "AudioCaptureAllowedUrls" -PropertyType MultiString -Value @($siteOrigin) -Force | Out-Null
 $launchScript = Join-Path $installDir "Launch-LanternDisplay.ps1"
 $action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-NoLogo -NoProfile -ExecutionPolicy Bypass -File `"$launchScript`""
 $signInTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
@@ -104,5 +114,6 @@ Write-Host "Lantern display setup is complete." -ForegroundColor Green
 Write-Host "Display: $DisplayId ($Orientation)"
 Write-Host "URL: $launchUrl"
 Write-Host "The display starts at sign-in and has a daily 5:00 AM recovery check."
+Write-Host "Chrome camera and microphone access is pre-authorized for the Lantern site."
 Write-Host "For power-on after a complete shutdown, enable the mini PC BIOS option described in README-PC-SETUP.md."
 Read-Host "Press Enter to close"
