@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0626",
+    "title": "Make donor row height visibly increase spacing",
+    "summary": "Donor list row height now applies the selected pixel value directly between donor rows instead of being reduced by a small percentage cap.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:09 PM",
+    "areas": [
+      "Board Editor",
+      "Donor display"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0625",
     "title": "Add Chrome camera setup to PC installer",
     "summary": "The display PC installer now pre-authorizes the Lantern site for camera and microphone capture and can regenerate its install ZIP from current setup files.",

@@ -5243,10 +5243,11 @@ function directDonorGridStyle(donors: Donor[], columns: number, requestedRows: n
   })), columns, rowCount);
   return {
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-    // Passive signage cannot require scrolling. Bound rows and spacing to the
-    // panel; the shared grid fits text without altering authored settings.
+    // Keep the authored row spacing as a real pixel gap so the control visibly
+    // increases the vertical space between donor lines. The panel clips any
+    // content beyond its configured capacity, as it already does for overflow.
     gridTemplateRows: layout.rowUnits.map((units) => `minmax(0, ${units}fr)`).join(" "),
-    rowGap: `min(${panel?.donorRowGap ?? 0}px, ${10 / Math.max(1, rowCount)}%)`,
+    rowGap: `${panel?.donorRowGap ?? 0}px`,
     columnGap: `${panel?.donorColumnGap ?? 7}%`,
     "--donor-column-cap": columns > 1 ? "5.2cqw" : "8.6cqw"
   } as React.CSSProperties;
