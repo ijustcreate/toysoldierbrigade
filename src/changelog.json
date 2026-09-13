@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0637",
+    "title": "Apply donor letter and line spacing",
+    "summary": "Donor-list names now use the selected panel letter-spacing and line-height values in the editor preview and rendered board.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:36 PM",
+    "areas": [
+      "Board editor",
+      "Donor presentation"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0636",
     "title": "Remove Element font control",
     "summary": "Removed the duplicate Typography font selector so font selection remains in Donor presentation.",

@@ -5281,6 +5281,8 @@ function DirectBoardDonorName({ donor, display, panel, palette, onRename }: {
       "--board-donor-underline-thickness": `${presentation.underlineThickness ?? (presentation.highlight === "soft-underline" ? 3 : 1)}px`,
       "--board-donor-underline-offset": `${presentation.underlineOffset ?? 0}px`,
       "--board-donor-underline-opacity": `${presentation.underlineOpacity ?? (presentation.highlight === "soft-underline" ? 48 : 78)}%`,
+      "--board-donor-letter-spacing": `${panel.letterSpacing ?? 0}px`,
+      "--board-donor-line-height": panel.lineHeight ?? 1.2,
       fontFamily: `${presentation.fontFamily}, sans-serif`,
       color: presentation.nameColor
     } as React.CSSProperties}
