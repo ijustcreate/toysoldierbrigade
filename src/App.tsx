@@ -5282,6 +5282,9 @@ function DirectBoardDonorName({ donor, display, panel, palette, onRename }: {
       ? <img className="board-donor-custom-icon" src={presentation.recognitionIconImage} alt="" />
       : <span className="board-donor-preview-icon" aria-hidden="true">{recognitionIconGlyph(presentation.recognitionIcon)}</span>)}
     <EditableBoardText value={donorDisplayName(donor)} animation={presentation.animation} multiline normalizeDonorLines onCommit={(value) => onRename(donor.id, value)} />
+    {showIcon && panel.recognitionIconPlacement === "both" && (presentation.recognitionIconImage
+      ? <img className="board-donor-custom-icon" src={presentation.recognitionIconImage} alt="" />
+      : <span className="board-donor-preview-icon" aria-hidden="true">{recognitionIconGlyph(presentation.recognitionIcon)}</span>)}
     {donorSubtextVisibleForDisplay(display, donor.id) && donor.subtext && <small>{donor.subtext}</small>}
   </div>;
 }

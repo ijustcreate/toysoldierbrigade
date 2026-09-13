@@ -1958,9 +1958,9 @@ function drawBoardRecognitionIcons(
   presentation: ResolvedBoardDonorPresentation,
   screen: DisplayProfile,
   size: number,
-  placement?: "left" | "right" | "above" | "below"
+  placement?: "left" | "right" | "above" | "below" | "both"
 ) {
-  const positions = placement === "right" ? [[rightX, y] as const] : placement === "above" ? [[(leftX + rightX) / 2, y - size * 1.8] as const] : placement === "below" ? [[(leftX + rightX) / 2, y + size * 1.8] as const] : screen.donorIconPlacement === "both" ? [[leftX, y] as const, [rightX, y] as const] : [[leftX, y] as const];
+  const positions = placement === "right" ? [[rightX, y] as const] : placement === "above" ? [[(leftX + rightX) / 2, y - size * 1.8] as const] : placement === "below" ? [[(leftX + rightX) / 2, y + size * 1.8] as const] : placement === "both" || screen.donorIconPlacement === "both" ? [[leftX, y] as const, [rightX, y] as const] : [[leftX, y] as const];
   positions.forEach(([x, iconY]) => {
     if (presentation.recognitionIconImage) {
       drawDonorIcon(context, x, iconY, screen.donorIconStyle ?? "circle", presentation.accentColor, size, presentation.recognitionIconImage);

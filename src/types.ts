@@ -339,7 +339,7 @@ export interface BoardPanel {
   /** Recognition icons are shown only within this donor-list panel. */
   showIcons?: boolean;
   /** Where recognition icons sit relative to each donor name in this panel. */
-  recognitionIconPlacement?: "left" | "right" | "above" | "below";
+  recognitionIconPlacement?: "left" | "right" | "above" | "below" | "both";
   footerIconPlacement?: "left" | "both";
   x?: number;
   y?: number;
