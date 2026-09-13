@@ -4218,6 +4218,8 @@ function ThemeStudio({
   const boardImageLibrary = useMemo(() => {
     const entries = [
       { name: "Brass board accent", imageUrl: "/assets/board-accents/brass-arch.png" },
+      { name: "Toy Soldier navy — clean portrait", imageUrl: "/assets/boards-v2/toy-soldier-navy-clean-portrait-v2.png" },
+      { name: "Toy Soldier navy — clean landscape", imageUrl: "/assets/boards-v2/toy-soldier-navy-clean-landscape-v2.png" },
       ...(state.imageAssets ?? []).map((asset) => ({ name: asset.name, imageUrl: asset.url })),
       ...state.boardPrograms.flatMap((program) => [
         ...(program.backgroundImage ? [{ name: `${program.name} background`, imageUrl: program.backgroundImage }] : []),

@@ -14,6 +14,10 @@ Stylized-concept; flat 16:9 background for large 4K museum signage, not a mockup
 
 Matching 9:16 portrait composition using the landscape artwork as a style reference. Same midnight navy material and brass detailing. Tiny painted wooden toy soldiers and blocks at the bottom corners; quiet central 90% and upper 88%. No typography, names, logos, watermarks, weapons, or realistic military imagery. Wide honor rolls intentionally use the central crop of this background, omitting the ornaments to maximize readable space.
 
+### toy-soldier-navy-clean-portrait-v2.png and toy-soldier-navy-clean-landscape-v2.png
+
+Clean variants of the navy Toy Soldier backgrounds. They retain the textured navy surface, gold border, and four corner stars while removing the bottom soldiers, blocks, and other toy decorations. Both orientations are available in the board image library.
+
 ### museum-ivory-landscape-v2.png
 
 Use case: stylized-concept. Asset type: a finished flat 16:9 background artwork for editable children's museum information boards, not a mockup or a picture of a television. Create a quietly beautiful warm ivory handmade paper surface, delicate natural cotton fibres, soft ambient light, exquisitely subtle embossed arcs suggesting play and discovery. A tiny arrangement of tactile painted wooden play blocks in museum red, soft blue and golden yellow at the extreme bottom right corner ONLY, confined to the bottom 12 percent and rightmost 15 percent. Extremely restrained, premium museum exhibition graphic, not a party invitation. The entire upper 85 percent and central 85 percent must be nearly uniform light cream and free of objects to support dark editable text. Fine warm gold hairline around outermost edge. No text, numbers, letters, logos, people, watermark or typography. Landscape 3840 by 2160 intent; highest available detail.

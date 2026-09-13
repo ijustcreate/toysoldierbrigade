@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0643",
+    "title": "Add clean star-border board backgrounds",
+    "summary": "Added portrait and landscape navy Toy Soldier background variants with only the gold border and corner stars, and made them available in the board image library while preserving the original artwork.",
+    "author": "Codex",
+    "createdAt": "Sep 13, 2026, 12:03 AM",
+    "areas": [
+      "Board backgrounds",
+      "Image library"
+    ],
+    "files": [
+      "src/App.tsx",
+      "public/assets/boards-v2/toy-soldier-navy-clean-portrait-v2.png",
+      "public/assets/boards-v2/toy-soldier-navy-clean-landscape-v2.png",
+      "public/assets/boards-v2/README.md"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0642",
     "title": "Keep donor names visible with icons",
     "summary": "Fixed donor-list name sizing so enabling recognition icons does not collapse or hide the donor names.",
