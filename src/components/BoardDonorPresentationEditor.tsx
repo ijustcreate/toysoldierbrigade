@@ -60,6 +60,15 @@ export function AnimatedDonorName({ name, animation }: { name: string; animation
   return <span className="board-donor-name-text board-letter-wave" aria-label={name}>{Array.from(name).map((letter, index) => <span aria-hidden="true" style={{ "--letter-index": index } as React.CSSProperties} key={`${letter}-${index}`}>{letter === " " ? "\u00a0" : letter}</span>)}</span>;
 }
 
+function FontPicker({ value, options, labels, onChange }: { value: FontFamily; options: FontFamily[]; labels: Record<FontFamily, string>; onChange: (value: FontFamily) => void }) {
+  return <details className="font-picker">
+    <summary><span style={{ fontFamily: value }}>{labels[value]}</span></summary>
+    <div className="font-picker-options" role="listbox" aria-label="Display font">
+      {options.map((font) => <button type="button" role="option" aria-selected={font === value} key={font} style={{ fontFamily: font }} onClick={(event) => { onChange(font); event.currentTarget.closest("details")?.removeAttribute("open"); }}>{labels[font]}</button>)}
+    </div>
+  </details>;
+}
+
 export function BoardDonorPresentationEditor({
   scope,
   fallbacks,
@@ -80,9 +89,7 @@ export function BoardDonorPresentationEditor({
   return <div className="board-donor-presentation-editor">
     <label className="field">
       <span>Display font</span>
-      <select value={presentation.fontFamily} onChange={(event) => patch({ fontFamily: event.target.value as FontFamily })}>
-        {fontOptions.map((font) => <option value={font} key={font} style={{ fontFamily: font }}>{fontLabels[font]}</option>)}
-      </select>
+      <FontPicker value={presentation.fontFamily} options={fontOptions} labels={fontLabels} onChange={(fontFamily) => patch({ fontFamily })} />
     </label>
 
     <label className="field">

@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0632",
+    "title": "Preview fonts in font picker",
+    "summary": "The display-font menu now renders every choice in its own typeface for easier selection.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:21 PM",
+    "areas": [
+      "Board editor",
+      "Typography"
+    ],
+    "files": [
+      "src/components/BoardDonorPresentationEditor.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0631",
     "title": "Move donor line color into underline options",
     "summary": "Placed the donor line color picker with the underline styling controls for clearer editing.",
