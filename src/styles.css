@@ -7968,6 +7968,7 @@ textarea:focus-visible,
 .direct-donor-grid .direct-donor-name { font-size: min(var(--donor-fitted-size, var(--donor-name-size)), var(--donor-column-cap, 8.6cqw)); padding: .07em .14em; gap: .04em; }
 .direct-donor-grid .direct-donor-name > .editable-board-text,
 .direct-donor-grid .direct-donor-name small { flex-shrink: 0; }
+.direct-donor-grid .direct-donor-name > .editable-board-text { flex: 1 1 0; min-width: 0; width: auto; color: var(--board-donor-name); }
 .board-donor-presentation-editor {
   display: grid;
   gap: 11px;
