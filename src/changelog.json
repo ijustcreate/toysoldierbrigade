@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0644",
+    "title": "Add four-corner stars to clean board backgrounds",
+    "summary": "Updated the clean navy Toy Soldier portrait and landscape assets with matching bottom-corner stars while preserving the gold border and open center.",
+    "author": "Codex",
+    "createdAt": "Sep 13, 2026, 12:07 AM",
+    "areas": [
+      "Board backgrounds",
+      "Image assets"
+    ],
+    "files": [
+      "public/assets/boards-v2/toy-soldier-navy-clean-portrait-v2.png",
+      "public/assets/boards-v2/toy-soldier-navy-clean-landscape-v2.png"
+    ],
+    "tests": "Asset generation and deployment workflow started"
+  },
+  {
     "id": "DEV-0643",
     "title": "Add clean star-border board backgrounds",
     "summary": "Added portrait and landscape navy Toy Soldier background variants with only the gold border and corner stars, and made them available in the board image library while preserving the original artwork.",
