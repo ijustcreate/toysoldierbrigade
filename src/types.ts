@@ -829,7 +829,7 @@ export interface DisplayProfile {
   donorSubtextVisibility?: Record<string, boolean>;
   customHeading?: string;
   customSubheading?: string;
-  fontFamily?: "Inter" | "Georgia" | "Avenir" | "Montserrat" | "Playfair Display" | "Cormorant Garamond" | "Cinzel" | "Libre Baskerville" | "Merriweather" | "Raleway" | "Nunito" | "Quicksand" | "Fredoka" | "Cabin Sketch" | "DM Sans" | "Lora" | "Oswald" | "Poppins" | "Roboto Slab" | "Source Serif 4";
+  fontFamily?: "Inter" | "Helvetica" | "Futura" | "Gotham" | "Georgia" | "Avenir" | "Montserrat" | "Lato" | "Playfair Display" | "Garamond" | "Times New Roman" | "Bodoni" | "Baskerville" | "Cormorant Garamond" | "Cinzel" | "Libre Baskerville" | "Merriweather" | "Raleway" | "Nunito" | "Quicksand" | "Fredoka" | "Cabin Sketch" | "DM Sans" | "Lora" | "Oswald" | "Poppins" | "Roboto Slab" | "Source Serif 4";
   nameSize?: number;
   columns?: 1 | 2;
   donorScrollEnabled?: boolean;

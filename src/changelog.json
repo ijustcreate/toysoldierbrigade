@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0633",
+    "title": "Add donor-wall font choices",
+    "summary": "Added the requested clean sans-serif and dignified serif fonts to the board font picker.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:23 PM",
+    "areas": [
+      "Board editor",
+      "Typography"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/types.ts"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0632",
     "title": "Preview fonts in font picker",
     "summary": "The display-font menu now renders every choice in its own typeface for easier selection.",
