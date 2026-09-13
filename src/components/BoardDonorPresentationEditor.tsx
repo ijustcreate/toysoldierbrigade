@@ -95,6 +95,7 @@ export function BoardDonorPresentationEditor({
       <label><span>Thickness</span><input type="range" min="1" max="8" value={presentation.underlineThickness ?? (presentation.highlight === "soft-underline" ? 3 : 1)} onChange={(event) => patch({ underlineThickness: Number(event.target.value) })} /><b>{presentation.underlineThickness ?? (presentation.highlight === "soft-underline" ? 3 : 1)} px</b></label>
       <label><span>Offset</span><input type="range" min="0" max="16" value={presentation.underlineOffset ?? 0} onChange={(event) => patch({ underlineOffset: Number(event.target.value) })} /><b>{presentation.underlineOffset ?? 0} px</b></label>
       <label><span>Opacity</span><input type="range" min="10" max="100" value={presentation.underlineOpacity ?? (presentation.highlight === "soft-underline" ? 48 : 78)} onChange={(event) => patch({ underlineOpacity: Number(event.target.value) })} /><b>{presentation.underlineOpacity ?? (presentation.highlight === "soft-underline" ? 48 : 78)}%</b></label>
+      <label className="field board-donor-line-color"><span>Line color</span><input type="color" value={presentation.accentColor} onChange={(event) => patch({ accentColor: event.target.value })} /></label>
     </div>}
 
     <label className="field">
