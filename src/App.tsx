@@ -9882,7 +9882,10 @@ function RecognitionSettingsView({ state, updateState, appearance, onAppearanceC
           <small aria-label="Application build">Site build: {APP_BUILD}</small>
           {siteSyncStatus && <small role="status">{siteSyncStatus}</small>}
         </div>
-        <button type="button" className="command-button secondary" onClick={onPullSiteChanges} disabled={!siteSyncAvailable || siteSyncing}><Download size={16} /> {siteSyncing ? "Pulling…" : "Pull latest site changes"}</button>
+        <div className="site-sync-actions">
+          <button type="button" className="command-button secondary" onClick={onPullSiteChanges} disabled={!siteSyncAvailable || siteSyncing}><Download size={16} /> {siteSyncing ? "Pulling…" : "Pull latest site changes"}</button>
+          <button type="button" className="command-button secondary" onClick={() => { if (window.confirm("Refresh Project Lantern now to load the newest published app version? Save any work first.")) window.location.reload(); }} title="Refresh the installed launcher and load the newest published app version"><RefreshCcw size={16} /> Refresh app</button>
+        </div>
       </section>
       <ImageLibraryManager state={state} updateState={updateState} />
       <section className="donor-vocabulary-settings">

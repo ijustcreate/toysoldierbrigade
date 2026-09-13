@@ -30,11 +30,6 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
       });
       window.setInterval(checkForUpdate, 15 * 60 * 1000);
     });
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (sessionStorage.getItem("project-lantern-sw-reloaded") === "true") return;
-      sessionStorage.setItem("project-lantern-sw-reloaded", "true");
-      window.location.reload();
-    });
   });
 }
 

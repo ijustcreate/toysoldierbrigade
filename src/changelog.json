@@ -1,5 +1,22 @@
 [
   {
+    "id": "DEV-0621",
+    "title": "Add controlled launcher refresh",
+    "summary": "Added a user-confirmed Refresh app action in Settings so desktop users can reload the newest published bundle when they choose, while Pull latest site changes remains data-only.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:41 PM",
+    "areas": [
+      "Desktop launcher",
+      "Updates",
+      "Shared data"
+    ],
+    "files": [
+      "src/main.tsx",
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0620",
     "title": "Refresh installed launcher after site deployments",
     "summary": "Installed desktop/PWA launchers now check for a newer service-worker bundle and reload once when an update takes control. Pull latest site changes remains a separate saved-data sync.",
