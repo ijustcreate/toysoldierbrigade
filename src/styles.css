@@ -8040,8 +8040,8 @@ textarea:focus-visible,
 .font-picker summary { display: flex; align-items: center; justify-content: space-between; min-height: 34px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); cursor: pointer; list-style: none; }
 .font-picker summary::-webkit-details-marker { display: none; }
 .font-picker summary::after { content: "⌄"; font-family: sans-serif; color: var(--muted); }
-.font-picker-options { position: absolute; z-index: 20; inset: calc(100% + 4px) 0 auto; max-height: 320px; overflow: auto; padding: 4px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); box-shadow: 0 12px 24px rgba(12, 25, 44, .18); }
-.font-picker-options button { display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 5px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.font-picker-options { position: absolute; z-index: 100; inset: calc(100% + 4px) 0 auto; max-height: 320px; overflow: auto; padding: 4px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--ink); box-shadow: 0 12px 24px rgba(12, 25, 44, .28); }
+.font-picker-options button { display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 5px; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .font-picker-options button:hover, .font-picker-options button[aria-selected="true"] { background: var(--accent); color: white; }
 
 .panel-donor-star { min-width: 0; min-height: 0; padding: 0; overflow: visible; }

@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0634",
+    "title": "Fix font picker overlap",
+    "summary": "The font preview menu now has an opaque themed surface and proper layering so it does not visually collide with the controls below.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:27 PM",
+    "areas": [
+      "Board editor",
+      "Typography"
+    ],
+    "files": [
+      "src/styles.css"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0633",
     "title": "Add donor-wall font choices",
     "summary": "Added the requested clean sans-serif and dignified serif fonts to the board font picker.",
