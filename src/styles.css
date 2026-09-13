@@ -13847,6 +13847,14 @@ body.theme-light {
 .theme-light .editor-modal-head h2,
 .theme-light .donor-setup-head h2 { color: var(--ink); }
 
+/* The install fallback intentionally keeps the dark setup card, so its copy
+   must not inherit the light-theme ink color from the page behind it. */
+.modal-backdrop:has(#install-help-title) .editor-modal { color: #edf8f5; }
+.modal-backdrop:has(#install-help-title) .editor-modal h2 { color: #fff; }
+.modal-backdrop:has(#install-help-title) .editor-modal p,
+.modal-backdrop:has(#install-help-title) .editor-modal li { color: #dbe7ff; }
+.modal-backdrop:has(#install-help-title) .editor-modal .field-note { color: #aebbd8; }
+
 /* Dialogs are rendered in a body portal. Keep their editable controls visibly
    active in Light rather than inheriting any dark control fallbacks. */
 .theme-light .currency-control {
