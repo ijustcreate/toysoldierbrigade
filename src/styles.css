@@ -8016,6 +8016,7 @@ textarea:focus-visible,
 .direct-donor-name.board-highlight-fine-underline,
 .direct-donor-name.board-highlight-bold-underline,
 .direct-donor-name.board-highlight-soft-underline { border-bottom-width: var(--board-donor-underline-thickness, 1px); border-bottom-color: color-mix(in srgb, var(--board-donor-accent) var(--board-donor-underline-opacity, 78%), transparent); }
+.direct-donor-name.board-highlight-none { border-bottom: 0; }
 .direct-donor-name .board-donor-name-text { color: var(--board-donor-name); }
 .direct-donor-name .board-donor-preview-icon { color: var(--board-donor-accent); }
 .direct-donor-name .board-donor-custom-icon { width: 1.2em; height: 1.2em; flex: none; object-fit: contain; }

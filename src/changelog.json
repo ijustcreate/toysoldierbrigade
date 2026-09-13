@@ -1,5 +1,21 @@
 [
   {
+    "id": "DEV-0627",
+    "title": "Make donor underline None remove residual line",
+    "summary": "Donor presentation None now removes the donor row border that was visually appearing as an underline; underline controls remain hidden unless an underline style is active.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:12 PM",
+    "areas": [
+      "Board Editor",
+      "Donor display"
+    ],
+    "files": [
+      "src/styles.css",
+      "src/components/BoardDonorPresentationEditor.tsx"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0626",
     "title": "Make donor row height visibly increase spacing",
     "summary": "Donor list row height now applies the selected pixel value directly between donor rows instead of being reduced by a small percentage cap.",
