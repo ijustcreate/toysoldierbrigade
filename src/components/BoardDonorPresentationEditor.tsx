@@ -60,7 +60,7 @@ export function AnimatedDonorName({ name, animation }: { name: string; animation
   return <span className="board-donor-name-text board-letter-wave" aria-label={name}>{Array.from(name).map((letter, index) => <span aria-hidden="true" style={{ "--letter-index": index } as React.CSSProperties} key={`${letter}-${index}`}>{letter === " " ? "\u00a0" : letter}</span>)}</span>;
 }
 
-function FontPicker({ value, options, labels, onChange }: { value: FontFamily; options: FontFamily[]; labels: Record<FontFamily, string>; onChange: (value: FontFamily) => void }) {
+export function FontPicker({ value, options, labels, onChange }: { value: FontFamily; options: FontFamily[]; labels: Record<FontFamily, string>; onChange: (value: FontFamily) => void }) {
   return <details className="font-picker">
     <summary><span style={{ fontFamily: value }}>{labels[value]}</span></summary>
     <div className="font-picker-options" role="listbox" aria-label="Display font">

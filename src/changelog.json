@@ -1,5 +1,22 @@
 [
   {
+    "id": "DEV-0635",
+    "title": "Open font menus upward everywhere",
+    "summary": "All board font selectors now share the upward-opening font-preview menu, keeping the full list visible without covering controls below.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 11:31 PM",
+    "areas": [
+      "Board editor",
+      "Typography"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/components/BoardDonorPresentationEditor.tsx",
+      "src/styles.css"
+    ],
+    "tests": "npm run build; npm run test:state-preservation; git diff --check"
+  },
+  {
     "id": "DEV-0634",
     "title": "Fix font picker overlap",
     "summary": "The font preview menu now has an opaque themed surface and proper layering so it does not visually collide with the controls below.",
