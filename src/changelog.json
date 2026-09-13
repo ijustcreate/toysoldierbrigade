@@ -1,5 +1,20 @@
 [
   {
+    "id": "DEV-0619",
+    "title": "Start widget donor lists empty",
+    "summary": "Donor lists inserted from saved widgets now begin empty instead of copying or inheriting donors.",
+    "author": "Codex",
+    "createdAt": "Sep 12, 2026, 10:29 PM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx"
+    ],
+    "tests": "npm run build; npm run test:donor-roster-membership; npm run test:state-preservation"
+  },
+  {
     "id": "DEV-0618",
     "title": "Use grouped board and list picker in Edit donor",
     "summary": "Replaced native selects with a searchable folder-grouped picker showing board names, donor list titles or Untitled List, orientation, and inclusion status.",

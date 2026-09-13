@@ -4350,7 +4350,7 @@ function ThemeStudio({
     setSelectedPanelIds([pasted.id]);
   };
   const addWidget = (widget: BoardWidget) => {
-    const cloned = widget.panels.map((panel) => ({ ...panel, id: `${widget.id}-${Date.now()}-${panel.id}`, imageUrl: panel.imageUrl ?? widget.defaultImageUrl }));
+    const cloned = widget.panels.map((panel) => ({ ...panel, ...(panel.type === "donors" ? { donorIds: [] } : {}), id: `${widget.id}-${Date.now()}-${panel.id}`, imageUrl: panel.imageUrl ?? widget.defaultImageUrl }));
     patchProgram({ panels: [...panels, ...cloned] }); setSelectedPanelIds(cloned.map((panel) => panel.id)); setSelectedPanelId(cloned[0]?.id ?? "");
   };
   const saveWidget = (name: string) => {
