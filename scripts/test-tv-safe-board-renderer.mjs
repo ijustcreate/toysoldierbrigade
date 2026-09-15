@@ -1,11 +1,22 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import vm from "node:vm";
 
 const source = await readFile(new URL("../src/display/BabylonDonorWall.tsx", import.meta.url), "utf8");
 
 assert.match(source, /const isTvBrowser = typeof navigator !== "undefined"/);
 assert.match(source, /const isExplicitTvMode = typeof window !== "undefined"/);
-assert.match(source, /const useSafeCanvasRenderer = fitToScreen && viewMode === "2d" && \(isTvBrowser \|\| isExplicitTvMode\);/);
+const selection = source.match(/const useSafeCanvasRenderer = ([^;]+);/);
+assert.ok(selection);
+for (const [viewMode, preferCanvas2D, isTvBrowser, isExplicitTvMode, expected] of [
+  ["2d", false, false, false, false], // Normal dashboard behavior is unchanged.
+  ["2d", true, false, false, true], // Announcements and Blips opt in.
+  ["3d", true, false, false, false],
+  ["2d", false, true, false, true],
+  ["2d", false, false, true, true]
+]) {
+  assert.equal(vm.runInNewContext(selection[1], { fitToScreen: true, viewMode, preferCanvas2D, isTvBrowser, isExplicitTvMode }), expected);
+}
 assert.match(source, /if \(useSafeCanvasRenderer \|\| useHtmlFallback\) return;/);
 assert.match(source, /canvas\?\.getContext\("2d"\)/);
 assert.match(source, /const widthCss = canvas\.clientWidth;/);

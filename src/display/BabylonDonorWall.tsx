@@ -31,6 +31,9 @@ interface BabylonDonorWallProps {
   /** Extra scale used by contained 2D views. 1 is a true edge-to-edge contain fit. */
   fitPadding?: number;
   viewMode?: "2d" | "3d";
+  /** Lightweight editor previews can avoid allocating a WebGL context. */
+  preferCanvas2D?: boolean;
+  onGraphicsUnavailable?: () => void;
   resetKey?: number;
   previewProgramId?: string;
   announcementActive?: boolean;
@@ -50,7 +53,7 @@ const boardPanelImageCache = new Map<string, HTMLImageElement>();
 // dashboard console. Rendering failures still surface as Babylon errors.
 Logger.LogLevels = Logger.ErrorLogLevel;
 
-export function BabylonDonorWall({ state, screenId, interactive = false, fitToScreen = false, fitPadding = 1.07, viewMode = "3d", resetKey = 0, previewProgramId, announcementActive = state.announcement.active && targetIncludesAnnouncement(state, screenId), announcementOverlay, blipOverlay, broadcastOverlay }: BabylonDonorWallProps) {
+export function BabylonDonorWall({ state, screenId, interactive = false, fitToScreen = false, fitPadding = 1.07, viewMode = "3d", preferCanvas2D = false, onGraphicsUnavailable, resetKey = 0, previewProgramId, announcementActive = state.announcement.active && targetIncludesAnnouncement(state, screenId), announcementOverlay, blipOverlay, broadcastOverlay }: BabylonDonorWallProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [canvasSafeFailed, setCanvasSafeFailed] = useState(false);
   // TV browsers frequently have limited WebGL memory or no reliable WebGL 2
@@ -58,7 +61,7 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
   // must retain the full Babylon renderer used by the Board Editor preview.
   const isTvBrowser = typeof navigator !== "undefined" && /web0s|webos|tizen|smart-tv|smarttv|netcast|viera|hisense|hbbtv/i.test(navigator.userAgent);
   const isExplicitTvMode = typeof window !== "undefined" && /#\/display\/[^?]+\?[^#]*\btv=1\b/.test(window.location.hash);
-  const useSafeCanvasRenderer = fitToScreen && viewMode === "2d" && (isTvBrowser || isExplicitTvMode);
+  const useSafeCanvasRenderer = fitToScreen && viewMode === "2d" && (preferCanvas2D || isTvBrowser || isExplicitTvMode);
   const requiresTvHtmlFallback = useSafeCanvasRenderer && isTvBrowser;
   const useHtmlFallback = requiresTvHtmlFallback || canvasSafeFailed;
   const [scheduleMinute, setScheduleMinute] = useState(() => Math.floor(Date.now() / 60_000));
@@ -219,11 +222,19 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
     const renderWindow = canvas.ownerDocument.defaultView ?? window;
     const RenderResizeObserver = renderWindow.ResizeObserver ?? ResizeObserver;
 
-    const engine = new Engine(canvas, true, {
-      antialias: true,
-      preserveDrawingBuffer: true,
-      stencil: true
-    });
+    let engine: Engine;
+    try {
+      engine = new Engine(canvas, true, {
+        antialias: true,
+        preserveDrawingBuffer: true,
+        stencil: true
+      });
+    } catch {
+      // Graphics resource exhaustion must not unmount the entire control center.
+      setCanvasSafeFailed(true);
+      onGraphicsUnavailable?.();
+      return;
+    }
     const scene = new Scene(engine);
     const reduceMotion = renderWindow.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     scene.clearColor = viewMode === "3d"
@@ -499,7 +510,7 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
   return <>
     {useHtmlFallback
       ? <TvBrowserBoardFallback program={activeProgram} donors={accessibleDonors} />
-      : <canvas className="wall-canvas" ref={canvasRef} tabIndex={interactive ? 0 : -1} role="img" aria-label={`${activeProgram?.name ?? "Recognition board"}. ${accessibleDonors.length} recognized supporters.`} />}
+      : <canvas key={useSafeCanvasRenderer ? "canvas-2d" : "webgl"} className="wall-canvas" ref={canvasRef} tabIndex={interactive ? 0 : -1} role="img" aria-label={`${activeProgram?.name ?? "Recognition board"}. ${accessibleDonors.length} recognized supporters.`} />}
     <section className="sr-only board-accessible-summary" aria-label={`${activeProgram?.name ?? "Recognition board"} supporter list`}>
       <h2>{activeProgram?.heading ?? activeProgram?.name ?? "Recognition board"}</h2>
       {activeProgram?.description && <p>{activeProgram.description}</p>}

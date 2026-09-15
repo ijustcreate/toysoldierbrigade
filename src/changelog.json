@@ -1,5 +1,24 @@
 [
   {
+    "id": "DEV-0654",
+    "title": "Keep Announcements and Blips open when graphics are unavailable",
+    "summary": "Use lightweight 2D previews for Messages and Blips. Recover from WebGL initialization failure without blanking the control center, and recreate the canvas when switching rendering modes. Saved content is unchanged.",
+    "author": "Codex",
+    "createdAt": "Sep 15, 2026, 1:30 PM",
+    "areas": [
+      "Announcements",
+      "Blips",
+      "Preview rendering"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/display/BabylonDonorWall.tsx",
+      "scripts/check-announcements-navigation-browser.cjs",
+      "scripts/test-tv-safe-board-renderer.mjs"
+    ],
+    "tests": "Production build; isolated browser navigation and forced WebGL failure recovery; normal 2D/3D switching; state preservation, donor isolation and renderer selection checks."
+  },
+  {
     "id": "DEV-0653",
     "title": "Preserve broadcast framing across edits and orientations",
     "summary": "Save placement and crop separately for each display orientation and camera source orientation. Make sliders target the previewed display, merge gesture and nested setting changes without reverting other edits, preserve pending broadcast saves during relays, and keep resize and polygon tools stable.",
