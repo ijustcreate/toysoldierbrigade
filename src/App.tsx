@@ -2829,7 +2829,7 @@ function donorListOptions(state: LanternState): DonorListOption[] {
       id: `${board.id}::${panel.id}`,
       boardId: board.id,
       label: donorPanels.length > 1 ? `Donor list ${index + 1} — ${board.name}` : `Donor list — ${board.name}`,
-      panel,
+      panel: { ...panel, donorIds: resolvePanelDonors(state.donors, board.donorIds, panel).map((donor) => donor.id) },
       board
     }));
   });
@@ -2932,7 +2932,7 @@ function DonorsView({
   const [originalDonorListIds, setOriginalDonorListIds] = useState<string[]>([]);
   const [selectedDonorBoardId, setSelectedDonorBoardId] = useState("");
   const [selectedDonorListId, setSelectedDonorListId] = useState("");
-  const availableDonorLists = useMemo(() => donorListOptions(state), [state.boardPrograms]);
+  const availableDonorLists = useMemo(() => donorListOptions(state), [state.boardPrograms, state.donors]);
   const discardEditor = () => {
     setDiscardDraftPending(false);
     setEditingId(null);
@@ -3087,11 +3087,11 @@ function DonorsView({
     const selected = availableDonorLists.find((option) => option.id === selectedDonorListId);
     if (!selected) return;
     const assigned = draftDonorListIds.includes(selected.id);
-    const boardListIds = availableDonorLists.filter((option) => option.boardId === selected.boardId).map((option) => option.id);
     const nextListIds = assigned
-      ? draftDonorListIds.filter((id) => !boardListIds.includes(id))
-      : [...new Set([...draftDonorListIds, ...boardListIds])];
-    const nextBoardIds = assigned
+      ? draftDonorListIds.filter((id) => id !== selected.id)
+      : [...new Set([...draftDonorListIds, selected.id])];
+    const staysOnBoard = availableDonorLists.some((option) => option.boardId === selected.boardId && nextListIds.includes(option.id));
+    const nextBoardIds = !staysOnBoard
       ? (draft.boardIds ?? []).filter((id) => id !== selected.boardId)
       : [...new Set([...(draft.boardIds ?? []), selected.boardId])];
     const nextDraft = { ...draft, boardIds: nextBoardIds };
@@ -3100,11 +3100,9 @@ function DonorsView({
       donors: current.donors.map((donor) => donor.id === draft.id ? { ...donor, boardIds: nextBoardIds } : donor),
       boardPrograms: current.boardPrograms.map((board) => board.id !== selected.boardId ? board : {
         ...board,
-        donorIds: assigned ? board.donorIds.filter((id) => id !== draft.id) : [...new Set([...board.donorIds, draft.id])],
-        panels: board.panels?.map((panel) => panel.type !== "donors" ? panel : {
-          ...panel,
-          donorIds: assigned ? (panel.donorIds ?? board.donorIds).filter((id) => id !== draft.id) : [...new Set([...(panel.donorIds ?? board.donorIds), draft.id])]
-        })
+        donorIds: staysOnBoard ? [...new Set([...board.donorIds, draft.id])] : board.donorIds.filter((id) => id !== draft.id),
+        panels: materializeDonorPanelMembership(board.panels, selected.panel.id, board.donorIds,
+          updateDonorRosterMembership(resolvePanelDonors(current.donors, board.donorIds, board.panels?.find((panel) => panel.id === selected.panel.id) ?? selected.panel).map((donor) => donor.id), [draft.id], assigned ? "remove" : "add"), current.donors)
       })
     }));
     setDraft(nextDraft);
@@ -3153,6 +3151,8 @@ function DonorsView({
         boardPrograms: current.boardPrograms.map((board) => {
           const boardLists = currentListOptions.filter((option) => option.boardId === board.id);
           if (!boardLists.length) return board;
+          const changedLists = boardLists.filter((option) => selectedListIds.has(option.id) !== originalDonorListIds.includes(option.id));
+          if (!changedLists.length) return board;
           const donorIsOnBoard = boardLists.some((option) => selectedListIds.has(option.id));
           const donorIds = donorIsOnBoard
             ? [...new Set([...board.donorIds, draft.id])]
@@ -3160,13 +3160,10 @@ function DonorsView({
           return {
             ...board,
             donorIds,
-            panels: board.panels?.map((panel) => {
-              if (panel.type !== "donors") return panel;
-              return {
-                ...panel,
-                donorIds
-              };
-            })
+            panels: changedLists.reduce((panels, option) => materializeDonorPanelMembership(
+              panels, option.panel.id, board.donorIds,
+              updateDonorRosterMembership(option.panel.donorIds ?? [], [draft.id], selectedListIds.has(option.id) ? "add" : "remove"), current.donors
+            ), board.panels)
           };
         }),
         recognitionSettings: { ...current.recognitionSettings, tags: [...new Set([...current.recognitionSettings.tags, ...(draft.tags ?? [])])].sort() }
@@ -4193,7 +4190,7 @@ function ThemeStudio({
   const boardDisplay = selectedProgram ? { ...display, orientation: selectedProgram.orientation } : display;
   const panels = selectedProgram?.panels ?? [];
   const selectedPanel = panels.find((panel) => panel.id === selectedPanelId);
-  const selectedDonorListIds = selectedPanel?.type === "donors" ? selectedPanel.donorIds ?? selectedProgram?.donorIds ?? [] : [];
+  const selectedDonorListIds = selectedPanel?.type === "donors" ? resolvePanelDonors(state.donors, selectedProgram?.donorIds ?? [], selectedPanel).map((donor) => donor.id) : [];
   const rosterPledgeTypes = [...new Set(state.donors.map((donor) => donor.donationType).filter((type): type is NonNullable<Donor["donationType"]> => Boolean(type)))].sort();
   const rosterFacetOptions = ["Explore", "Play", "Toy Soldier Brigade", "Legacy"];
   const donorMatchesRosterFacet = (donor: Donor, facet: string) => {
@@ -4536,14 +4533,13 @@ function ThemeStudio({
       })),
       boardPrograms: current.boardPrograms.map((program) => program.id === selectedProgram.id ? {
         ...program,
-        // Program membership remains a superset because the renderer first
-        // applies the board roster, then the selected donor-list membership.
+        // Keep board assignment metadata while preserving each list separately.
         donorIds: [...new Set([...program.donorIds, ...normalizedDonorIds])],
         // Older boards let every donor panel inherit program membership. Once
         // one list diverges, materialize the other panels' previous effective
         // membership so expanding the program-level superset cannot change
         // those untouched lists.
-        panels: materializeDonorPanelMembership(program.panels, selectedPanelId, program.donorIds, normalizedDonorIds)
+        panels: materializeDonorPanelMembership(program.panels, selectedPanelId, program.donorIds, normalizedDonorIds, current.donors)
       } : program)
     }));
   };

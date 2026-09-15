@@ -67,11 +67,11 @@ export function updateDonorRosterMembership(currentIds: string[], donorIds: stri
 }
 
 export function materializeDonorPanelMembership<
-  TPanel extends { id: string; type: string; donorIds?: string[] }
->(panels: TPanel[] | undefined, selectedPanelId: string, previousProgramDonorIds: string[], selectedDonorIds: string[]) {
+  TPanel extends { id: string; type: string; donorIds?: string[]; donorTierFilter?: string[] }
+>(panels: TPanel[] | undefined, selectedPanelId: string, previousProgramDonorIds: string[], selectedDonorIds: string[], donors: Array<DonorRosterDonor & { active: boolean }>) {
   return panels?.map((panel) => {
     if (panel.type !== "donors") return panel;
     if (panel.id === selectedPanelId) return { ...panel, donorIds: [...selectedDonorIds] };
-    return panel.donorIds === undefined ? { ...panel, donorIds: [...previousProgramDonorIds] } : panel;
+    return panel.donorIds === undefined ? { ...panel, donorIds: resolvePanelDonors(donors, previousProgramDonorIds, panel).map((donor) => donor.id) } : panel;
   });
 }

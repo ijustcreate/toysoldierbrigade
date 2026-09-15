@@ -1,5 +1,24 @@
 [
   {
+    "id": "DEV-0652",
+    "title": "Keep donor lists on the same board independent",
+    "summary": "Fix donor profile saves and add/remove actions that copied the full board roster into every panel. Preserve each list's filtered selections when editing another list, including empty lists and donors intentionally assigned to multiple lists.",
+    "author": "Codex",
+    "createdAt": "Sep 15, 2026, 11:54 AM",
+    "areas": [
+      "Board Editor",
+      "Donors",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/donorRoster.ts",
+      "scripts/test-independent-donor-lists.mjs",
+      "scripts/test-donor-roster-membership.mjs"
+    ],
+    "tests": "Production build and nine regression scripts passed: list isolation, roster membership, selected donor visibility, sorting, handoff, concurrent merge, state preservation, state authority and refresh."
+  },
+  {
     "id": "DEV-0651",
     "title": "Refresh the latest app and shared boards",
     "summary": "Add Refresh to Dashboard and Board Editor top bars and TV display controls, including installed web apps. Pull newest shared state and build without publishing cached data; preserve unsaved board work and pending saves.",

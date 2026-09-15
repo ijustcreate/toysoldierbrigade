@@ -32,7 +32,7 @@ const inheritedPanels = [
   { id: "heading", type: "heading", title: "Supporters" }
 ];
 assert.deepEqual(
-  roster.materializeDonorPanelMembership(inheritedPanels, "play-list", ["ada", "grace"], ["ada", "grace", "katherine"]),
+  roster.materializeDonorPanelMembership(inheritedPanels, "play-list", ["ada", "grace"], ["ada", "grace", "katherine"], donors.map((donor) => ({ ...donor, active: true }))),
   [
     { id: "explore-list", type: "donors", title: "Explore", donorIds: ["ada", "grace"] },
     { id: "play-list", type: "donors", title: "Play", donorIds: ["ada", "grace", "katherine"] },
