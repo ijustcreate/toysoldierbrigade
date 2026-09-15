@@ -1,5 +1,23 @@
 [
   {
+    "id": "DEV-0655",
+    "title": "Prevent unsafe image textures from blanking the app",
+    "summary": "Load board images and videos with CORS and recover failed WebGL texture uploads in Canvas 2D while preserving the authored layout and saved board data.",
+    "author": "Codex",
+    "createdAt": "Sep 15, 2026, 1:39 PM",
+    "areas": [
+      "Display",
+      "Announcements",
+      "Broadcast"
+    ],
+    "files": [
+      "src/display/BabylonDonorWall.tsx",
+      "scripts/check-texture-failure-browser.cjs",
+      "scripts/test-tv-safe-board-renderer.mjs"
+    ],
+    "tests": "Production build; texture SecurityError browser recovery; state preservation; independent donor lists; renderer selection"
+  },
+  {
     "id": "DEV-0654",
     "title": "Keep Announcements and Blips open when graphics are unavailable",
     "summary": "Use lightweight 2D previews for Messages and Blips. Recover from WebGL initialization failure without blanking the control center, and recreate the canvas when switching rendering modes. Saved content is unchanged.",

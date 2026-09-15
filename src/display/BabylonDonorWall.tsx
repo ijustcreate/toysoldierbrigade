@@ -56,12 +56,13 @@ Logger.LogLevels = Logger.ErrorLogLevel;
 export function BabylonDonorWall({ state, screenId, interactive = false, fitToScreen = false, fitPadding = 1.07, viewMode = "3d", preferCanvas2D = false, onGraphicsUnavailable, resetKey = 0, previewProgramId, announcementActive = state.announcement.active && targetIncludesAnnouncement(state, screenId), announcementOverlay, blipOverlay, broadcastOverlay }: BabylonDonorWallProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [canvasSafeFailed, setCanvasSafeFailed] = useState(false);
+  const [webglFailed, setWebglFailed] = useState(false);
   // TV browsers frequently have limited WebGL memory or no reliable WebGL 2
   // implementation. Keep their safe path isolated: desktop dashboard cards
   // must retain the full Babylon renderer used by the Board Editor preview.
   const isTvBrowser = typeof navigator !== "undefined" && /web0s|webos|tizen|smart-tv|smarttv|netcast|viera|hisense|hbbtv/i.test(navigator.userAgent);
   const isExplicitTvMode = typeof window !== "undefined" && /#\/display\/[^?]+\?[^#]*\btv=1\b/.test(window.location.hash);
-  const useSafeCanvasRenderer = fitToScreen && viewMode === "2d" && (preferCanvas2D || isTvBrowser || isExplicitTvMode);
+  const useSafeCanvasRenderer = webglFailed || fitToScreen && viewMode === "2d" && (preferCanvas2D || isTvBrowser || isExplicitTvMode);
   const requiresTvHtmlFallback = useSafeCanvasRenderer && isTvBrowser;
   const useHtmlFallback = requiresTvHtmlFallback || canvasSafeFailed;
   const [scheduleMinute, setScheduleMinute] = useState(() => Math.floor(Date.now() / 60_000));
@@ -231,7 +232,7 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
       });
     } catch {
       // Graphics resource exhaustion must not unmount the entire control center.
-      setCanvasSafeFailed(true);
+      setWebglFailed(true);
       onGraphicsUnavailable?.();
       return;
     }
@@ -351,8 +352,8 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
     let redrawPanel: (animationTime?: number) => void = () => undefined;
     let disposed = false;
     const effectiveBackground = effectiveBackgroundScreen(screen, activeProgram);
-    prepareBackgroundMedia(effectiveBackground, () => redrawPanel());
-    prepareBoardPanelImages(state, () => redrawPanel());
+    prepareBackgroundMedia(effectiveBackground, () => { if (!disposed) redrawPanel(); });
+    prepareBoardPanelImages(state, () => { if (!disposed) redrawPanel(); });
     const animatedBackground = effectiveBackground.backgroundMode === "image" && Boolean(effectiveBackground.backgroundImage) && (effectiveBackground.backgroundMediaType === "video" || effectiveBackground.backgroundMediaAnimated);
     const donorScrollEnabled = activeProgram?.panels?.length
       ? activeProgram.donorScrollEnabled === true
@@ -378,7 +379,9 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
       && viewMode === "2d"
       && !textureNeedsContinuousRedraw
       && !engine.needPOTTextures;
-    const panelTexture = makePanelTexture(scene, state, screenId, screen, activeProgram?.id, generateStaticPreviewMipMaps, announcementOverlay, blipOverlay, broadcastOverlay);
+    const panelTexture = makePanelTexture(scene, state, screenId, screen, activeProgram?.id, generateStaticPreviewMipMaps, announcementOverlay, blipOverlay, broadcastOverlay, () => {
+      if (!disposed) { setWebglFailed(true); onGraphicsUnavailable?.(); }
+    });
     const texture = panelTexture.texture;
     texture.updateSamplingMode(generateStaticPreviewMipMaps ? Texture.LINEAR_LINEAR_MIPNEAREST : Texture.TRILINEAR_SAMPLINGMODE);
     texture.anisotropicFilteringLevel = 16;
@@ -532,7 +535,7 @@ function TvBrowserBoardFallback({ program, donors }: { program?: LanternState["b
   </section>;
 }
 
-function makePanelTexture(scene: Scene, state: LanternState, screenId: ScreenId, screen: DisplayProfile, programId?: string, generateMipMaps = false, announcementOverlay?: Announcement, blipOverlay?: Blip, broadcastOverlay?: BabylonDonorWallProps["broadcastOverlay"]) {
+function makePanelTexture(scene: Scene, state: LanternState, screenId: ScreenId, screen: DisplayProfile, programId?: string, generateMipMaps = false, announcementOverlay?: Announcement, blipOverlay?: Blip, broadcastOverlay?: BabylonDonorWallProps["broadcastOverlay"], onTextureFailure?: () => void) {
   const isPortrait = screen.orientation === "Portrait";
   const width = isPortrait ? 2160 : 3840;
   const height = isPortrait ? 3840 : 2160;
@@ -540,9 +543,18 @@ function makePanelTexture(scene: Scene, state: LanternState, screenId: ScreenId,
   const context = texture.getContext() as unknown as CanvasRenderingContext2D;
 
   texture.hasAlpha = false;
+  let failed = false;
   const redraw = (animationTime = performance.now()) => {
-    drawTextureContent(context, width, height, state, screenId, screen, programId, animationTime, announcementOverlay, blipOverlay, broadcastOverlay);
-    texture.update(false);
+    if (failed || scene.isDisposed) return;
+    try {
+      drawTextureContent(context, width, height, state, screenId, screen, programId, animationTime, announcementOverlay, blipOverlay, broadcastOverlay);
+      texture.update(false);
+    } catch {
+      // Contain failures from image callbacks, font readiness, and render loops.
+      // Canvas 2D can display the authored layout without uploading to WebGL.
+      failed = true;
+      onTextureFailure?.();
+    }
   };
   redraw();
   return { texture, redraw };
@@ -1993,6 +2005,7 @@ function drawDonorIcon(context: CanvasRenderingContext2D, x: number, y: number, 
     let image = donorIconImageCache.get(customIconImage);
     if (!image) {
       image = new Image();
+      image.crossOrigin = "anonymous";
       image.src = customIconImage;
       donorIconImageCache.set(customIconImage, image);
     }
@@ -2414,6 +2427,7 @@ function prepareBackgroundMedia(screen: DisplayProfile, onReady: () => void) {
 
   if (screen.backgroundMediaType === "video" || source.startsWith("data:video/")) {
     const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
     video.src = source;
     video.loop = true;
     video.muted = true;
@@ -2428,6 +2442,7 @@ function prepareBackgroundMedia(screen: DisplayProfile, onReady: () => void) {
   }
 
   const image = new Image();
+  image.crossOrigin = "anonymous";
   image.onload = onReady;
   image.src = source;
   backgroundMediaCache.set(source, image);

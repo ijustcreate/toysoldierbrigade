@@ -15,7 +15,7 @@ for (const [viewMode, preferCanvas2D, isTvBrowser, isExplicitTvMode, expected] o
   ["2d", false, true, false, true],
   ["2d", false, false, true, true]
 ]) {
-  assert.equal(vm.runInNewContext(selection[1], { fitToScreen: true, viewMode, preferCanvas2D, isTvBrowser, isExplicitTvMode }), expected);
+  assert.equal(vm.runInNewContext(selection[1], { webglFailed: false, fitToScreen: true, viewMode, preferCanvas2D, isTvBrowser, isExplicitTvMode }), expected);
 }
 assert.match(source, /if \(useSafeCanvasRenderer \|\| useHtmlFallback\) return;/);
 assert.match(source, /canvas\?\.getContext\("2d"\)/);
@@ -29,3 +29,4 @@ assert.match(source, /TvBrowserBoardFallback/);
 assert.match(source, /size \* \(0\.12 \+ random\(39\.346\) \* 0\.32\)/);
 assert.match(source, /shimmer \* depth \* 0\.5/);
 console.log("TV-safe board renderer fixture passed: straight-on output bypasses WebGL and paints through Canvas 2D.");
+
