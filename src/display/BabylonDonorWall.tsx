@@ -19,6 +19,7 @@ import "@babylonjs/core/Meshes/Builders/tubeBuilder";
 import type { Announcement, Blip, BoardDonorAnimation, BoardDonorHighlight, DisplayProfile, Donor, LanternState, RecognitionIcon, ScreenId } from "../types";
 import { boardUsesDonorAnimation, resolveBoardDonorPresentation, type ResolvedBoardDonorPresentation } from "../boardPresentation";
 import { buildDonorNameGridLayout, splitDonorNameLines } from "../donorNameLayout";
+import { resolvePanelDonors, donorListRowCount } from "../donorRoster";
 import { sortPanelDonors } from "../donorName";
 import { resolveActiveBoardProgram } from "../scheduleResolution";
 
@@ -87,9 +88,10 @@ export function BabylonDonorWall({ state, screenId, interactive = false, fitToSc
   const activeProgram = useMemo(() => {
     return previewProgram ?? resolveActiveBoardProgram(state, screenId, new Date(scheduleMinute * 60_000));
   }, [previewProgram, scheduleMinute, screenId, state.boardPrograms, state.schedules, state.screens]);
-  const accessibleDonors = (activeProgram?.donorIds ?? [])
-    .map((id) => state.donors.find((donor) => donor.id === id))
-    .filter((donor): donor is Donor => Boolean(donor?.active));
+  const donorPanels = activeProgram?.panels?.filter((panel) => panel.type === "donors") ?? [];
+  const accessibleDonors = donorPanels.length
+    ? [...new Map(donorPanels.flatMap((panel) => resolvePanelDonors(state.donors, activeProgram?.donorIds ?? [], panel)).map((donor) => [donor.id, donor])).values()]
+    : resolvePanelDonors(state.donors, activeProgram?.donorIds ?? [], {});
   useEffect(() => setCanvasSafeFailed(false), [screenId, activeProgram?.id]);
   const sceneStateKey = useMemo(
     () => {
@@ -1119,14 +1121,11 @@ function drawComposableBoard(
     }
 
     if (panel.type === "donors") {
-      const panelDonors = sortPanelDonors(donors.filter((donor) =>
-        (panel.donorIds === undefined || panel.donorIds.includes(donor.id))
-        && (!panel.donorTierFilter?.length || panel.donorTierFilter.includes(donor.tier))
-      ), panel);
+      const panelDonors = sortPanelDonors(resolvePanelDonors(state.donors, program.donorIds, panel), panel);
       const columns = panel.columns ?? program.columns;
       const nameFontUnit = Math.max(8, requestedSize * height / authoredCanvasHeight);
-      const rows = panel.rows ?? Math.max(1, Math.ceil(panelDonors.length / columns));
-      const visibleDonors = panelDonors.slice(0, rows * columns);
+      const rows = donorListRowCount(panelDonors.length, columns, panel.rows);
+      const visibleDonors = panelDonors;
       const listTop = y;
       const layout = buildDonorNameGridLayout(visibleDonors.map((donor) => ({
         name: donor.name,

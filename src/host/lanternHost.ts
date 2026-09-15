@@ -448,6 +448,12 @@ export async function loadSharedLanternStateSnapshot(options: { updateSyncContex
 
 /** Load one authoritative startup state for every app surface. */
 export async function loadAuthoritativeLanternState(options: { preferShared?: boolean } = {}): Promise<AuthoritativeLanternState> {
+  const refreshRequested = typeof window !== "undefined" && new URL(window.location.href).searchParams.has("lantern-refresh");
+  if (refreshRequested) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("lantern-refresh");
+    window.history.replaceState(window.history.state, "", url.href);
+  }
   // Capture this before normalization. A schema migration may save the local
   // copy, which must not make an older board appear newer than the site copy.
   const localUpdatedAtBeforeNormalization = await loadLanternStateUpdatedAt();
@@ -463,7 +469,7 @@ export async function loadAuthoritativeLanternState(options: { preferShared?: bo
     const localDiffersFromShared = sharedSnapshot.state
       ? JSON.stringify(serializableSharedState(local)) !== JSON.stringify(serializableSharedState(sharedSnapshot.state))
       : false;
-    const useLocal = !options.preferShared
+    const useLocal = !options.preferShared && !refreshRequested
       && Boolean(sharedSnapshot.state)
       && localDiffersFromShared
       && localStateIsNewer(localUpdatedAtBeforeNormalization, sharedSnapshot.updatedAt);
@@ -506,6 +512,10 @@ export async function loadLanternStateUpdatedAt() {
 export function enableSharedStatePersistence() {
   if (!LANTERN_WRITE_SERVICE_ROOT) return;
   sharedPersistenceEnabled = true;
+}
+
+export function hasPendingSharedSave() {
+  return sharedSaveQueue.isPending();
 }
 
 function queueSharedStateSave(state: LanternState, immediate = false) {

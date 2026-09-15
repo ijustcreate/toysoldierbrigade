@@ -1,5 +1,61 @@
 [
   {
+    "id": "DEV-0651",
+    "title": "Refresh the latest app and shared boards",
+    "summary": "Add Refresh to Dashboard and Board Editor top bars and TV display controls, including installed web apps. Pull newest shared state and build without publishing cached data; preserve unsaved board work and pending saves.",
+    "author": "Codex",
+    "createdAt": "Sep 15, 2026, 11:36 AM",
+    "areas": [
+      "Dashboard",
+      "Board Editor",
+      "TV displays"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/components/SiteRefreshButton.tsx",
+      "src/host/lanternHost.ts",
+      "src/sharedSaveQueue.ts",
+      "scripts/test-site-refresh.mjs"
+    ],
+    "tests": "Refresh success/offline/dirty/pending/racing-edit tests; board save handoff; state preservation; production build"
+  },
+  {
+    "id": "DEV-0650",
+    "title": "Prevent stale editor snapshots from restoring donor lists",
+    "summary": "Merge incoming changes into dirty board drafts and save only authored differences against the current state. Checking for site updates no longer advances the write baseline before fetched data is applied.",
+    "author": "Codex",
+    "createdAt": "Sep 15, 2026, 11:35 AM",
+    "areas": [
+      "Board Editor",
+      "Shared state"
+    ],
+    "files": [
+      "src/App.tsx",
+      "scripts/test-board-save-handoff.mjs"
+    ],
+    "tests": "Actual refresh/save updater Explore and Play regression; concurrent merge; state authority; state preservation; production build"
+  },
+  {
+    "id": "DEV-0649",
+    "title": "Show every explicitly selected donor",
+    "summary": "Selected donor lists now include inactive records and honor selections over automatic filters or stale board membership. Expand grid rows to prevent saved row limits from hiding names.",
+    "author": "Codex",
+    "createdAt": "Sep 15, 2026, 11:33 AM",
+    "areas": [
+      "Board Editor",
+      "Donor lists",
+      "Displays"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/donorRoster.ts",
+      "src/display/BabylonDonorWall.tsx",
+      "scripts/test-selected-donor-visibility.mjs",
+      "scripts/test-donor-panel-sort.mjs"
+    ],
+    "tests": "Selected donor visibility, sorting, roster membership, state preservation, TV renderer and production build passed"
+  },
+  {
     "id": "DEV-0648",
     "title": "Honor alphabetical donor order on boards",
     "summary": "Apply the selected donor-list order consistently in the inspector, board preview, and TV renderer before limiting visible names to grid capacity.",
@@ -16,6 +72,22 @@
       "scripts/test-donor-panel-sort.mjs"
     ],
     "tests": "npm run build; node scripts/test-donor-panel-sort.mjs; npm run test:donor-roster-membership"
+  },
+  {
+    "id": "DEV-0647",
+    "title": "Preserve donor edits while board saves finish",
+    "summary": "Keep newer donor-list and formatting edits when an earlier board save returns to the editor. Refresh the draft reference synchronously so immediate saves use current edits.",
+    "author": "Codex",
+    "createdAt": "Sep 15, 2026, 11:25 AM",
+    "areas": [
+      "Board Editor",
+      "Donor lists"
+    ],
+    "files": [
+      "src/App.tsx",
+      "scripts/test-board-save-handoff.mjs"
+    ],
+    "tests": "Board save handoff regression, concurrent merge, state preservation, state authority, donor roster membership, and production build passed"
   },
   {
     "id": "DEV-0646",

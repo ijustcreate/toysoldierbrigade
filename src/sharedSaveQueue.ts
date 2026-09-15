@@ -36,9 +36,9 @@ export function createSharedSaveQueue<T>(
       if (pending) schedule(failed ? 5000 : 0);
     }
   };
-  return (state: T, immediate = false) => {
+  return Object.assign((state: T, immediate = false) => {
     pending = { state };
     status("Saving changes to the TV service…");
     schedule(immediate ? 0 : 450);
-  };
+  }, { isPending: () => saving || Boolean(pending) });
 }

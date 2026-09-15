@@ -8,6 +8,22 @@ export interface DonorRosterDonor {
   givingLevelId?: string;
 }
 
+/** Explicit checkbox selections take precedence over automatic roster filters. */
+export function resolvePanelDonors<T extends DonorRosterDonor & { active: boolean }>(
+  donors: T[], programIds: string[], panel: { donorIds?: string[]; donorTierFilter?: string[] }
+) {
+  const byId = new Map(donors.map((donor) => [donor.id, donor]));
+  return [...new Set(panel.donorIds ?? programIds)]
+    .map((id) => byId.get(id))
+    .filter((donor): donor is T => Boolean(donor))
+    .filter((donor) => panel.donorIds !== undefined || (donor.active
+      && (!panel.donorTierFilter?.length || panel.donorTierFilter.includes(donor.tier ?? ""))));
+}
+
+export function donorListRowCount(count: number, columns: number, requestedRows?: number) {
+  return Math.max(1, requestedRows ?? 1, Math.ceil(count / Math.max(1, columns)));
+}
+
 export interface DonorRosterGivingProgram {
   id: string;
   levels: Array<{ id: string; name: string }>;

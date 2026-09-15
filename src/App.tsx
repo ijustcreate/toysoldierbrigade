@@ -93,12 +93,13 @@ import { BroadcastCompositionControls } from "./components/BroadcastCompositionC
 import { RecordingLibrary } from "./components/RecordingLibrary";
 import { BrigadeView as BrigadeLandingPageView } from "./components/BrigadeView";
 import { VisitorMessageFooter } from "./components/VisitorMessageFooter";
+import { SiteRefreshButton, SITE_REFRESH_REQUEST } from "./components/SiteRefreshButton";
 import { VisitorMessageManager } from "./components/VisitorMessageManager";
 import { LanternConfirmDialog, LanternNotice, LanternTextPromptDialog } from "./components/LanternDialog";
 import { parseCurrencyAmount } from "./donorDomain";
 import { donorDisplayName, donorSortKey, sortPanelDonors } from "./donorName";
 import { buildDonorNameGridLayout, splitDonorNameLines } from "./donorNameLayout";
-import { donorRosterFacetOptions, donorRosterFacets, filterDonorRoster, materializeDonorPanelMembership, updateDonorRosterMembership } from "./donorRoster";
+import { resolvePanelDonors, donorListRowCount, donorRosterFacetOptions, donorRosterFacets, filterDonorRoster, materializeDonorPanelMembership, updateDonorRosterMembership } from "./donorRoster";
 import { AnimatedDonorName, BoardDonorPresentationEditor, FontPicker, recognitionIconGlyph } from "./components/BoardDonorPresentationEditor";
 import { clearBoardDonorStyle, patchBoardDonorStyle, resolveBoardDonorPresentation } from "./boardPresentation";
 import { formatMediaDeviceError, mediaDeviceManager, type MediaDeviceLease } from "./host/mediaDeviceManager";
@@ -630,7 +631,9 @@ function ControlCenter() {
     setSiteSyncing(true);
     setSiteSyncStatus("Checking the site copy…");
     try {
-      const snapshot = await loadSharedLanternStateSnapshot();
+      // Merely checking for updates must not authorize the older displayed
+      // state to overwrite the version that has not been applied yet.
+      const snapshot = await loadSharedLanternStateSnapshot({ updateSyncContext: false });
       if (!snapshot.state) {
         setSiteSyncStatus("No shared site data is available yet.");
         return;
@@ -1306,6 +1309,7 @@ function ControlCenter() {
             <h1>{titleFor(view)}</h1>
           </div>
           <div className="topbar-actions">
+            {(view === "dashboard" || view === "theme") && <SiteRefreshButton />}
             {pendingSiteUpdate && <button type="button" className="command-button primary" onClick={() => void applyPendingSiteUpdate()} disabled={siteSyncing}><RefreshCcw size={16} /> {siteSyncing ? "Updating…" : "Update now"}</button>}
             {view === "dashboard" && (
               <div className="dashboard-quick-actions">
@@ -4126,19 +4130,27 @@ function ThemeStudio({
   // rendered the input update. Keep the latest authored board available to
   // save synchronously so a click immediately after typing cannot lose text.
   const draftStateRef = useRef(draftState);
+  const draftBaselineRef = useRef(savedState);
   const [savedDraftSnapshot, setSavedDraftSnapshot] = useState(() => boardEditorDraftSnapshot(savedState));
   const observedSavedSnapshot = useRef(boardEditorDraftSnapshot(savedState));
-  const pendingSavedBoardSnapshot = useRef<string | null>(null);
+  const pendingSavedBoardSnapshot = useRef<{ snapshot: string; state: LanternState } | null>(null);
   const state = draftState;
   const draftSnapshot = boardEditorDraftSnapshot(draftState);
   const incomingSavedSnapshot = boardEditorDraftSnapshot(savedState);
   const hasUnsavedChanges = draftSnapshot !== savedDraftSnapshot;
+  useEffect(() => {
+    const protectDraft = (event: Event) => {
+      if (boardEditorDraftSnapshot(draftStateRef.current) === savedDraftSnapshot) return;
+      event.preventDefault();
+      window.alert("Save your board changes before refreshing. Your current edits have been kept open.");
+    };
+    window.addEventListener(SITE_REFRESH_REQUEST, protectDraft);
+    return () => window.removeEventListener(SITE_REFRESH_REQUEST, protectDraft);
+  }, [savedDraftSnapshot]);
   const updateDraftState = useCallback((updater: (current: LanternState) => LanternState) => {
-    setDraftState((current) => {
-      const next = updater(current);
-      draftStateRef.current = next;
-      return next;
-    });
+    const next = updater(draftStateRef.current);
+    draftStateRef.current = next;
+    setDraftState(next);
   }, []);
   const display = state.screens[selectedDisplayId] ?? Object.values(state.screens)[0];
   const [selectedProgramId, setSelectedProgramId] = useState(() => state.boardPrograms.some((program) => program.id === requestedBoardId) ? requestedBoardId! : resolveDisplayedBoardProgramId(state, display.id));
@@ -4181,7 +4193,6 @@ function ThemeStudio({
   const boardDisplay = selectedProgram ? { ...display, orientation: selectedProgram.orientation } : display;
   const panels = selectedProgram?.panels ?? [];
   const selectedPanel = panels.find((panel) => panel.id === selectedPanelId);
-  const selectedDonorTierFilters = selectedPanel?.type === "donors" ? selectedPanel.donorTierFilter ?? [] : [];
   const selectedDonorListIds = selectedPanel?.type === "donors" ? selectedPanel.donorIds ?? selectedProgram?.donorIds ?? [] : [];
   const rosterPledgeTypes = [...new Set(state.donors.map((donor) => donor.donationType).filter((type): type is NonNullable<Donor["donationType"]> => Boolean(type)))].sort();
   const rosterFacetOptions = ["Explore", "Play", "Toy Soldier Brigade", "Legacy"];
@@ -4199,13 +4210,9 @@ function ThemeStudio({
       const sortKey = rosterSort === "last-name-asc" ? "last-name" : rosterSort === "first-name-asc" ? "first-name" : rosterSort;
       return donorSortKey(a, sortKey).localeCompare(donorSortKey(b, sortKey)) || a.name.localeCompare(b.name);
     });
-  const donorListRoster = sortPanelDonors(selectedDonorListIds
-    .map((donorId) => state.donors.find((donor) => donor.id === donorId))
-    .filter((donor): donor is Donor => donor !== undefined)
-    .filter((donor) => donor.active && (!selectedDonorTierFilters.length || selectedDonorTierFilters.includes(donor.tier)))
-    , selectedPanel?.type === "donors" ? selectedPanel : {});
+  const donorListRoster = sortPanelDonors(resolvePanelDonors(state.donors, selectedProgram?.donorIds ?? [], selectedPanel ?? {}), selectedPanel ?? {});
   const donorListColumns = selectedPanel?.type === "donors" ? selectedPanel.columns ?? selectedProgram?.columns ?? 1 : 1;
-  const donorListRows = selectedPanel?.type === "donors" ? selectedPanel.rows ?? Math.max(1, Math.ceil(donorListRoster.length / donorListColumns)) : 1;
+  const donorListRows = selectedPanel?.type === "donors" ? donorListRowCount(donorListRoster.length, donorListColumns, selectedPanel.rows) : 1;
   const donorListCapacity = donorListRows * donorListColumns;
   const cutOffDonorIds = donorListRoster.slice(donorListCapacity).map((donor) => donor.id);
   const cutOffDonorCount = cutOffDonorIds.length;
@@ -4252,6 +4259,7 @@ function ThemeStudio({
         const nextDraft = mergeConcurrentState(detail.submittedState, draftStateRef.current, detail.state);
         pendingSavedBoardSnapshot.current = null;
         draftStateRef.current = nextDraft;
+        draftBaselineRef.current = detail.state;
         setDraftState(nextDraft);
         setSavedDraftSnapshot(boardEditorDraftSnapshot(detail.state));
       }
@@ -4268,17 +4276,21 @@ function ThemeStudio({
     // to other surfaces. Ignore older relay messages during that handoff so a
     // just-saved board never briefly renders an unrelated prior version.
     if (pendingSavedBoardSnapshot.current) {
-      if (incomingSavedSnapshot === pendingSavedBoardSnapshot.current) {
+      if (incomingSavedSnapshot === pendingSavedBoardSnapshot.current.snapshot) {
+        // Rebase edits made while persistence was pending onto its acknowledgement.
+        // The submitted state is the baseline, never the current unsaved draft.
+        const nextDraft = mergeConcurrentState(pendingSavedBoardSnapshot.current.state, draftStateRef.current, savedState);
         pendingSavedBoardSnapshot.current = null;
-        const nextDraft = structuredClone(savedState);
         draftStateRef.current = nextDraft;
+        draftBaselineRef.current = savedState;
         setDraftState(nextDraft);
         setSavedDraftSnapshot(incomingSavedSnapshot);
       }
       return;
     }
-    if (hasUnsavedChanges) return;
-    const nextDraft = structuredClone(savedState);
+    // Preserve only authored differences, not stale copies of other lists.
+    const nextDraft = mergeConcurrentState(draftBaselineRef.current, draftStateRef.current, savedState);
+    draftBaselineRef.current = savedState;
     draftStateRef.current = nextDraft;
     setDraftState(nextDraft);
     setSavedDraftSnapshot(incomingSavedSnapshot);
@@ -4550,33 +4562,24 @@ function ThemeStudio({
 
   const saveBoard = async () => {
     const currentDraft = draftStateRef.current;
+    const draftBaseline = draftBaselineRef.current;
     const currentDraftSnapshot = boardEditorDraftSnapshot(currentDraft);
     if (currentDraftSnapshot === savedDraftSnapshot) return;
     setSaveStatus("saving");
-    const savedBoardSnapshot = currentDraftSnapshot;
-    pendingSavedBoardSnapshot.current = savedBoardSnapshot;
-    const boardDraft = {
-      ...savedState,
-      board: currentDraft.board,
-      boardPrograms: currentDraft.boardPrograms,
-      donors: currentDraft.donors,
-      widgets: currentDraft.widgets,
-      screens: currentDraft.screens
-    };
+    const boardDraft = mergeConcurrentState(draftBaseline, currentDraft, savedState);
+    const savedBoardSnapshot = boardEditorDraftSnapshot(boardDraft);
+    pendingSavedBoardSnapshot.current = { snapshot: savedBoardSnapshot, state: currentDraft };
     const persistence = await saveLanternStateDurably(boardDraft);
     if (persistence === "failed") {
       pendingSavedBoardSnapshot.current = null;
       setSaveStatus("error");
       return;
     }
-    updateState((current) => ({
-      ...current,
-      board: currentDraft.board,
-      boardPrograms: currentDraft.boardPrograms,
-      donors: currentDraft.donors,
-      widgets: currentDraft.widgets,
-      screens: currentDraft.screens
-    }));
+    updateState((current) => {
+      const merged = mergeConcurrentState(draftBaseline, currentDraft, current);
+      pendingSavedBoardSnapshot.current = { snapshot: boardEditorDraftSnapshot(merged), state: currentDraft };
+      return merged;
+    });
     savedState.boardPrograms.forEach((savedProgram) => {
       const draftProgram = draftState.boardPrograms.find((program) => program.id === savedProgram.id);
       if (savedProgram.backgroundMediaId && savedProgram.backgroundMediaId !== draftProgram?.backgroundMediaId) {
@@ -4965,14 +4968,8 @@ function DirectBoardCanvas({
     document.addEventListener("pointerdown", closeMenu);
     return () => document.removeEventListener("pointerdown", closeMenu);
   }, [contextMenu]);
-  const donors = program.donorIds
-    .map((id) => state.donors.find((donor) => donor.id === id))
-    .filter((donor): donor is Donor => Boolean(donor?.active));
   const palette = boardPreviewPalette(program.palette);
-  const panelDonors = (panel: BoardPanel) => sortPanelDonors(donors.filter((donor) =>
-    (panel.donorIds === undefined || panel.donorIds.includes(donor.id))
-    && (!panel.donorTierFilter?.length || panel.donorTierFilter.includes(donor.tier))
-  ), panel);
+  const panelDonors = (panel: BoardPanel) => sortPanelDonors(resolvePanelDonors(state.donors, program.donorIds, panel), panel);
   const commitText = (panel: BoardPanel, field: "eyebrow" | "title" | "body", value: string) => onPatch(panel.id, { [field]: value });
   const beginManipulation = (event: React.PointerEvent, panel: BoardPanel, mode: "move" | "resize", edge = "") => {
     if (event.button !== 0) return;
@@ -5176,7 +5173,7 @@ function DirectBoardCanvas({
         {panel.type === "text" && <AutoFitBoardContent className="direct-single-text-content" fitOneLine={panel.textFlow === "fit-one-line"} fontSize={panel.fontSize} fontFamily={panel.fontFamily ?? "Montserrat"}><EditableBoardText className="board-text" value={panel.title} multiline onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
         {panel.type === "heading" && <AutoFitBoardContent className="direct-single-text-content"><EditableBoardText className="board-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
         {panel.type === "supporters-heading" && <AutoFitBoardContent className="direct-single-text-content"><EditableBoardText className="board-section-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /></AutoFitBoardContent>}
-        {panel.type === "donors" && <FittedDonorGrid style={directDonorGridStyle(panelDonors(panel), panel.columns ?? program.columns, panel.rows, display, panel)}>{panelDonors(panel).slice(0, (panel.rows ?? Math.max(1, Math.ceil(panelDonors(panel).length / (panel.columns ?? program.columns)))) * (panel.columns ?? program.columns)).map((donor) => <DirectBoardDonorName donor={donor} display={display} panel={panel} palette={palette} onRename={onRenameDonor} key={donor.id} />)}{!panelDonors(panel).length && <button className="empty-board-action" type="button">Select donors or recognition levels in the inspector</button>}</FittedDonorGrid>}
+        {panel.type === "donors" && <FittedDonorGrid style={directDonorGridStyle(panelDonors(panel), panel.columns ?? program.columns, panel.rows, display, panel)}>{panelDonors(panel).map((donor) => <DirectBoardDonorName donor={donor} display={display} panel={panel} palette={palette} onRename={onRenameDonor} key={donor.id} />)}{!panelDonors(panel).length && <button className="empty-board-action" type="button">Select donors or recognition levels in the inspector</button>}</FittedDonorGrid>}
         {panel.type === "message" && <AutoFitBoardContent className="direct-message-content"><EditableBoardText className="board-eyebrow" value={panel.eyebrow ?? ""} onCommit={(value) => commitText(panel, "eyebrow", value)} /><EditableBoardText className="board-message-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /><EditableBoardText className="board-copy" value={panel.body ?? ""} onCommit={(value) => commitText(panel, "body", value)} /></AutoFitBoardContent>}
         {panel.type === "story" && <><div className="direct-story-image" style={state.board.storyImageUrl ? { backgroundImage: `url(${state.board.storyImageUrl})` } : undefined}><ImageIcon size={22} /></div><AutoFitBoardContent className="direct-story-copy"><EditableBoardText className="board-eyebrow" value={panel.eyebrow ?? ""} onCommit={(value) => commitText(panel, "eyebrow", value)} /><EditableBoardText className="board-message-title" value={panel.title} onCommit={(value) => commitText(panel, "title", value)} /><EditableBoardText className="board-copy" value={panel.body ?? ""} onCommit={(value) => commitText(panel, "body", value)} /></AutoFitBoardContent></>}
         {panel.type === "image" && <div className={`direct-image-panel fit-${panel.imageFit ?? "contain"}`}>{panel.imageUrl ? <img src={resolveProjectAssetUrl(panel.imageUrl)} alt="" style={{ transform: `rotate(${panel.imageRotation ?? 0}deg) scaleX(${panel.imageMirrored ? -1 : 1})` }} /> : <><ImagePlus size={28} /><span>Choose an image in the right menu</span></>}</div>}
@@ -5240,7 +5237,7 @@ function AuthoredBoardPresentation({ state, display, program, highlightedPanelId
 }
 
 function directDonorGridStyle(donors: Donor[], columns: number, requestedRows: number | undefined, display: DisplayProfile, panel?: BoardPanel): React.CSSProperties {
-  const rowCount = requestedRows ?? Math.max(1, Math.ceil(donors.length / columns));
+  const rowCount = donorListRowCount(donors.length, columns, requestedRows);
   const layout = buildDonorNameGridLayout(donors.map((donor) => ({
     name: donorDisplayName(donor),
     hasSubtext: donorSubtextVisibleForDisplay(display, donor.id) && Boolean(donor.subtext)
@@ -5248,8 +5245,8 @@ function directDonorGridStyle(donors: Donor[], columns: number, requestedRows: n
   return {
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
     // Keep the authored row spacing as a real pixel gap so the control visibly
-    // increases the vertical space between donor lines. The panel clips any
-    // content beyond its configured capacity, as it already does for overflow.
+    // increases the vertical space between donor lines. The row count expands
+    // to accommodate every selected donor within the fitted panel.
     gridTemplateRows: layout.rowUnits.map((units) => `minmax(0, ${units}fr)`).join(" "),
     rowGap: `${panel?.donorRowGap ?? 0}px`,
     columnGap: `${panel?.donorColumnGap ?? 7}%`,
@@ -10864,10 +10861,7 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
             <Radio size={17} />
             <span>Identify display</span>
           </button>
-          <button type="button" onClick={() => window.location.reload()}>
-            <RefreshCcw size={17} />
-            <span>Reload display</span>
-          </button>
+          <SiteRefreshButton className="" />
           {tvMode && <button type="button" onClick={() => { window.location.hash = "#/tv"; }}>
             <Settings size={17} />
             <span>TV mode setup</span>

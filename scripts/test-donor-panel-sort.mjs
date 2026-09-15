@@ -22,6 +22,6 @@ assert.equal(sortPanelDonors(donors, { donorSort: "first-name" }).slice(0, 1)[0]
 assert.deepEqual(donors, original, "Sorting must preserve stored donors and membership");
 for (const file of ["../src/App.tsx", "../src/display/BabylonDonorWall.tsx"]) {
   const renderer = await readFile(new URL(file, import.meta.url), "utf8");
-  assert.match(renderer, /panelDonors = (?:\(panel: BoardPanel\) => )?sortPanelDonors\(donors\.filter/, `${file} must apply selected order before rendering`);
+  assert.match(renderer, /panelDonors = (?:\(panel: BoardPanel\) => )?sortPanelDonors\(resolvePanelDonors/, `${file} must apply selected order before rendering`);
 }
 console.log("Donor panel sorting regression checks passed.");
