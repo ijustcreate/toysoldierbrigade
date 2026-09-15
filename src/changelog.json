@@ -1,5 +1,26 @@
 [
   {
+    "id": "DEV-0653",
+    "title": "Preserve broadcast framing across edits and orientations",
+    "summary": "Save placement and crop separately for each display orientation and camera source orientation. Make sliders target the previewed display, merge gesture and nested setting changes without reverting other edits, preserve pending broadcast saves during relays, and keep resize and polygon tools stable.",
+    "author": "Codex",
+    "createdAt": "Sep 15, 2026, 1:23 PM",
+    "areas": [
+      "Broadcast",
+      "Video framing",
+      "Display playback"
+    ],
+    "files": [
+      "src/App.tsx",
+      "src/types.ts",
+      "src/broadcastVideoFraming.ts",
+      "src/broadcastFramingProfiles.ts",
+      "scripts/test-broadcast-framing.mjs",
+      "scripts/check-broadcast-framing-browser.cjs"
+    ],
+    "tests": "Production build; seven regression scripts; isolated Playwright profiles, sliders, drag, tab switch, reload and board preservation checks."
+  },
+  {
     "id": "DEV-0652",
     "title": "Keep donor lists on the same board independent",
     "summary": "Fix donor profile saves and add/remove actions that copied the full board roster into every panel. Preserve each list's filtered selections when editing another list, including empty lists and donors intentionally assigned to multiple lists.",

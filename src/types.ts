@@ -775,6 +775,9 @@ export interface LivePresentation {
   titlePosition: { x: number; y: number };
   lowerThirdPosition: { x: number; y: number };
   displayLayouts?: Record<string, LiveDisplayLayout>;
+  /** Independently authored framing for each display orientation and source shape. */
+  framingProfiles?: Record<string, LiveDisplayLayout>;
+  cameraOrientation?: "Portrait" | "Landscape";
   backgroundMode: BroadcastBackgroundMode;
   backgroundColor: string;
   backgroundImage?: string;

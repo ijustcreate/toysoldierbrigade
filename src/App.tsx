@@ -1,3 +1,4 @@
+import { liveCompositionForDisplay, patchBroadcastLayout } from "./broadcastFramingProfiles";
 import { createDisplayStateRefreshGuard } from "./displayStateRefresh";
 import { nextDisplayNumber, removeConfiguredDisplay } from "./displayManagement";
 import { NamesPerRowField } from "./components/NamesPerRowField";
@@ -125,6 +126,7 @@ import {
   loadAuthoritativeLanternState,
   loadDisplaySessionSnapshot,
   loadSharedLanternStateSnapshot,
+  hasPendingSharedSave,
   loadLanternState,
   serializableSharedState,
   LANTERN_SHARED_STATE_EVENT,
@@ -171,7 +173,7 @@ import { nextVisitorMessage, normalizeVisitorMessageRotation } from "./visitorMe
 import { resolveActiveBoardProgram, resolveCurrentBoardSchedule, resolveCurrentScheduleEntry, scheduleMatchesDate } from "./scheduleResolution";
 import { CHROMA_KEY_PRESETS, createBackgroundRemovalPatch, resolveBackgroundRemoval, SCREENLESS_REMOVAL_TECHNOLOGY, type BackgroundRemovalMethod } from "./backgroundRemoval";
 import { broadcastSourceTransformStyle, frameSurfaceStyle, normalizeBroadcastComposition, normalizeCropEdges } from "./broadcastComposition";
-import { fitWholeBroadcastSource } from "./broadcastVideoFraming";
+import { fitWholeBroadcastSource, resizeBroadcastFrame } from "./broadcastVideoFraming";
 import { renderCostumeOverlay } from "./costumeRenderer";
 import { resolveCalibrationProfile } from "./effectStudio";
 import type { TrackingRuntimeStatus } from "./trackingRuntime";
@@ -706,18 +708,20 @@ function ControlCenter() {
     const channel = createHostChannel((message) => {
       if (message.type === "state-update") {
         setState((current) => {
+          // An incoming relay must not roll back broadcast edits still awaiting acknowledgement.
+          const incoming = hasPendingSharedSave() ? { ...message.state, live: current.live } : message.state;
           const operatorId = activeUserIdRef.current;
           const localTheme = current.userPreferences.find((preferences) => preferences.userId === operatorId)?.theme;
-          if (!localTheme) return message.state;
+          if (!localTheme) return incoming;
           const localPreferences = current.userPreferences.find((preferences) => preferences.userId === operatorId);
-          const incomingPreferences = message.state.userPreferences.some((preferences) => preferences.userId === operatorId)
-            ? message.state.userPreferences.map((preferences) => preferences.userId === operatorId ? { ...preferences, theme: localTheme } : preferences)
+          const incomingPreferences = incoming.userPreferences.some((preferences) => preferences.userId === operatorId)
+            ? incoming.userPreferences.map((preferences) => preferences.userId === operatorId ? { ...preferences, theme: localTheme } : preferences)
             : localPreferences
-              ? [...message.state.userPreferences, { ...localPreferences, theme: localTheme }]
-              : message.state.userPreferences;
+              ? [...incoming.userPreferences, { ...localPreferences, theme: localTheme }]
+              : incoming.userPreferences;
           return {
-            ...message.state,
-            recognitionSettings: { ...message.state.recognitionSettings, appearance: localTheme },
+            ...incoming,
+            recognitionSettings: { ...incoming.recognitionSettings, appearance: localTheme },
             userPreferences: incomingPreferences
           };
         });
@@ -1445,7 +1449,7 @@ function ControlCenter() {
             <div className="comms-workspace go-live-workspace"><LivePreviewPanel
                 state={state}
                 activeUserId={activeUser?.id}
-                patchLive={(patch) => updateState((current) => ({ ...current, live: { ...current.live, ...patch } }))}
+                patchLive={(patch) => updateState((current) => ({ ...current, live: mergeConcurrentState(state.live, { ...state.live, ...patch }, current.live) }))}
                 updateState={updateState}
                 startLive={startLive}
                 startLiveStream={startLiveStream}
@@ -6129,11 +6133,6 @@ function prepareLivePreviewPopup(popup: Window, sourceDocument: Document) {
   }
 }
 
-function liveCompositionForDisplay(live: LanternState["live"], screenId: ScreenId): LanternState["live"] {
-  const layout = live.displayLayouts?.[screenId];
-  return layout ? { ...live, ...layout, frame: layout.frame ?? live.frame } : live;
-}
-
 function DirectLiveStage({
   state,
   screen,
@@ -6161,7 +6160,7 @@ function DirectLiveStage({
   showBoard?: boolean;
   interactive?: boolean;
   onTrackingStatus?: (status: TrackingRuntimeStatus) => void;
-  onFrameChange: (frame: LanternState["live"]["frame"]) => void;
+  onFrameChange: (frame: LanternState["live"]["frame"], baseline?: LanternState["live"]["frame"]) => void;
   onTitlePositionChange: (position: { x: number; y: number }) => void;
   onLowerThirdPositionChange: (position: { x: number; y: number }) => void;
 }) {
@@ -6174,7 +6173,7 @@ function DirectLiveStage({
   const [confirmPolygonReset, setConfirmPolygonReset] = useState(false);
   const [controlHeld, setControlHeld] = useState(false);
   const [broadcastSurface, setBroadcastSurface] = useState<HTMLCanvasElement | HTMLVideoElement | null>(null);
-  const displayLive = liveCompositionForDisplay(live, screen.id);
+  const displayLive = liveCompositionForDisplay(live, screen);
   const displayLiveWithTextDraft = textDraft
     ? { ...displayLive, [textDraft.kind === "title" ? "titlePosition" : "lowerThirdPosition"]: textDraft.position }
     : displayLive;
@@ -6193,6 +6192,8 @@ function DirectLiveStage({
   const trackedCostumeRenderer = useMemo(() => composedLive.effects.costumeEnabled && activeCostume
     ? ((context: CanvasRenderingContext2D, frame: Parameters<typeof renderCostumeOverlay>[1]) => renderCostumeOverlay(context, frame, activeCostume, activeCalibration))
     : undefined, [activeCalibration, activeCostume, composedLive.effects.costumeEnabled]);
+  const wheelFrameRef = useRef(composedLive.frame);
+  wheelFrameRef.current = composedLive.frame;
   const cropEdges = normalizeCropEdges(composedLive.frame.cropEdges);
   const interactionMode = controlHeld ? "crop" : mode;
   const dragRef = useRef<{
@@ -6203,6 +6204,7 @@ function DirectLiveStage({
     x: number;
     y: number;
     frame: LanternState["live"]["frame"];
+    commit: typeof onFrameChange;
   } | null>(null);
   const textDragRef = useRef<{
     kind: "title" | "lower-third";
@@ -6210,6 +6212,7 @@ function DirectLiveStage({
     x: number;
     y: number;
     position: { x: number; y: number };
+    commit: (position: { x: number; y: number }) => void;
   } | null>(null);
   const updateFrameDraft = (frame: LanternState["live"]["frame"]) => {
     frameDraftRef.current = frame;
@@ -6241,10 +6244,12 @@ function DirectLiveStage({
   const polygonClip = `polygon(${polygonPoints.map((point) => `${point.x}% ${point.y}%`).join(", ")})`;
 
   const beginDrag = (event: React.PointerEvent<HTMLElement>, kind: "move" | "resize" | "crop" | "crop-edge" | "point", edge = "se", pointIndex?: number) => {
+    if (event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = { kind, edge, pointIndex, pointerId: event.pointerId, x: event.clientX, y: event.clientY, frame: structuredClone(composedLive.frame) };
+    frameDraftRef.current = null;
+    dragRef.current = { kind, edge, pointIndex, pointerId: event.pointerId, x: event.clientX, y: event.clientY, frame: structuredClone(composedLive.frame), commit: onFrameChange };
   };
 
   const moveDrag = (event: React.PointerEvent<HTMLElement>) => {
@@ -6252,6 +6257,7 @@ function DirectLiveStage({
     const stage = stageRef.current;
     if (!drag || !stage || drag.pointerId !== event.pointerId) return;
     const bounds = stage.getBoundingClientRect();
+    if (bounds.width <= 0 || bounds.height <= 0) return;
     const dx = ((event.clientX - drag.x) / bounds.width) * 100;
     const dy = ((event.clientY - drag.y) / bounds.height) * 100;
     if (drag.kind === "point") {
@@ -6268,32 +6274,9 @@ function DirectLiveStage({
     } else if (drag.kind === "move") {
       updateFrameDraft({ ...drag.frame, x: clamp(drag.frame.x + dx, 0, 100 - drag.frame.width), y: clamp(drag.frame.y + dy, 0, 100 - drag.frame.height) });
     } else if (drag.kind === "resize") {
-      let { x, y, width, height } = drag.frame;
       const edge = drag.edge ?? "se";
-      const isCorner = edge.length === 2;
-      const uniform = isCorner || ((drag.frame.maskShape === "circle" || drag.frame.maskShape === "polygon") && event.shiftKey);
-      if (edge.includes("e")) width = clamp(drag.frame.width + dx, 10, 100 - x);
-      if (edge.includes("s")) height = clamp(drag.frame.height + dy, 10, 100 - y);
-      if (edge.includes("w")) {
-        x = clamp(drag.frame.x + dx, 0, drag.frame.x + drag.frame.width - 10);
-        width = drag.frame.width + drag.frame.x - x;
-      }
-      if (edge.includes("n")) {
-        y = clamp(drag.frame.y + dy, 0, drag.frame.y + drag.frame.height - 10);
-        height = drag.frame.height + drag.frame.y - y;
-      }
-      if (uniform) {
-        const aspect = drag.frame.width / Math.max(1, drag.frame.height);
-        if (Math.abs(dx) >= Math.abs(dy)) {
-          height = clamp(width / aspect, 10, 100 - y);
-          if (edge.includes("n")) y = drag.frame.y + drag.frame.height - height;
-        } else {
-          width = clamp(height * aspect, 10, 100 - x);
-          if (edge.includes("w")) x = drag.frame.x + drag.frame.width - width;
-        }
-      }
-      const maskShape = drag.frame.maskShape === "square" && !isCorner ? "rectangle" : drag.frame.maskShape;
-      updateFrameDraft({ ...drag.frame, x, y, width, height, maskShape });
+      const proportional = edge.length === 2 || ((drag.frame.maskShape === "circle" || drag.frame.maskShape === "polygon") && event.shiftKey);
+      updateFrameDraft(resizeBroadcastFrame(drag.frame, edge, dx, dy, proportional));
     } else if (drag.kind === "crop-edge") {
       const frameBounds = (event.currentTarget.closest(".direct-live-frame") as HTMLElement | null)?.getBoundingClientRect();
       if (!frameBounds) return;
@@ -6327,7 +6310,7 @@ function DirectLiveStage({
       setConfirmPolygonReset(true);
       return;
     }
-    onFrameChange({ ...composedLive.frame, polygonPoints: polygonPoints.filter((_, pointIndex) => pointIndex !== index) });
+    onFrameChange({ ...composedLive.frame, polygonPoints: polygonPoints.filter((_, pointIndex) => pointIndex !== index) }, composedLive.frame);
     setSelectedPoint(null);
   };
 
@@ -6345,10 +6328,12 @@ function DirectLiveStage({
   const finishDrag = (event: React.PointerEvent<HTMLElement>) => {
     if (dragRef.current?.pointerId !== event.pointerId) return;
     const finalFrame = frameDraftRef.current;
+    const baseline = dragRef.current.frame;
+    const commit = dragRef.current.commit;
     dragRef.current = null;
     frameDraftRef.current = null;
     setFrameDraft(null);
-    if (finalFrame) onFrameChange(finalFrame);
+    if (finalFrame) commit(finalFrame, baseline);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
@@ -6361,7 +6346,8 @@ function DirectLiveStage({
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
-      position: kind === "title" ? composedLive.titlePosition : composedLive.lowerThirdPosition
+      position: kind === "title" ? composedLive.titlePosition : composedLive.lowerThirdPosition,
+      commit: kind === "title" ? onTitlePositionChange : onLowerThirdPositionChange
     };
   };
 
@@ -6382,11 +6368,11 @@ function DirectLiveStage({
   const finishTextDrag = (event: React.PointerEvent<HTMLElement>) => {
     if (textDragRef.current?.pointerId !== event.pointerId) return;
     const finalDraft = textDraftRef.current;
+    const commit = textDragRef.current.commit;
     textDragRef.current = null;
     textDraftRef.current = null;
     setTextDraft(null);
-    if (finalDraft?.kind === "title") onTitlePositionChange(finalDraft.position);
-    else if (finalDraft?.kind === "lower-third") onLowerThirdPositionChange(finalDraft.position);
+    if (finalDraft) commit(finalDraft.position);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
@@ -6396,9 +6382,13 @@ function DirectLiveStage({
     const zoomCrop = (event: WheelEvent) => {
       if (interactionMode !== "crop" || !(event.target instanceof Element) || !event.target.closest(".direct-live-frame")) return;
       event.preventDefault();
-      const minimum = composedLive.frame.fitMode === "fit" ? .5 : 1;
-      const scale = clamp(composedLive.frame.crop.scale + (event.deltaY < 0 ? .08 : -.08), minimum, 3);
-      onFrameChange({ ...composedLive.frame, crop: { ...composedLive.frame.crop, scale } });
+      if (dragRef.current) return;
+      const previous = wheelFrameRef.current;
+      const minimum = previous.fitMode === "fit" ? .5 : 1;
+      const scale = clamp(previous.crop.scale + (event.deltaY < 0 ? .08 : -.08), minimum, 3);
+      const next = { ...previous, crop: { ...previous.crop, scale } };
+      wheelFrameRef.current = next;
+      onFrameChange(next, previous);
     };
     stage.addEventListener("wheel", zoomCrop, { passive: false });
     return () => stage.removeEventListener("wheel", zoomCrop);
@@ -6432,6 +6422,7 @@ function DirectLiveStage({
           onPointerMove={moveDrag}
           onPointerUp={finishDrag}
           onPointerCancel={finishDrag}
+          onLostPointerCapture={finishDrag}
         >
           <div className={`direct-live-content broadcast-frame-surface mask-${composedLive.frame.maskShape ?? "rectangle"}${!composedLive.chromaKey.enabled && composedLive.effects.background === "remove" ? " screenless-transparent" : ""}`} style={{
             ...(composedLive.frame.maskShape === "polygon" ? { clipPath: polygonClip } : {}),
@@ -6455,6 +6446,7 @@ function DirectLiveStage({
             onPointerMove={moveDrag}
             onPointerUp={finishDrag}
             onPointerCancel={finishDrag}
+          onLostPointerCapture={finishDrag}
           >
             {["n", "e", "s", "w"].map((edge) => <div
               key={`crop-${edge}`}
@@ -6464,6 +6456,7 @@ function DirectLiveStage({
               onPointerMove={moveDrag}
               onPointerUp={finishDrag}
               onPointerCancel={finishDrag}
+          onLostPointerCapture={finishDrag}
             />)}
             <span className="direct-crop-size">Camera image {Math.round(composedLive.frame.crop.scale * 100)}%</span>
           </div>}
@@ -6482,6 +6475,7 @@ function DirectLiveStage({
                   onPointerMove={moveDrag}
                   onPointerUp={finishDrag}
                   onPointerCancel={finishDrag}
+          onLostPointerCapture={finishDrag}
                 />
                 <button
                   type="button"
@@ -6494,7 +6488,7 @@ function DirectLiveStage({
                     event.stopPropagation();
                     const nextPoints = [...polygonPoints];
                     nextPoints.splice(index + 1, 0, { x: (point.x + next.x) / 2, y: (point.y + next.y) / 2 });
-                    onFrameChange({ ...live.frame, polygonPoints: nextPoints });
+                    onFrameChange({ ...composedLive.frame, polygonPoints: nextPoints }, composedLive.frame);
                     setSelectedPoint(index + 1);
                   }}
                 />
@@ -6515,7 +6509,7 @@ function DirectLiveStage({
         onConfirm={() => {
           setConfirmPolygonReset(false);
           setSelectedPoint(null);
-          onFrameChange({ ...composedLive.frame, maskShape: "rectangle", polygonPoints: undefined });
+          onFrameChange({ ...composedLive.frame, maskShape: "rectangle", polygonPoints: undefined }, composedLive.frame);
         }}
       />}
     </div>
@@ -6993,12 +6987,9 @@ function LivePreviewPanel({
     setRoomCameraPopupError(null);
     broadcastRoom.start(previewScreen);
   };
-  const patchDisplayLayout = (screenId: ScreenId, patch: NonNullable<LanternState["live"]["displayLayouts"]>[string]) => updateState((current) => ({
+  const patchDisplayLayout = (screenId: ScreenId, patch: NonNullable<LanternState["live"]["displayLayouts"]>[string], baseline?: LanternState["live"]["frame"]) => updateState((current) => ({
     ...current,
-    live: {
-      ...current.live,
-      displayLayouts: { ...current.live.displayLayouts, [screenId]: { ...current.live.displayLayouts?.[screenId], ...patch } }
-    }
+    live: patchBroadcastLayout(current.live, current.screens[screenId], patch, baseline, state.live.cameraOrientation ?? "Landscape")
   }));
   const selectedPreviewBoardId = previewBoardId === "assigned" ? undefined : previewBoardId;
   const selectedRecordingId = recordings.some((recording) => recording.id === state.live.recordingId)
@@ -7009,18 +7000,14 @@ function LivePreviewPanel({
     recording.id,
     `${recording.title} · ${formatCountdown(recording.durationSeconds)}`
   ]));
-  const selectedFrame = normalizeBroadcastComposition(liveCompositionForDisplay(state.live, previewScreen.id)).frame;
+  const [framingScreenId, setFramingScreenId] = useState<ScreenId>(previewScreen.id);
+  const framingScreen = state.screens[framingScreenId] ?? previewScreen;
+  const selectedFrame = normalizeBroadcastComposition(liveCompositionForDisplay(state.live, framingScreen)).frame;
   const sourceCropEdges = normalizeCropEdges(selectedFrame.cropEdges);
   const updateTargetFrames = (updater: (frame: LanternState["live"]["frame"]) => LanternState["live"]["frame"]) => updateState((current) => {
-    const targetScreenIds = liveTargets(current.live, current).length
-      ? liveTargets(current.live, current)
-      : [previewScreen.id];
-    const displayLayouts = { ...current.live.displayLayouts };
-    targetScreenIds.forEach((screenId) => {
-      const frame = normalizeBroadcastComposition(liveCompositionForDisplay(current.live, screenId)).frame;
-      displayLayouts[screenId] = { ...displayLayouts[screenId], frame: updater(frame) };
-    });
-    return { ...current, live: { ...current.live, displayLayouts } };
+    const screen = current.screens[framingScreen.id];
+    const frame = normalizeBroadcastComposition(liveCompositionForDisplay(current.live, screen)).frame;
+    return { ...current, live: patchBroadcastLayout(current.live, screen, { frame: updater(frame) }) };
   });
   const backgroundRemoval = resolveBackgroundRemoval(state.live);
   const selectedRemovalMethod = backgroundRemoval.enabled ? backgroundRemoval.method : removalMethod;
@@ -7655,7 +7642,7 @@ function LivePreviewPanel({
               boardProgramId={selectedPreviewBoardId}
               showBoard={popoutBoardVisible}
               interactive={false}
-              onFrameChange={(frame) => patchDisplayLayout(screen.id, { frame })}
+              onFrameChange={(frame, baseline) => patchDisplayLayout(screen.id, { frame }, baseline)}
               onTitlePositionChange={(titlePosition) => patchDisplayLayout(screen.id, { titlePosition })}
               onLowerThirdPositionChange={(lowerThirdPosition) => patchDisplayLayout(screen.id, { lowerThirdPosition })}
             />)}
@@ -7744,7 +7731,7 @@ function LivePreviewPanel({
       <div className="live-studio-workspace">
       <section className="live-program-monitor" aria-label="Broadcast preview">
         <div className="live-program-monitor-head">
-          <div><span className={state.live.active ? "live-indicator active" : "live-indicator"} /><strong>{state.live.active ? "Program output" : "Preview"}</strong><label className="monitor-display-select"><span className="sr-only">Preview display</span><select aria-label="Preview display" value={state.live.target} disabled={recordingActive} title={recordingActive ? "Stop recording before changing the selected display." : undefined} onChange={(event) => { const target = event.target.value as TargetScreen; patchLive({ target, targets: target === "all" ? undefined : [target] }); }}>{targetOptions(state).map((option) => <option key={option} value={option}>{targetOptionLabels(state)[option]}</option>)}</select></label></div>
+          <div><span className={state.live.active ? "live-indicator active" : "live-indicator"} /><strong>{state.live.active ? "Program output" : "Preview"}</strong><label className="monitor-display-select"><span className="sr-only">Preview display</span><select aria-label="Preview display" value={liveTab === "frame" ? framingScreen.id : state.live.target} disabled={recordingActive} title={recordingActive ? "Stop recording before changing the selected display." : undefined} onChange={(event) => { const target = event.target.value as TargetScreen; if (liveTab === "frame") { setFramingScreenId(target as ScreenId); return; } patchLive({ target, targets: target === "all" ? undefined : [target] }); }}>{targetOptions(state).filter((option) => liveTab !== "frame" || option !== "all").map((option) => <option key={option} value={option}>{targetOptionLabels(state)[option]}</option>)}</select></label></div>
           <div className="live-program-monitor-tools">
             <span className="monitor-source-label">{liveSourceLabel(state.live.source)}</span>
             <div className="preview-view-mode" role="group" aria-label="Board preview dimension"><button type="button" className={boardViewMode === "2d" ? "active" : ""} aria-pressed={boardViewMode === "2d"} onClick={() => setBoardViewMode("2d")}><Lock size={12} /> 2D</button><button type="button" className={boardViewMode === "3d" ? "active" : ""} aria-pressed={boardViewMode === "3d"} onClick={() => setBoardViewMode("3d")}><Rotate3d size={12} /> 3D</button></div>
@@ -7759,7 +7746,7 @@ function LivePreviewPanel({
             </div>
           </div>
         </div>
-        <div className={`persistent-live-preview ${previewScreens.length > 1 ? "multiple" : "single"}`}>{previewScreens.map((screen, index) => <DirectLiveStage key={screen.id} state={state} screen={screen} live={state.live} stream={previewStream} mode={directMode} previewError={previewError} boardProgramId={selectedPreviewBoardId} boardViewMode={boardViewMode} onTrackingStatus={index === 0 ? setTrackingStatus : undefined} onFrameChange={(frame) => patchDisplayLayout(screen.id, { frame })} onTitlePositionChange={(titlePosition) => patchDisplayLayout(screen.id, { titlePosition })} onLowerThirdPositionChange={(lowerThirdPosition) => patchDisplayLayout(screen.id, { lowerThirdPosition })} />)}</div>
+        <div className={`persistent-live-preview ${previewScreens.length > 1 ? "multiple" : "single"}`}>{(liveTab === "frame" ? [framingScreen] : previewScreens).map((screen, index) => <DirectLiveStage key={screen.id} state={state} screen={screen} live={state.live} stream={previewStream} mode={directMode} previewError={previewError} boardProgramId={selectedPreviewBoardId} boardViewMode={boardViewMode} onTrackingStatus={index === 0 ? setTrackingStatus : undefined} onFrameChange={(frame, baseline) => patchDisplayLayout(screen.id, { frame }, baseline)} onTitlePositionChange={(titlePosition) => patchDisplayLayout(screen.id, { titlePosition })} onLowerThirdPositionChange={(lowerThirdPosition) => patchDisplayLayout(screen.id, { lowerThirdPosition })} />)}</div>
       </section>
       <aside className="live-inspector" aria-label="Broadcast controls">
       <EditorTabs value={liveTab} options={[["setup", "Source"], ["frame", "Frame & crop"], ["effects", "Effects"]]} onChange={(value) => setLiveTab(value as typeof liveTab)} />
@@ -7797,6 +7784,9 @@ function LivePreviewPanel({
       </div>}
       {liveTab === "frame" && <div className="live-frame-tab live-tab-panel">
         <div className="live-toolbox direct-frame-controls">
+          <LabeledSelect label="Display to frame" value={framingScreen.id} options={allScreens.map((screen) => screen.id)} optionLabels={Object.fromEntries(allScreens.map((screen) => [screen.id, `${screen.label} · ${screen.orientation}`]))} onChange={(id) => setFramingScreenId(id as ScreenId)} />
+          <LabeledSelect label="Camera source orientation" value={state.live.cameraOrientation ?? "Landscape"} options={["Landscape", "Portrait"]} optionLabels={{ Landscape: "Landscape camera (wide)", Portrait: "Portrait camera (tall)" }} onChange={(value) => patchLive({ cameraOrientation: value as "Portrait" | "Landscape" })} />
+          <p className="field-note">Position, size, crop and text placement are saved separately for each display and camera orientation. Select the orientation of your camera source before framing.</p>
           <div className="direct-control-heading"><h3>Direct manipulation</h3><SegmentedControl value={directMode} options={[["frame", "Move & resize"], ["crop", "Pan, zoom & crop"]]} onChange={(value) => setDirectMode(value as typeof directMode)} /></div>
           <div className="field camera-source-fit"><span>Source fit <InfoDot text="Fit centers the whole source and resets zoom, pan, edge crops, and rotation. Fill covers the panel by cropping the source." /></span><SegmentedControl value={selectedFrame.fitMode ?? "fit"} options={[["fit", "Fit whole source"], ["fill", "Fill frame"]]} onChange={(value) => updateTargetFrames((frame) => value === "fit" ? fitWholeBroadcastSource(frame) : { ...frame, fitMode: "fill", crop: { ...frame.crop, scale: Math.max(frame.crop.scale, 1) } })} /></div>
           {directMode === "frame" ? <div className="four-col">
@@ -7933,7 +7923,7 @@ function LivePreviewPanel({
       {roomCameraPortal}
       {mobilePreviewOpen && <div className="mobile-live-preview" role="dialog" aria-modal="true" aria-label="Live presentation preview">
         <header><div><span className={state.live.active ? "live-indicator active" : "live-indicator"} /><strong>Live presentation</strong><small>{previewScreen.label}</small></div><button type="button" className="icon-button" onClick={() => setMobilePreviewOpen(false)} title="Close preview"><X size={18} /></button></header>
-        <div className="mobile-live-preview-stage"><DirectLiveStage state={state} screen={previewScreen} live={state.live} stream={previewStream} mode={directMode} previewError={previewError} boardProgramId={selectedPreviewBoardId} onFrameChange={(frame) => patchDisplayLayout(previewScreen.id, { frame })} onTitlePositionChange={(titlePosition) => patchDisplayLayout(previewScreen.id, { titlePosition })} onLowerThirdPositionChange={(lowerThirdPosition) => patchDisplayLayout(previewScreen.id, { lowerThirdPosition })} /></div>
+        <div className="mobile-live-preview-stage"><DirectLiveStage state={state} screen={previewScreen} live={state.live} stream={previewStream} mode={directMode} previewError={previewError} boardProgramId={selectedPreviewBoardId} onFrameChange={(frame, baseline) => patchDisplayLayout(previewScreen.id, { frame }, baseline)} onTitlePositionChange={(titlePosition) => patchDisplayLayout(previewScreen.id, { titlePosition })} onLowerThirdPositionChange={(lowerThirdPosition) => patchDisplayLayout(previewScreen.id, { lowerThirdPosition })} /></div>
         <footer><span>{liveSourceLabel(state.live.source)}</span><span>{state.live.active ? "On air" : "Preview"}</span></footer>
       </div>}
       {sourcePromptOpen && <div className="modal-backdrop preview-source-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSourcePromptOpen(false); }}>
@@ -10675,7 +10665,7 @@ function DisplayApp({ screenId }: { screenId: ScreenId }) {
   }, [deviceId, screenId]);
 
   const showLive = state.live.active && liveTargets(state.live, state).includes(screenId);
-  const liveComposition = normalizeBroadcastComposition(liveCompositionForDisplay(state.live, screenId));
+  const liveComposition = normalizeBroadcastComposition(liveCompositionForDisplay(state.live, storedScreen));
   const liveCropEdges = normalizeCropEdges(liveComposition.frame.cropEdges);
   const displayCostume = state.effectStudio.costumes.find((costume) => costume.id === liveComposition.effects.costumeId);
   const displayCalibration = state.effectStudio.calibrationProfiles.find((profile) => profile.id === liveComposition.effects.calibrationProfileId);
